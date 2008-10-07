@@ -1,0 +1,8 @@
+syntax: glob
+
+*~
+.coq_globals
+
+*.depend
+*.vo
+*/Makefile.coq

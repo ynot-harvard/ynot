@@ -10,7 +10,7 @@ R := -R . Ynot
 
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \
-		COQC = "coqc -impredicative-set $(R)" \
+		COQC = "coqc $(R)" \
 		COQDEP = "coqdep $(R)" \
 		-o Makefile.coq
 

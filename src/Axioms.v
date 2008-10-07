@@ -25,21 +25,12 @@ Axiom pack_injective : forall T (x y : T),
 
 (** * Dynamic packages *)
 
-Inductive dynamic : Set :=
+Inductive dynamic : Type :=
   | Dyn : forall T, T -> dynamic.
 
 Theorem Dyn_inj : forall T (x y : T),
   Dyn x = Dyn y
   -> x = y.
-  intros.
-
-  Definition inh (d : dynamic) : inhabited { T : Type & T } :=
-    match d with
-      | Dyn T v => inhabits (existT (fun T : Type => T) T v)
-    end.
-
-  assert (Heq : inh (Dyn x) = inh (Dyn y)); [congruence | simpl in *].
-
-  generalize (pack_injective Heq); clear Heq; intro Heq.
-  generalize (inj_pair2 _ _ _ _ _ Heq); trivial.
+  injection 1; intro.
+  exact (inj_pair2 _ _ _ _ _ H0).
 Qed.
