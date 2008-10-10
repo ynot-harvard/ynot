@@ -112,18 +112,15 @@ Module Queue : QUEUE.
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop.
       intros; refine (ba <- back q ! _;
       
-      nd <- New (Node x None) <@> (ls ~~ Exists fr :@ option ptr,
-        front q --> fr * back q --> ba * rep' ls fr ba)%hprop;
+      nd <- New (Node x None) <@> _;
         
-      back q ::= Some nd <@> (ls ~~ Exists fr :@ option ptr,
-        nd --> Node x None * front q --> fr * rep' ls fr ba)%hprop;;
+      back q ::= Some nd <@> _;;
 
       match ba return STsep (ls ~~ Exists fr :@ option ptr,
           nd --> Node x None * front q --> fr * back q --> Some nd * rep' ls fr ba)%hprop
-          (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop with
+          _ with
         | None =>
-          {{front q ::= Some nd <@> (ls ~~ Exists fr :@ option ptr,
-            nd --> Node x None * back q --> Some nd * rep' ls fr None)}}%hprop
+          {{front q ::= Some nd <@> _}}%hprop
       
         | Some ba =>
           ban <- ba ! (fun ban => ls ~~ Exists fr :@ ptr,
@@ -131,15 +128,9 @@ Module Queue : QUEUE.
             * Exists ls' :@ list T,
             [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None])%hprop;
           
-          ba ::= Node (data ban) (Some nd) <@> (ls ~~ Exists fr :@ ptr,
-            nd --> Node x None * front q --> Some fr * back q --> Some nd
-            * Exists ls' :@ list T,
-            [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None])%hprop;;
+          ba ::= Node (data ban) (Some nd) <@> _;;
 
-          {{Return tt <@> (ls ~~ Exists fr :@ ptr,
-            front q --> Some fr * nd --> Node x None * back q --> Some nd * ba --> Node (data ban) (Some nd)
-            * Exists ls' :@ list T,
-            [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None])}}%hprop
+          {{Return tt <@> _}}%hprop
        end); t.
     Qed.
 
