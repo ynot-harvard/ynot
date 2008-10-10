@@ -60,6 +60,15 @@ Module Stack : STACK.
     Qed.
 
     Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
+      intros; refine (hd <- s ! _;
+
+        nd <- New (Node x hd) <@> (ls ~~ s --> hd * listRep ls hd)%hprop;
+
+        {{s ::= Some nd <@> (ls ~~ listRep ls hd * nd --> Node x hd)%hprop}}
+      ); t.
+    Qed.
+
+    Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
       intros; refine (hd <- s ! (fun hd => ls ~~ listRep ls hd)%hprop;
 
         nd <- New (Node x hd) <@> (ls ~~ s --> hd * listRep ls hd)%hprop;
