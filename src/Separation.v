@@ -434,6 +434,11 @@ Ltac specFinder :=
           end
       end.
 
+Ltac unfold_local :=
+  repeat match goal with
+           | [ x : _ |- _ ] => unfold x in *; clear x
+         end.
+
 Ltac sep tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
     let concer := apply himp_empty_conc

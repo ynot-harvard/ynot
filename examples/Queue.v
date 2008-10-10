@@ -157,28 +157,23 @@ Module Queue : QUEUE.
         _ with
           | None => {{Return None <@> _}}%hprop
           | Some fr =>
-            nd <- fr ! (fun nd => ls ~~ Exists ba :@ ptr,
-              front q --> Some fr * back q --> Some ba
-              * Exists ls' :@ _, [ls = data nd :: ls']
-                * match next nd with
-                    | None => [ls' = nil]
-                    | Some nnd => Exists ls'' :@ list T, Exists l :@ T,
-                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
-                  end)%hprop;
+            let spec frnt nd nnd := 
+              (ls ~~ Exists ba :@ ptr,
+                front q --> frnt * back q --> Some ba
+                * Exists ls' :@ _, [ls = data nd :: ls']
+                  * match nnd with
+                      | None => [ls' = nil]
+                      | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
+                        [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
+                    end)%hprop in
+
+            nd <- fr ! (fun nd => spec (Some fr) nd (next nd));
 
             Free fr :@ _ <@> _;;
 
             front q ::= next nd <@> _;;
 
-            match next nd as nnd return STsep (ls ~~ Exists ba :@ ptr,
-              front q --> nnd * back q --> Some ba
-              * Exists ls' :@ _, [ls = data nd :: ls']
-                * match nnd with
-                    | None => [ls' = nil]
-                    | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                  end)%hprop
-            _ with
+            match next nd as nnd return STsep (spec nnd nd nnd) _ with
               | None =>
                 back q ::= None <@> _;;
 
@@ -187,7 +182,7 @@ Module Queue : QUEUE.
               | Some nnd =>
                 {{Return (Some (data nd)) <@> _}}
             end
-        end); solve [ t | hdestruct ls; t ].
+        end); unfold_local; solve [ t | hdestruct ls; t ].
     Qed.
   End Queue.
 
