@@ -251,6 +251,14 @@ Theorem unpack : forall T (h : [T]) (P : Prop),
   dependent inversion h; eauto.
 Qed.
 
+Theorem himp_unpack_prem_eq : forall T h (x : T) p1 p2 p,
+  h = [x]%inhabited
+  -> p1 x * p2 ==> p
+  -> hprop_unpack h p1 * p2 ==> p.
+  intros; subst.
+  apply himp_unpack_prem; assumption.
+Qed.
+
 Theorem himp_unpack_prem_alone : forall T h (x : T) p1 p,
   h = [x]%inhabited
   -> p1 x ==> p
@@ -266,6 +274,20 @@ Qed.
 
 Definition done T (x : T) := True.
 
+Ltac findContents ptr P :=
+  match P with
+    | (ptr --> ?V)%hprop => constr:(V, __)%hprop
+    | (?P1 * ?P2)%hprop =>
+      match findContents ptr P1 with
+        | (?V, ?P1) => constr:(V, P1 * P2)%hprop
+        | _ =>
+          match findContents ptr P2 with
+            | (?V, ?P2) => constr:(V, P1 * P2)%hprop
+          end
+      end
+    | _ => tt
+  end.
+
 Ltac specFinder :=
   repeat match goal with
            | [ x : [_] |- _ ] =>
@@ -274,60 +296,76 @@ Ltac specFinder :=
                | _ => apply (unpack (h := x)); do 2 intro
              end
          end;
-  
-  repeat (eapply himp_unpack_prem_alone; [eassumption |]);
+
+  repeat search_prem ltac:(eapply himp_unpack_prem_eq; [eassumption |]);
+  (*repeat (eapply himp_unpack_prem_eq; [eassumption |]);*)
     
     try match goal with
           | [ |- ?P ==> Exists v :@ _, (?ptr --> v * ?Q v)%hprop ] =>
-            let rec findContents P :=
-              match P with
-                | (ptr --> ?V)%hprop => constr:(V, __)%hprop
-                | (?P1 * ?P2)%hprop =>
-                  match findContents P1 with
-                    | (?V, ?P1) => constr:(V, P1 * P2)%hprop
-                    | _ =>
-                      match findContents P2 with
-                        | (?V, ?P2) => constr:(V, P1 * P2)%hprop
-                      end
-                  end
-                | _ => tt
-              end
-              in match findContents P with
-                   | (?V, ?P) =>
-                     apply himp_empty_conc';
-                       apply himp_ex_conc; exists V;
-                         let Px := fresh "P" in
-                           pose (Px := P);
-                             pattern V in Px;
-                               let x := eval cbv delta [Px] in Px in
-                                 clear Px;
-                                   match x with
-                                     | ?F' _ =>
-                                       let F := fresh "F" with F2 := fresh "F2" in
-                                         pose (F := (fun x => [x = V] * F' x)%hprop);
-                                           repeat match goal with
-                                                    | [ H : ?x = [?v]%inhabited |- _ ] =>
-                                                      match goal with
-                                                        | [ _ : done x |- _ ] => fail 1
-                                                        | _ =>
-                                                          pattern v in F;
-                                                            let y := eval cbv delta [F] in F in
-                                                              match y with
-                                                                | ?F' _ =>
-                                                                  pose (F2 := fun y => hprop_unpack x (fun x => F' x y));
-                                                                    unfold F in F2; clear F; rename F2 into F;
-                                                                      generalize (I : done x); intro
-                                                              end
-                                                      end;
-                                                      repeat match goal with
-                                                               | [ H : done _ |- _ ] => clear H
-                                                             end;
-                                                      let y := eval cbv delta [F] in F in
-                                                        clear F;
-                                                          equate Q y
-                                                  end
-                                   end
-                 end
+            match findContents ptr P with
+              | (?V, ?P) =>
+                apply himp_empty_conc';
+                  apply himp_ex_conc; exists V;
+                    let Px := fresh "P" in
+                      pose (Px := P);
+                        pattern V in Px;
+                          let x := eval cbv delta [Px] in Px in
+                            clear Px;
+                              match x with
+                                | ?F' _ =>
+                                  let F := fresh "F" with F2 := fresh "F2" in
+                                    pose (F := (fun x => [x = V] * F' x)%hprop);
+                                      repeat match goal with
+                                               | [ H : ?x = [?v]%inhabited |- _ ] =>
+                                                 match goal with
+                                                   | [ _ : done x |- _ ] => fail 1
+                                                   | _ =>
+                                                     pattern v in F;
+                                                       let y := eval cbv delta [F] in F in
+                                                         match y with
+                                                           | ?F' _ =>
+                                                             pose (F2 := fun y => hprop_unpack x (fun x => F' x y));
+                                                               unfold F in F2; clear F; rename F2 into F;
+                                                                 generalize (I : done x); intro
+                                                         end
+                                                 end;
+                                                 repeat match goal with
+                                                          | [ H : done _ |- _ ] => clear H
+                                                        end;
+                                                 let y := eval cbv delta [F] in F in
+                                                   clear F;
+                                                     equate Q y
+                                             end
+                              end
+            end
+
+          | [ |- ?P ==> ?Q * Exists v :@ _, (?ptr --> v)%hprop ] =>
+            match findContents ptr P with
+              | (?V, ?P) =>
+                let F := fresh "F" in
+                  pose (F := P);
+                    repeat match goal with
+                             | [ H : ?x = [?v]%inhabited |- _ ] =>
+                               match goal with
+                                 | [ _ : done x |- _ ] => fail 1
+                                 | _ =>
+                                   pattern v in F;
+                                     let y := eval cbv delta [F] in F in
+                                       match y with
+                                         | ?F' _ =>
+                                           pose (F2 := hprop_unpack x F');
+                                             unfold F in F2; clear F; rename F2 into F;
+                                               generalize (I : done x); intro
+                                       end
+                               end;
+                               repeat match goal with
+                                        | [ H : done _ |- _ ] => clear H
+                                      end;
+                               let y := eval cbv delta [F] in F in
+                                 clear F;
+                                   equate Q y
+                           end
+            end
         end.
 
 Ltac sep tac :=

@@ -32,12 +32,33 @@ Module Counter : COUNTER.
   Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n])%hprop.
     intros; refine {{c ! _}}; t.
   Qed.
-
+  
   Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n))%hprop.
     intros; refine (
       n' <- c ! _;
 
-      {{c ::= S n' <@> (n ~~ [n' = n])%hprop}}
-    ); t.
+      {{c ::= S n' <@> _}}
+    ).
+
+    t.
+
+    Focus 3.
+    simpl.
+    intro.
+    match goal with
+      | [ |- ?P ==> _ ] => pose P
+    end.
+    pattern v in h.
+    let x := eval cbv delta [h] in h in
+      match x with
+        | ?F _ =>
+          match goal with
+            | [ |- _ ==> ?Q v ] => equate Q F
+          end
+      end.
+    t.
+
+    t.
+    t.
   Qed.
 End Counter.
