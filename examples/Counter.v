@@ -17,7 +17,7 @@ Module Counter : COUNTER.
   Definition t := ptr.
   Definition rep (p : t) (n : nat) := (p --> n)%hprop.
 
-  Ltac t := unfold rep; sep idtac.
+  Ltac t := unfold rep; sep simpl.
 
   Open Local Scope stsep_scope.
 
@@ -38,26 +38,6 @@ Module Counter : COUNTER.
       n' <- c ! _;
 
       {{c ::= S n' <@> _}}
-    ).
-
-    t.
-
-    simpl.
-    intro.
-    match goal with
-      | [ |- ?P ==> _ ] => pose P
-    end.
-    pattern v in h.
-    let x := eval cbv delta [h] in h in
-      match x with
-        | ?F _ =>
-          match goal with
-            | [ |- _ ==> ?Q v ] => equate Q F
-          end
-      end.
-    t.
-
-    t.
-    t.
+    ); t.
   Qed.
 End Counter.

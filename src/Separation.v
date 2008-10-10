@@ -243,6 +243,15 @@ Ltac equater :=
                            end; reflexivity
             | idtac
           ]; clear H H')
+    | [ |- ?p ==> ?U ?X ] =>
+      let H := fresh in
+        (pose (H := p); pattern X in H;
+          assert (H' : H = H); [
+            cbv delta [H]; match goal with
+                             | [ |- ?F _ = _ ] => equate U F
+                           end; reflexivity
+            | idtac
+          ]; clear H H')
   end.
 
 Theorem unpack : forall T (h : [T]) (P : Prop),
@@ -374,8 +383,7 @@ Ltac sep tac :=
       || (apply himp_ex_conc; econstructor)
         || apply himp_unpack_conc
           || (apply himp_inj_conc; [s; fail | idtac]) in
-            (tac; specFinder;
-              try equater;
+            (intros; tac; try equater; specFinder;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
