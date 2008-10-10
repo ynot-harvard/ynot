@@ -82,13 +82,13 @@ Module Queue : QUEUE.
     Definition new : STsep __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
         
-        ba <- New (@None ptr) <@> fr --> @None ptr;
+        ba <- New (@None ptr) <@> _;
           
-        {{Return (Queue fr ba) <@> fr --> @None ptr * ba --> @None ptr}}); t.
+        {{Return (Queue fr ba) <@> _}}); t.
     Qed.
 
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __)%hprop.
-      intros; refine (Free (front q) :@ _ <@> back q --> @None ptr;;
+      intros; refine (Free (front q) :@ _ <@> _;;
         
         {{Free (back q) :@ _}}); t.
     Qed.
@@ -110,8 +110,7 @@ Module Queue : QUEUE.
     Hint Immediate push_nil.
 
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop.
-      intros; refine (ba <- back q ! (fun ba => ls ~~ Exists fr :@ option ptr,
-        front q --> fr * rep' ls fr ba)%hprop;
+      intros; refine (ba <- back q ! _;
       
       nd <- New (Node x None) <@> (ls ~~ Exists fr :@ option ptr,
         front q --> fr * back q --> ba * rep' ls fr ba)%hprop;

@@ -375,23 +375,22 @@ Ltac specFinder :=
                                                      pattern X in F;
                                                        let y := eval cbv delta [F] in F in
                                                          match y with
-                                                           | ?F' _ => pose (F2 := hprop_ex F'); clear F; rename F2 into F
+                                                           | ?F' _ =>
+                                                             pose (F2 := fun y => hprop_ex (fun x => F' x y));
+                                                             clear F; rename F2 into F
                                                          end
                                                  end
                                            end;
-                                    repeat match goal with
-                                             | [ x : T |- _ ] =>
-                                               let y := eval cbv delta [F] in F in
-                                                 match y with
-                                                   | context[x] =>
-                                                     pattern x in F;
-                                                       let y := eval cbv delta [F] in F in
-                                                         match y with
-                                                           | ?F' _ => pose (F2 := fun x => F' x x);
-                                                             clear F; rename F2 into F; simpl in F
-                                                         end
-                                                 end
-                                           end;
+                                    try (let y := eval cbv delta [F] in F in
+                                      match y with
+                                        | context[V] =>
+                                          pattern V in F;
+                                            let y := eval cbv delta [F] in F in
+                                              match y with
+                                                | ?F' _ => pose (F2 := fun x => F' x x);
+                                                  clear F; rename F2 into F; simpl in F
+                                              end
+                                      end);
                                     let y := eval cbv delta [F] in F in
                                       clear F;
                                         equate Q y
