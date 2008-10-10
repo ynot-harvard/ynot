@@ -67,6 +67,14 @@ Module Queue : QUEUE.
                         | Some _ => [False]
                         | None => [nil = nil]
                       end ] => equate O (@None ptr)
+
+        | [ |- _ ==> match ?O with
+                       | Some _ => _
+                       | None => match ?O' with
+                                   | Some _ => _
+                                   | None => [nil = nil]
+                                 end
+                     end ] => equate O (@None ptr); equate O' (@None ptr)
       end);
     try match goal with
           | [ ls' : list T |- _ ] =>
@@ -90,7 +98,7 @@ Module Queue : QUEUE.
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __)%hprop.
       intros; refine (Free (front q);;
         
-        (FreeT (back q) :@ _ @> _)%stsep); t.
+        {{Free (back q)}}); t.
     Qed.
 
     Lemma push_listRep : forall ba x nd ls fr,
