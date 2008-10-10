@@ -49,7 +49,7 @@ Module Stack : STACK.
 
     Ltac t := unfold rep; sep simplr.
     
-    Open Local Scope stsep_scope.
+    Open Scope stsep_scope.
 
     Definition new : STsep __ (fun s => rep s nil).
       refine {{New (@None ptr)}}; t.

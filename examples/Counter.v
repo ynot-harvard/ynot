@@ -19,7 +19,7 @@ Module Counter : COUNTER.
 
   Ltac t := unfold rep; sep simpl.
 
-  Open Local Scope stsep_scope.
+  Open Scope stsep_scope.
 
   Definition new : STsep __ (fun c => rep c 0).
     refine {{New 0}}; t.

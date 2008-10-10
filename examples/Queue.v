@@ -77,7 +77,7 @@ Module Queue : QUEUE.
 
     Ltac t := unfold rep, rep'; sep simplr.
     
-    Open Local Scope stsep_scope.
+    Open Scope stsep_scope.
 
     Definition new : STsep __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
@@ -160,7 +160,7 @@ Module Queue : QUEUE.
             let spec frnt nd nnd := 
               (ls ~~ Exists ba :@ ptr,
                 front q --> frnt * back q --> Some ba
-                * Exists ls' :@ _, [ls = data nd :: ls']
+                * Exists ls' :@ list T, [ls = data nd :: ls']
                   * match nnd with
                       | None => [ls' = nil]
                       | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
