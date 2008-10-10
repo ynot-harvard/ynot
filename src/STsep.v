@@ -83,9 +83,10 @@ Section Sep.
 
   Definition SepSeq pre1 (post1 : unit -> hprop)
     pre2 T2 (post2 : T2 -> hprop)
-    (st1 : STsep pre1 post1) (st2 : STsep pre2 post2)
-    : (forall v, post1 v ==> pre2)
-    -> STsep pre1 post2.
+    (st1 : STsep pre1 post1)
+    (_ : forall v, post1 v ==> pre2)
+    (st2 : STsep pre2 post2)
+    : STsep pre1 post2.
     intros; refine (SepBind _ st1 _ (fun _ : unit => st2)); trivial.
   Qed.
 
@@ -186,7 +187,7 @@ Infix "<@>" := SepFrame (left associativity, at level 81) : stsep_scope.
 Notation "'Return' x" := (SepReturn x) (at level 75) : stsep_scope.
 Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
   (right associativity, at level 84, c1 at next level) : stsep_scope.
-Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) c2 _)
+Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
   (right associativity, at level 84) : stsep_scope.
 Notation "!!" := (SepContra _) : stsep_scope.
 Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=

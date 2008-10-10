@@ -84,20 +84,16 @@ Module Stack : STACK.
             {{Return None <@> _}}
 
           | Some hd' =>
-            nd <- hd' ! (fun nd => ls ~~ match ls with
-                                           | nil => [False]
-                                           | d :: ls' =>
-                                             [data nd = d] * s --> Some hd' * listRep ls' (next nd)
-                                         end)%hprop;
+            nd <- hd' ! (fun nd => ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
+              * s --> Some hd' * listRep ls' (next nd))%hprop;
 
             Free hd' :@ node <@> _;;
 
-            s ::= next nd <@> (ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
-              * listRep ls' (next nd))%hprop;;
+            s ::= next nd <@> _;;
 
             {{Return (Some (data nd)) <@> (ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
               * s --> next nd * listRep ls' (next nd))}}%hprop
-        end); solve [t | hdestruct ls; t].
+        end); solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
 
