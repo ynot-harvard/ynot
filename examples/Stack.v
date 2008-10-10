@@ -75,11 +75,7 @@ Module Stack : STACK.
                                               end)%hprop.
       intros; refine (hd <- s ! _;
 
-        match hd return STsep (ls ~~ s --> hd * listRep ls hd)%hprop
-          (fun xo => ls ~~ match xo with
-                             | None => [ls = nil] * rep s ls
-                             | Some x => Exists ls' :@ list T, [ls = x :: ls'] * rep s ls'
-                           end)%hprop with
+        match hd return STsep (ls ~~ s --> hd * listRep ls hd)%hprop _ with
           | None =>
             {{Return None <@> _}}
 
@@ -91,8 +87,7 @@ Module Stack : STACK.
 
             s ::= next nd <@> _;;
 
-            {{Return (Some (data nd)) <@> (ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
-              * s --> next nd * listRep ls' (next nd))}}%hprop
+            {{Return (Some (data nd)) <@> _}}%hprop
         end); solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
