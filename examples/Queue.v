@@ -150,90 +150,42 @@ Module Queue : QUEUE.
                                                     | x' :: ls' => [x' = x] * rep q ls'
                                                   end
                                               end)%hprop.
-      intros; refine (fr <- front q ! (fun fr => ls ~~ Exists ba :@ option ptr,
-        back q --> ba * rep' ls fr ba)%hprop;
+      intros; refine (fr <- front q ! _;
 
         match fr return STsep (ls ~~ Exists ba :@ option ptr,
           front q --> fr * back q --> ba * rep' ls fr ba)%hprop
-          (fun xo => ls ~~ match xo with
-                             | None => [ls = nil] * rep q ls
-                             | Some x =>
-                               match ls with
-                                 | nil => [False]
-                                 | x' :: ls' => [x' = x] * rep q ls'
-                               end
-                           end)%hprop with
-          | None => {{Return None <@>
-            (ls ~~ [ls = nil] * front q --> None * back q --> None)}}%hprop
+        _ with
+          | None => {{Return None <@> _}}%hprop
           | Some fr =>
             nd <- fr ! (fun nd => ls ~~ Exists ba :@ ptr,
               front q --> Some fr * back q --> Some ba
-              * match ls with
-                  | nil => [False]
-                  | x :: ls' => [data nd = x]
-                    * match next nd with
-                        | None => [ls' = nil]
-                        | Some nnd => Exists ls'' :@ list T, Exists l :@ T,
-                          [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
-                      end
-                end)%hprop;
+              * Exists ls' :@ _, [ls = data nd :: ls']
+                * match next nd with
+                    | None => [ls' = nil]
+                    | Some nnd => Exists ls'' :@ list T, Exists l :@ T,
+                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
+                  end)%hprop;
 
-            Free fr :@ _ <@> (ls ~~ Exists ba :@ ptr,
-              front q --> Some fr * back q --> Some ba
-              * match ls with
-                  | nil => [False]
-                  | x :: ls' => [data nd = x]
-                    * match next nd with
-                        | None => [ls' = nil]
-                        | Some nnd => Exists ls'' :@ list T, Exists l :@ T,
-                          [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
-                      end
-                end)%hprop;;
+            Free fr :@ _ <@> _;;
 
-            front q ::= next nd <@> (ls ~~ Exists ba :@ ptr,
-              back q --> Some ba
-              * match ls with
-                  | nil => [False]
-                  | x :: ls' => [data nd = x]
-                    * match next nd with
-                        | None => [ls' = nil]
-                        | Some nnd => Exists ls'' :@ list T, Exists l :@ T,
-                          [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
-                      end
-                end)%hprop;;
+            front q ::= next nd <@> _;;
 
             match next nd as nnd return STsep (ls ~~ Exists ba :@ ptr,
               front q --> nnd * back q --> Some ba
-              * match ls with
-                  | nil => [False]
-                  | x :: ls' => [data nd = x]
-                    * match nnd with
-                        | None => [ls' = nil]
-                        | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                          [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                      end
-                end)%hprop
-              (fun xo => ls ~~ match xo with
-                                 | None => [ls = nil] * rep q ls
-                                 | Some x =>
-                                   match ls with
-                                     | nil => [False]
-                                     | x' :: ls' => [x' = x] * rep q ls'
-                                   end
-                               end)%hprop with
+              * Exists ls' :@ _, [ls = data nd :: ls']
+                * match nnd with
+                    | None => [ls' = nil]
+                    | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
+                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
+                  end)%hprop
+            _ with
               | None =>
-                back q ::= None <@> (ls ~~ [ls = data nd :: nil] * front q --> None)%hprop;;
+                back q ::= None <@> _;;
 
-                {{Return (Some (data nd)) <@> (ls ~~ [ls = data nd :: nil] * front q --> None * back q --> None)%hprop}}
+                {{Return (Some (data nd)) <@> _}}
                 
               | Some nnd =>
-                {{Return (Some (data nd)) <@> (ls ~~ Exists ba :@ ptr,
-                  front q --> Some nnd * back q --> Some ba
-                  * match ls with
-                      | nil => [False]
-                      | x :: ls' => [data nd = x] * Exists ls'' :@ list T, Exists l :@ T,
-                          [ls' = ls'' ++ l :: nil] * listRep ls'' nnd ba * ba --> Node l None
-                    end)}}%hprop
+                {{Return (Some (data nd)) <@> _}}
             end
         end); solve [ t | hdestruct ls; t ].
     Qed.
