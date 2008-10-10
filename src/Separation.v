@@ -239,11 +239,29 @@ Ltac premer := apply himp_empty_prem
 
 Ltac simpler := repeat progress (intuition; subst; simpl in * ).
 
+Ltac deExist P :=
+  let F := fresh "F" in
+    pose (F := P);
+      repeat match goal with
+               | [ _ : isExistential ?X |- _ ] =>
+                 let y := eval cbv delta [F] in F in
+                   match y with
+                     | context[X] =>
+                       pattern X in F;
+                         let y := eval cbv delta [F] in F in
+                           match y with
+                             | ?F' _ => pose (F2 := hprop_ex F'); clear F; rename F2 into F
+                           end
+                   end
+             end;
+      let y := eval cbv delta [F] in F in
+        clear F; y.
+
 Ltac equater :=
   match goal with
-    | [ |- ?p ==> ?q ] => equate p q
-    | [ |- ?p ==> (?q * __)%hprop ] => equate p q
-    | [ |- (?p * __)%hprop ==> ?q ] => equate p q
+    | [ |- ?p ==> ?q ] => equate p q || let q := deExist q in equate p q
+    | [ |- ?p ==> (?q * __)%hprop ] => equate p q || let q := deExist q in equate p q
+    | [ |- (?p * __)%hprop ==> ?q ] => equate p q || let q := deExist q in equate p q
     | [ |- ?U ?X ==> ?p ] =>
       let H := fresh in
         (pose (H := p); pattern X in H;
@@ -423,7 +441,7 @@ Ltac sep tac :=
       || (apply himp_ex_conc; econstructor)
         || apply himp_unpack_conc
           || (apply himp_inj_conc; [s; fail | idtac]) in
-            (intros; tac; try equater; specFinder;
+            (intros; equater || specFinder; tac;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
