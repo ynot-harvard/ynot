@@ -616,11 +616,3 @@ Section Examples.
   Defined.
     
 End Examples.
-
-
-(*
-*** Local Variables: ***
-*** coq-prog-name: "coqtop" ***
-*** coq-prog-args: ("-emacs-U" "-impredicative-set" "-R" "/Users/greg/Devel/ynot/coq/adam/src" "Ynot" "-R" "/Users/greg/Devel/ynot/coq/adam/examples" "Examples") ***
-*** End: ***
-*)

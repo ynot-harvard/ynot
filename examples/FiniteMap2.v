@@ -79,7 +79,7 @@ Module RefAssocList.
           (fun (ans:option (value_t k)) => 
             Exists l :@ alist_t, rep x l * P l * [ans = F.lookup_al key_eq_dec k l]).
     intros.
-    refine (z <- x ! P ; 
+    refine (z <- x !! P ; 
             Return (F.lookup_al key_eq_dec k z) <@> ((x --> z) * P z) @> _) ; sep auto.
     Defined.
 
@@ -87,7 +87,7 @@ Module RefAssocList.
     STsep (Exists l :@ alist_t, rep x l * P l)
       (fun _:unit => Exists l :@ alist_t, rep x (Cons v (F.remove_al key_eq_dec k l)) * P l).
     intros.
-    refine (z <- x ! P ; 
+    refine (z <- x !! P ; 
             x ::= (Cons v (F.remove_al key_eq_dec k z)) <@> P z @> _) ; sep auto.
     Defined.
 
@@ -363,11 +363,4 @@ Definition nat_nat_ht :=
   (fun x:nat => x) fourty_two nat_nat_rl.
 Check nat_nat_ht.
 Check FiniteMapInterface.new nat_nat_ht.
-*)
-
-(*
-*** Local Variables: ***
-*** coq-prog-name: "coqtop" ***
-*** coq-prog-args: ("-emacs-U" "-impredicative-set" "-R" "/Users/greg/Devel/ynot/coq/adam/src" "Ynot" "-R" "/Users/greg/Devel/ynot/coq/adam/examples" "Examples") ***
-*** End: ***
 *)

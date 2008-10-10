@@ -60,7 +60,7 @@ Module Stack : STACK.
     Qed.
 
     Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
-      intros; refine (hd <- s ! _;
+      intros; refine (hd <- !s;
 
         nd <- New (Node x hd);
 
@@ -73,15 +73,18 @@ Module Stack : STACK.
                                                 | None => [ls = nil] * rep s ls
                                                 | Some x => Exists ls' :@ list T, [ls = x :: ls'] * rep s ls'
                                               end)%hprop.
-      intros; refine (hd <- s ! _;
+      intros; refine (hd <- !s;
 
         match hd return STsep (ls ~~ s --> hd * listRep ls hd)%hprop _ with
           | None =>
             {{Return None}}
 
           | Some hd' =>
-            nd <- hd' ! (fun nd => ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
-              * s --> Some hd' * listRep ls' (next nd))%hprop;
+            Assert (ls ~~ Exists nd :@ node, hd' --> nd
+              * Exists ls' :@ list T, [ls = data nd :: ls']
+              * s --> Some hd' * listRep ls' (next nd))%hprop;;
+
+            nd <- !hd';
 
             Free hd';;
 

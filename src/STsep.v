@@ -174,6 +174,12 @@ Section Sep.
     intuition.
     eauto with Ynot.
   Qed.
+
+  Definition SepAssert (P : hprop)
+    : STsep P (fun _ : unit => P).
+    t.
+    refine {{{STReturn tt}}}; intuition; subst; eauto.
+  Qed.
 End Sep.
 
 Implicit Arguments SepFree [T].
@@ -190,13 +196,13 @@ Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
   (right associativity, at level 84, c1 at next level) : stsep_scope.
 Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
   (right associativity, at level 84) : stsep_scope.
-Notation "!!" := (SepContra _) : stsep_scope.
+Notation "!!!" := (SepContra _) : stsep_scope.
 Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
   (SepFix (dom := dom) ran pre post (fun f x => e))
   (at level 85) : stsep_scope.
 Notation "'New' x" := (SepNew x) (at level 75) : stsep_scope.
 Notation "'FreeT' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
-Infix "!" := SepRead (no associativity, at level 75) : stsep_scope.
+Infix "!!" := SepRead (no associativity, at level 75) : stsep_scope.
 Infix "::=" := SepWrite (no associativity, at level 75) : stsep_scope.
 
 Bind Scope stsep_scope with STsep.
@@ -216,13 +222,14 @@ Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
   (right associativity, at level 84, c1 at next level) : stsepi_scope.
 Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
   (right associativity, at level 84) : stsepi_scope.
-Notation "!!" := (SepContra _) : stsepi_scope.
+Notation "!!!" := (SepContra _) : stsepi_scope.
 Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
   (SepFix (dom := dom) ran pre post (fun f x => e))
   (at level 85) : stsepi_scope.
 Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
 Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
-Infix "!" := SepRead (no associativity, at level 75) : stsepi_scope.
+Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
+Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
 
 Delimit Scope stsepi_scope with stsepi.

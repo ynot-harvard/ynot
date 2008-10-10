@@ -30,12 +30,12 @@ Module Counter : COUNTER.
   Qed.
 
   Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n])%hprop.
-    intros; refine {{c ! _}}; t.
+    intros; refine {{!c}}; t.
   Qed.
   
   Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n))%hprop.
     intros; refine (
-      n' <- c ! _;
+      n' <- !c;
 
       {{c ::= S n'}}
     ); t.

@@ -456,7 +456,7 @@ End PARSE.
 Section Examples.
   Delimit Scope grammar_scope with grammar.
 
-  Notation "!! v" := (GVar _ _ _ v) (at level 1) : grammar_scope.
+  Notation "!!!! v" := (GVar _ _ _ v) (at level 1) : grammar_scope.
   Notation "# c" := (GSatisfy(char:=ascii) _ 
                      (fun c2 => if ascii_dec (c%char) c2 then true else false)) 
   (at level 1) : grammar_scope.
@@ -486,7 +486,7 @@ Section Examples.
   (* Example grammar :  N -> a | b N b *)                
   Definition g : Term ascii unit := 
     grec (fun var N => #"a"             @ (fun _ => tt)  
-                    ||| #"b" ^ !!N ^ #"b" @ (fun _ => tt))%grammar.
+                    ||| #"b" ^ !!!!N ^ #"b" @ (fun _ => tt))%grammar.
 
   (* Example parser for grammar g *)
   Definition g_parser : parser_t g.
@@ -511,7 +511,7 @@ Section Examples.
   Definition number :=
     grec (fun V number => 
               digit _           @ nat_of_ascii  
-           ||| !!number ^ digit _ @ (fun p => 10 * fst p + nat_of_ascii (snd p)))%grammar.
+           ||| !!!!number ^ digit _ @ (fun p => 10 * fst p + nat_of_ascii (snd p)))%grammar.
 
   (* A parser for numbers:  number := digit | number digit *)
   Definition number_p : parser_t number.
@@ -528,7 +528,7 @@ Section Examples.
   Definition ws := 
     grec (fun V ws => 
               % tt
-          |||  (#" " ^ !!ws ||| #tab ^ !!ws ||| #cr ^ !!ws) @ (fun _ => tt))%grammar.
+          |||  (#" " ^ !!!!ws ||| #tab ^ !!!!ws ||| #cr ^ !!!!ws) @ (fun _ => tt))%grammar.
 
   Definition ws_p : parser_t ws.
     refine (gfix (fun (ws_p:parser_t ws) => 
@@ -542,8 +542,8 @@ Section Examples.
   Definition expr := 
     grec (fun V expr => 
               ws _ ^ number _ ^ ws _   @ (fun t => fst (snd t)) 
-           ||| !!expr ^ #"+" ^ !!expr     @ (fun t => fst t + (snd (snd t)))
-           ||| !!expr ^ #"-" ^ !!expr     @ (fun t => fst t - (snd (snd t))))%grammar.
+           ||| !!!!expr ^ #"+" ^ !!!!expr     @ (fun t => fst t + (snd (snd t)))
+           ||| !!!!expr ^ #"-" ^ !!!!expr     @ (fun t => fst t - (snd (snd t))))%grammar.
 
   (* A parser for expressions *)
   Definition expr_p : parser_t expr.
@@ -555,10 +555,3 @@ Section Examples.
   Defined.
 
 End Examples.
-
-(*
-*** Local Variables: ***
-*** coq-prog-name: "coqtop" ***
-*** coq-prog-args: ("-emacs-U" "-impredicative-set" "-R" "/Users/greg/Devel/ynot/coq/adam/src" "Ynot" "-R" "/Users/greg/Devel/ynot/coq/adam/examples" "Examples") ***
-*** End: ***
-*)

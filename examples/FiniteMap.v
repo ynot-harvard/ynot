@@ -119,7 +119,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
           (fun (ans:option (A.value_t k)) => 
              Exists l :@ AL.alist_t, rep x l * P l * [ans = AL.lookup k l]).
     intros.
-    refine (z <- x ! P ; 
+    refine (z <- x !! P ; 
             Return (AL.lookup k z) <@> ((x --> z) * P z) @> _) ; sep auto.
     Defined.
 
@@ -128,7 +128,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
           (fun (_:unit) => 
             Exists l :@ AL.alist_t, rep x (AL.Cons_al v (AL.remove k l)) * P l).
     intros.
-    refine (z <- x ! P ; 
+    refine (z <- x !! P ; 
             x ::= (AL.Cons_al v (AL.remove k z)) <@> (P z) @> _) ; sep auto.
     Defined.
 End RefAssocList.
@@ -432,10 +432,3 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Defined.
 
 End HashTable.
-
-(*
-*** Local Variables: ***
-*** coq-prog-name: "coqtop" ***
-*** coq-prog-args: ("-emacs-U" "-impredicative-set" "-R" "/Users/greg/Devel/ynot/coq/adam/src" "Ynot" "-R" "/Users/greg/Devel/ynot/coq/adam/examples" "Examples") ***
-*** End: ***
-*)

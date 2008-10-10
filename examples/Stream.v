@@ -88,7 +88,7 @@ Section STRING_INSTREAM.
   Definition string_peek(s:list ascii)(x:ptr) : peek_t (inhabits s)(string_rep s x).
     unfold peek_t.
     intros.
-    refine (n <- x ! (fun n => offset ~~ [n = offset]);
+    refine (n <- (x !! (fun n => offset ~~ [n = offset]))%stsep;
             Return (nth_error s n) <@> (offset ~~ [n = offset] * string_rep s x n) @> _).
     str. str. str.
   Defined.
@@ -96,7 +96,7 @@ Section STRING_INSTREAM.
   Definition string_position(s:list ascii)(x:ptr) : position_t (inhabits s)(string_rep s x).
     unfold position_t.
     intros.
-    refine (n <- x ! (fun n => offset ~~ [n = offset]);
+    refine (n <- x !! (fun n => offset ~~ [n = offset]);
             Return n <@> (offset ~~ [n = offset] * string_rep s x n) @> _).
     str. str. str.
   Defined.
@@ -111,7 +111,7 @@ Section STRING_INSTREAM.
   Definition string_next(s:list ascii)(x:ptr) : next_t (inhabits s)(string_rep s x).
     unfold next_t.
     intros.
-    refine (n <- x ! (fun n => offset ~~ [n = offset]) ;
+    refine (n <- x !! (fun n => offset ~~ [n = offset]) ;
             x ::= 1 + n <@> (offset ~~ [n = offset]) ;;
             Return (nth_error s n) <@> (offset ~~ [n=offset] * string_rep s x (1+n)) @> _).
     str. str. str. str. str.
@@ -151,10 +151,3 @@ Section STRING_INSTREAM.
 
   Definition instream_of_string(s:string) := instream_of_list_ascii(string_to_list s).
 End STRING_INSTREAM.
-
-(*
-*** Local Variables: ***
-*** coq-prog-name: "coqtop" ***
-*** coq-prog-args: ("-emacs-U" "-impredicative-set" "-R" "/Users/greg/Devel/ynot/coq/adam/src" "Ynot") ***
-*** End: ***
-*)
