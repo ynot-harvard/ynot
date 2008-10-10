@@ -26,7 +26,7 @@ Module Counter : COUNTER.
   Qed.
 
   Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __)%hprop.
-    intros; refine {{Free c :@ _}}; t.
+    intros; refine {{Free c}}; t.
   Qed.
 
   Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n])%hprop.

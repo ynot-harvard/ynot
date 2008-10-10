@@ -112,7 +112,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
     New AL.Nil_al.
 
   Definition free(x:fmap_t) : STsep (Exists l :@ AL.alist_t, rep x l) (fun (_:unit) => __) :=
-    Free x :@ AL.alist_t.
+    FreeT x :@ AL.alist_t.
 
   Definition lookup(x:fmap_t)(k:A.key_t)(P : AL.alist_t -> hprop) : 
     STsep (Exists l :@ AL.alist_t, rep x l * P l) 

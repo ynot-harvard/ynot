@@ -72,7 +72,7 @@ Module RefAssocList.
   Definition new : STsep __ (fun (ans:fmap_t) => rep ans Nil) := New Nil.
 
   Definition free(x:fmap_t) : STsep (Exists l :@ alist_t, rep x l) (fun _:unit => __) := 
-    Free x :@ alist_t.
+    FreeT x :@ alist_t.
 
   Definition lookup(x:fmap_t)(k:key_t)(P:alist_t->hprop) : 
     STsep (Exists l :@ alist_t, rep x l * P l)

@@ -120,7 +120,7 @@ Section STRING_INSTREAM.
   Definition string_close(s:list ascii)(x:ptr) : close_t (inhabits s)(string_rep s x).
     unfold close_t.
     intros.
-    refine ({{Free x :@ nat}}).
+    refine ({{FreeT x :@ nat}}).
     str. str.
   Defined.
 

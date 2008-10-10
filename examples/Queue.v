@@ -88,9 +88,9 @@ Module Queue : QUEUE.
     Qed.
 
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __)%hprop.
-      intros; refine (Free (front q) :@ _;;
+      intros; refine (Free (front q);;
         
-        (Free (back q) :@ _ @> _)%stsep); t.
+        (FreeT (back q) :@ _ @> _)%stsep); t.
     Qed.
 
     Lemma push_listRep : forall ba x nd ls fr,
@@ -169,7 +169,7 @@ Module Queue : QUEUE.
 
             nd <- fr ! (fun nd => spec (Some fr) nd (next nd));
 
-            Free fr :@ _;;
+            Free fr;;
 
             front q ::= next nd;;
 

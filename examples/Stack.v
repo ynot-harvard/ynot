@@ -56,7 +56,7 @@ Module Stack : STACK.
     Qed.
 
     Definition free : forall s, STsep (rep s nil) (fun _ : unit => __)%hprop.
-      intros; refine {{Free s :@ _}}; t.
+      intros; refine {{Free s}}; t.
     Qed.
 
     Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
@@ -83,7 +83,7 @@ Module Stack : STACK.
             nd <- hd' ! (fun nd => ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
               * s --> Some hd' * listRep ls' (next nd))%hprop;
 
-            Free hd' :@ _;;
+            Free hd';;
 
             s ::= next nd;;
 

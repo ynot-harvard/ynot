@@ -195,7 +195,7 @@ Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
   (SepFix (dom := dom) ran pre post (fun f x => e))
   (at level 85) : stsep_scope.
 Notation "'New' x" := (SepNew x) (at level 75) : stsep_scope.
-Notation "'Free' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
+Notation "'FreeT' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
 Infix "!" := SepRead (no associativity, at level 75) : stsep_scope.
 Infix "::=" := SepWrite (no associativity, at level 75) : stsep_scope.
 
@@ -221,7 +221,7 @@ Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
   (SepFix (dom := dom) ran pre post (fun f x => e))
   (at level 85) : stsepi_scope.
 Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
-Notation "'Free' x :@ T" := (SepFree (T := T) x <@> _) (at level 75) : stsepi_scope.
+Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
 Infix "!" := SepRead (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
 
