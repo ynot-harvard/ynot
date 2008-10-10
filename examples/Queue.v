@@ -77,20 +77,20 @@ Module Queue : QUEUE.
 
     Ltac t := unfold rep, rep'; sep simplr.
     
-    Open Scope stsep_scope.
+    Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
         
-        ba <- New (@None ptr) <@> _;
+        ba <- New (@None ptr);
           
-        {{Return (Queue fr ba) <@> _}}); t.
+        {{Return (Queue fr ba)}}); t.
     Qed.
 
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __)%hprop.
-      intros; refine (Free (front q) :@ _ <@> _;;
+      intros; refine (Free (front q) :@ _;;
         
-        {{Free (back q) :@ _}}); t.
+        (Free (back q) :@ _ @> _)%stsep); t.
     Qed.
 
     Lemma push_listRep : forall ba x nd ls fr,
@@ -112,15 +112,15 @@ Module Queue : QUEUE.
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop.
       intros; refine (ba <- back q ! _;
       
-      nd <- New (Node x None) <@> _;
+      nd <- New (Node x None);
         
-      back q ::= Some nd <@> _;;
+      back q ::= Some nd;;
 
       match ba return STsep (ls ~~ Exists fr :@ option ptr,
           nd --> Node x None * front q --> fr * back q --> Some nd * rep' ls fr ba)%hprop
           _ with
         | None =>
-          {{front q ::= Some nd <@> _}}%hprop
+          {{front q ::= Some nd}}%hprop
       
         | Some ba =>
           ban <- ba ! (fun ban => ls ~~ Exists fr :@ ptr,
@@ -128,9 +128,9 @@ Module Queue : QUEUE.
             * Exists ls' :@ list T,
             [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None])%hprop;
           
-          ba ::= Node (data ban) (Some nd) <@> _;;
+          ba ::= Node (data ban) (Some nd);;
 
-          {{Return tt <@> _}}%hprop
+          {{Return tt}}%hprop
        end); t.
     Qed.
 
@@ -155,7 +155,7 @@ Module Queue : QUEUE.
         match fr return STsep (ls ~~ Exists ba :@ option ptr,
           front q --> fr * back q --> ba * rep' ls fr ba)%hprop
         _ with
-          | None => {{Return None <@> _}}%hprop
+          | None => {{Return None}}%hprop
           | Some fr =>
             let spec frnt nd nnd := 
               (ls ~~ Exists ba :@ ptr,
@@ -169,18 +169,18 @@ Module Queue : QUEUE.
 
             nd <- fr ! (fun nd => spec (Some fr) nd (next nd));
 
-            Free fr :@ _ <@> _;;
+            Free fr :@ _;;
 
-            front q ::= next nd <@> _;;
+            front q ::= next nd;;
 
             match next nd as nnd return STsep (spec nnd nd nnd) _ with
               | None =>
-                back q ::= None <@> _;;
+                back q ::= None;;
 
-                {{Return (Some (data nd)) <@> _}}
+                {{Return (Some (data nd))}}
                 
               | Some nnd =>
-                {{Return (Some (data nd)) <@> _}}
+                {{Return (Some (data nd))}}
             end
         end); unfold_local; solve [ t | hdestruct ls; t ].
     Qed.

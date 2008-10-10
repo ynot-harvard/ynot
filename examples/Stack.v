@@ -49,7 +49,7 @@ Module Stack : STACK.
 
     Ltac t := unfold rep; sep simplr.
     
-    Open Scope stsep_scope.
+    Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun s => rep s nil).
       refine {{New (@None ptr)}}; t.
@@ -62,9 +62,9 @@ Module Stack : STACK.
     Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
       intros; refine (hd <- s ! _;
 
-        nd <- New (Node x hd) <@> _;
+        nd <- New (Node x hd);
 
-        {{s ::= Some nd <@> _}}
+        {{s ::= Some nd}}
       ); t.
     Qed.
 
@@ -77,17 +77,17 @@ Module Stack : STACK.
 
         match hd return STsep (ls ~~ s --> hd * listRep ls hd)%hprop _ with
           | None =>
-            {{Return None <@> _}}
+            {{Return None}}
 
           | Some hd' =>
             nd <- hd' ! (fun nd => ls ~~ Exists ls' :@ list T, [ls = data nd :: ls']
               * s --> Some hd' * listRep ls' (next nd))%hprop;
 
-            Free hd' :@ node <@> _;;
+            Free hd' :@ _;;
 
-            s ::= next nd <@> _;;
+            s ::= next nd;;
 
-            {{Return (Some (data nd)) <@> _}}%hprop
+            {{Return (Some (data nd))}}%hprop
         end); solve [ t | hdestruct ls; t].
     Qed.
   End Stack.

@@ -180,6 +180,7 @@ Implicit Arguments SepFree [T].
 Implicit Arguments SepStrengthen [pre T post].
 
 Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
+
 Notation "p <@ c" := (SepStrengthen p c _) (left associativity, at level 81) : stsep_scope.
 Notation "c @> p" := (SepWeaken p c _) (left associativity, at level 81) : stsep_scope.
 Infix "<@>" := SepFrame (left associativity, at level 81) : stsep_scope.
@@ -200,3 +201,28 @@ Infix "::=" := SepWrite (no associativity, at level 75) : stsep_scope.
 
 Bind Scope stsep_scope with STsep.
 Delimit Scope stsep_scope with stsep.
+
+
+(** Alternate notations for more spec inference *)
+
+Notation "p <@ c" := (SepStrengthen p c _) (left associativity, at level 81) : stsepi_scope.
+Notation "c @> p" := (SepWeaken p c _) (left associativity, at level 81) : stsepi_scope.
+Infix "<@>" := SepFrame (left associativity, at level 81) : stsepi_scope.
+
+Open Local Scope stsepi_scope.
+
+Notation "'Return' x" := (SepReturn x <@> _) (at level 75) : stsepi_scope.
+Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
+  (right associativity, at level 84, c1 at next level) : stsepi_scope.
+Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
+  (right associativity, at level 84) : stsepi_scope.
+Notation "!!" := (SepContra _) : stsepi_scope.
+Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
+  (SepFix (dom := dom) ran pre post (fun f x => e))
+  (at level 85) : stsepi_scope.
+Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
+Notation "'Free' x :@ T" := (SepFree (T := T) x <@> _) (at level 75) : stsepi_scope.
+Infix "!" := SepRead (no associativity, at level 75) : stsepi_scope.
+Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
+
+Delimit Scope stsepi_scope with stsepi.
