@@ -234,6 +234,8 @@ Ltac simpler := repeat progress (intuition; subst; simpl in * ).
 Ltac equater :=
   match goal with
     | [ |- ?p ==> ?q ] => equate p q
+    | [ |- ?p ==> (?q * __)%hprop ] => equate p q
+    | [ |- (?p * __)%hprop ==> ?q ] => equate p q
     | [ |- ?U ?X ==> ?p ] =>
       let H := fresh in
         (pose (H := p); pattern X in H;
