@@ -42,7 +42,6 @@ Module Counter : COUNTER.
 
     t.
 
-    Focus 3.
     simpl.
     intro.
     match goal with

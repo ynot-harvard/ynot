@@ -60,9 +60,10 @@ Section Sep.
 
   Definition SepBind pre1 T1 (post1 : T1 -> hprop)
     pre2 T2 (post2 : T2 -> hprop)
-    (st1 : STsep pre1 post1) (st2 : forall v : T1, STsep (pre2 v) post2)
-    : (forall v, post1 v ==> pre2 v)
-    -> STsep pre1 post2.
+    (st1 : STsep pre1 post1)
+    (_ : forall v, post1 v ==> pre2 v)
+    (st2 : forall v : T1, STsep (pre2 v) post2)
+    : STsep pre1 post2.
     unfold hprop_imp; t.
 
     refine (STBind _ _ _ _ st1 st2 _ _ _).
@@ -85,7 +86,7 @@ Section Sep.
     (st1 : STsep pre1 post1) (st2 : STsep pre2 post2)
     : (forall v, post1 v ==> pre2)
     -> STsep pre1 post2.
-    intros; refine (SepBind _ st1 (fun _ : unit => st2) _); trivial.
+    intros; refine (SepBind _ st1 _ (fun _ : unit => st2)); trivial.
   Qed.
 
   Definition SepContra T (post : T -> hprop) : STsep [False] post.
@@ -183,7 +184,7 @@ Notation "c @> p" := (SepWeaken p c _) (left associativity, at level 81) : stsep
 Infix "<@>" := SepFrame (left associativity, at level 81) : stsep_scope.
 
 Notation "'Return' x" := (SepReturn x) (at level 75) : stsep_scope.
-Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) (fun x => c2) _)
+Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
   (right associativity, at level 84, c1 at next level) : stsep_scope.
 Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) c2 _)
   (right associativity, at level 84) : stsep_scope.
