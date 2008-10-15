@@ -41,10 +41,9 @@ Module FiniteMapInterface.
     rep : fmap_t -> alist_t -> hprop ; 
     new : STsep __ (fun (ans:fmap_t) => rep ans Nil_al) ; 
     free : forall (x:fmap_t), STsep (Exists l :@ alist_t, rep x l) (fun (_:unit) => __) ; 
-    insert : forall (x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t -> hprop), 
-               STsep (Exists l :@ alist_t, rep x l * P l)
-                     (fun (_:unit) => Exists l :@ alist_t, 
-                         rep x (Cons_al v (remove_al k l)) * P l) ; 
+    insert : forall (x:fmap_t)(k:key_t)(v:value_t k)(l : [alist_t]), 
+               STsep (l ~~ rep x l)
+                     (fun (_:unit) => l ~~ rep x (Cons_al v (remove_al k l))) ; 
     lookup : forall (x:fmap_t)(k:key_t)(P:alist_t -> hprop),
                STsep (Exists l :@ alist_t, rep x l * P l)
                      (fun (ans:option (value_t k)) => 
@@ -83,12 +82,12 @@ Module RefAssocList.
             Return (F.lookup_al key_eq_dec k z) <@> ((x --> z) * P z) @> _) ; sep auto.
     Defined.
 
-  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t->hprop) : 
-    STsep (Exists l :@ alist_t, rep x l * P l)
-      (fun _:unit => Exists l :@ alist_t, rep x (Cons v (F.remove_al key_eq_dec k l)) * P l).
+  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(l:[alist_t]) : 
+    STsep (l ~~ rep x l)
+      (fun _:unit => l ~~ rep x (Cons v (F.remove_al key_eq_dec k l))).
     intros.
-    refine (z <- x !! P ; 
-            x ::= (Cons v (F.remove_al key_eq_dec k z)) <@> P z @> _) ; sep auto.
+    refine (z <- x !! (fun z => l ~~ [z = l]) ; 
+            x ::= (Cons v (F.remove_al key_eq_dec k z)) <@> (l ~~ [z=l]) @> _) ; sep auto.
     Defined.
 
   Definition ref_assoc_list : FiniteMapInterface.finite_map_t key_eq_dec value_t := 
@@ -173,8 +172,8 @@ Module HashTable.
     refine (t <- new_array table_size ; 
             @init_table t table_size _ <@> [array_length t = table_size] ;; 
             {{Return t <@> rep t Nil}}) ; 
-    unfold init_table_t, init_pre, rep ; sep auto. rewrite H0 ; sep auto.
-    rewrite (sub_self table_size) ; sep auto. rewrite (sub_self (array_length v)) ; sep auto.
+    unfold init_table_t, init_pre, rep ; try rewrite sub_self ; sep auto.
+    rewrite H0 ; sep auto.
   Defined.
 
   Lemma sp_index_hyp(P:nat->hprop)(Q R:hprop)(start len i:nat) : i < len -> 
@@ -202,9 +201,9 @@ Module HashTable.
     repeat (progress
     match goal with
     | [ |- context[if eq_nat_dec ?e1 ?e2 then _ else _] ] => 
-      destruct (eq_nat_dec e1 e2) ; try congruence ; subst
-    | [ |- context[if key_eq_dec ?k1 ?k2 then _ else _] ] => 
-      destruct (key_eq_dec k1 k2) ; try congruence ; subst
+      destruct (eq_nat_dec e1 e2) ; try congruence ; try subst
+    | [ key_eq_dec : _ |- context[if key_eq_dec ?k1 ?k2 then _ else _] ] => 
+      destruct (key_eq_dec k1 k2) ; try congruence ; try subst
     | _ => simpl ; auto
     end).
 
@@ -219,14 +218,21 @@ Module HashTable.
    * unrecoverable failure.  *)
   Definition myExists(A:Set)(F:A -> hprop) := Exists x :@ A, F x.
 
+
   Ltac fold_ex_conc := 
-    match goal with 
-    | [ |- forall x, _ ] => intro ; fold_ex_conc
-    | [ |- _ ==> (hprop_ex ?f) ] => fold (myExists f)
-    | [ |- _ ==> (hprop_ex ?f) * _] => fold (myExists f)
-    | [ |- _ ==> _ * (hprop_ex ?f)] => fold (myExists f)
-    | [ |- _ ==> _ * (hprop_ex ?f) * _] => fold (myExists f)
-    | [ |- _ ==> _ * _ * (hprop_ex ?f)] => fold (myExists f)
+    search_conc ltac:(try match goal with
+                          | [ |- _ ==> (hprop_ex ?f) * _ ] => fold (myExists f)
+                          end).
+
+  Ltac sp_index := 
+    repeat progress
+    match goal with
+      | [ |- iter_sep ?P ?s ?len * ?Q ==> ?R ] => 
+        eapply (sp_index_hyp P)
+      | [ |- ?R ==> iter_sep ?P ?s ?len * ?Q] => 
+        eapply (sp_index_conc P) 
+      | [ table_size:nat, k:key_t |- _ < table_size ] => apply (hash_below k)
+      | _ => eauto
     end.
 
   Ltac mytac := 
@@ -265,12 +271,13 @@ Module HashTable.
                    [l' = filter_hash (hash k) l] * P l *
                    (let p := array_plus x (hash k) in p ~~ p --> fm) *
                    iter_sep (wf_bucket x l) 0 (hash k) * 
-                   iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)) @> _);
-    unfold rep. sep auto. eapply himp_comm_prem. eapply sp_index_hyp. apply (hash_below k).
-    unfold wf_bucket at 2. unhide. sep auto. fold_ex_conc. sep auto. sep mytac. exists v1.
-    sep auto. eapply sp_index_conc. apply (hash_below k). unfold wf_bucket. sep auto.
-    rewrite H1. rewrite H0. rewrite look_filter_hash ; mytac ; auto. sep auto. unhide.
-    sep auto.
+                   iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)) @>_)
+    ; unfold rep, wf_bucket ; intros ; fold_ex_conc ; sep sp_index ; unfold myExists.
+    simpl ; unhide. sep auto ; rewrite H2 ; sep auto.
+    unhide ; sep auto.
+    apply himp_empty_conc' ; apply himp_ex_conc ; exists v1 ;
+      search_conc ltac:(eapply sp_index_conc). sp_index. 
+      rewrite H2. rewrite look_filter_hash. sep auto.
   Defined.
 
   Lemma remove_filter_eq (k:key_t)(l:alist_t) : 
@@ -281,41 +288,46 @@ Module HashTable.
     (hash k <> i) -> filter_hash i l = filter_hash i (remove_al k l).
   Proof. induction l ; simpl ; intros ; mysimplr. rewrite IHl ; auto. Qed.
     
-  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t -> hprop) : 
-    STsep (Exists l :@ alist_t, rep x l * P l) 
-          (fun (_:unit) => Exists l :@ alist_t, rep x (Cons v (remove_al k l)) * P l).
+  (* this definition and notation is useful enough that it probably ought to 
+   * go in Separation.v or somewhere else... *)
+  Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] := 
+    match inh with
+    | inhabits v => inhabits (f v)
+    end.
+  Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
+    (at level 91, right associativity) : hprop_scope.
+
+  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(l : [alist_t]) : 
+    STsep (l ~~ rep x l) 
+          (fun (_:unit) => l ~~ rep x (Cons v (remove_al k l))).
   intros.
   refine (fm <- sub_array x (hash k) (* find the right bucket *)
            (fun fm =>
              [array_length x = table_size] * 
-             myExists (fun l : alist_t => 
-                  (P l * F.rep FM fm (filter_hash (hash k) l) * 
+             (l ~~ (F.rep FM fm (filter_hash (hash k) l) * 
                    iter_sep (wf_bucket x l) 0 (hash k) * 
                    iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)))) ; 
-         F.insert FM fm k v     (* and use F.insert to insert the key value pair *)
-           (fun l' => 
+         (* and use F.insert to insert the key value pair *)
+         F.insert FM fm k v (l ~~~ (filter_hash (hash k) l))     
+            <@>
              [array_length x = table_size] * 
-             myExists (fun l : alist_t => 
-                     [l' = filter_hash (hash k) l] * 
-                     P l * (let p := array_plus x (hash k) in p ~~ p --> fm) *
-                     iter_sep (wf_bucket x l) 0 (hash k) * 
-                     iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)))
+             (let p := array_plus x (hash k) in p ~~ p --> fm) * 
+             (l ~~ iter_sep (wf_bucket x l) 0 (hash k) * 
+                     iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1))
         @> _) ; 
-   unfold rep. sep auto. apply himp_comm_prem. eapply sp_index_hyp. apply (hash_below k).
-   unfold wf_bucket at 2. unhide. sep auto. unfold myExists. sep mytac. exists v0. 
-   sep auto. intros. fold_ex_conc. unfold myExists at 1. sep auto. sep mytac. exists v2. 
-   sep auto. eapply himp_empty_conc'. eapply sp_index_conc. apply (hash_below k). 
-   unfold wf_bucket at 4. unhide ; sep auto ; mysimplr. rewrite H0. rewrite remove_filter_eq.
-   destruct (eq_nat_dec (hash k) (hash k)) ; try congruence. sep auto. apply himp_comm_prem. 
-   apply himp_split ; apply iter_imp ; unfold wf_bucket ; sep auto ; assert (hash k <> i) ;
-   try omega ; mysimplr ; destruct (eq_nat_dec (hash k) i) ; try congruence ; 
-   rewrite (remove_filter_neq _ v2 n) ; sep auto. unhide. unfold myExists at 1. 
-   fold_ex_conc. sep auto. sep mytac. exists (filter_hash (hash k) v1). sep mytac. 
+  unfold rep ; sep sp_index ; unfold wf_bucket ; simpl. sep auto. unhide. sep auto.
+  rewrite H1. sep auto. unhide. sep auto. sep mysimplr.
+  rewrite remove_filter_eq. sep auto. apply himp_split ; apply iter_imp ; sep auto ;
+     match goal with 
+     [ |- context[filter_hash ?i (remove_al ?k ?x)] ] => 
+       assert (hash k <> i) ; try omega ; mysimplr ; rewrite (@remove_filter_neq k i x) ; 
+         sep auto
+     end.
   Defined.
 
   (* the following runs through the array and calls F.free on each of the buckets. *)
   Definition free_table_t(f:fmap_t)(n:nat) := (n <= table_size) -> 
-    STsep (myExists (fun l => iter_sep (wf_bucket f l) (table_size - n) n))
+    STsep (Exists l :@ _, iter_sep (wf_bucket f l) (table_size - n) n)
        (fun (_:unit) => 
         iter_sep (fun i => let p := array_plus f i in p ~~ ptsto_any p) (table_size - n) n).
 
@@ -326,19 +338,17 @@ Module HashTable.
           | 0 => fun H => {{Return tt}}
           | S i => fun H => 
               fm <- sub_array f (table_size - (S i)) 
-                       (fun fm => myExists (fun l => 
+                       (fun fm => Exists l :@ _, 
                         F.rep FM fm (filter_hash (table_size - (S i)) l) * 
-                        iter_sep (wf_bucket f l) (table_size - i) i)) ;
+                        iter_sep (wf_bucket f l) (table_size - i) i) ;
               F.free FM fm <@> 
                  ((let p := array_plus f (table_size - (S i)) in p ~~ p --> fm) *
-                  myExists (fun l => iter_sep (wf_bucket f l) (table_size - i) i)) ;; 
+                  Exists l :@ _, iter_sep (wf_bucket f l) (table_size - i) i) ;; 
               free_tab i _ <@> 
                 (let p := array_plus f (table_size - (S i)) in p ~~ ptsto_any p ) @> _
-          end) ; simpl ; intros. unfold myExists ; sep auto. unfold myExists ; sep auto.
-  unfold myExists at 1. unfold wf_bucket at 1. unhide ; sep auto. unfold myExists ; sep auto. 
-  rewrite (sub_succ H) ; sep auto. unfold myExists ; sep auto. auto with arith. unhide.
-  sep auto. rewrite (sub_succ H) ; sep auto. unhide ; sep auto. unfold ptsto_any ; sep auto.
-  unhide. unfold myExists. repeat fold_ex_conc. sep auto. unfold myExists. sep auto.
+          end) ; simpl ; intros ; try fold_ex_conc ; unfold ptsto_any, wf_bucket ; 
+  sep auto ; try (rewrite (sub_succ H)). unhide ; sep auto. unhide ; sep auto.
+  unhide ; sep auto. sep auto.
   Defined.
 
   (* Run through the array, call F.free on all of the maps, and then call array_free *)

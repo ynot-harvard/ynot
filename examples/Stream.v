@@ -89,23 +89,21 @@ Section STRING_INSTREAM.
     unfold peek_t.
     intros.
     refine (n <- (x !! (fun n => offset ~~ [n = offset]))%stsep;
-            Return (nth_error s n) <@> (offset ~~ [n = offset] * string_rep s x n) @> _).
-    str. str. str.
+            Return (nth_error s n) <@> (offset ~~ [n = offset] * string_rep s x n) @> _) ;
+    str. 
   Defined.
 
   Definition string_position(s:list ascii)(x:ptr) : position_t (inhabits s)(string_rep s x).
     unfold position_t.
     intros.
     refine (n <- x !! (fun n => offset ~~ [n = offset]);
-            Return n <@> (offset ~~ [n = offset] * string_rep s x n) @> _).
-    str. str. str.
+            Return n <@> (offset ~~ [n = offset] * string_rep s x n) @> _) ; str. 
   Defined.
 
   Definition string_seek(s:list ascii)(x:ptr) : seek_t (inhabits s)(string_rep s x).
     unfold seek_t.
     intros.
-    refine ({{x ::= n}}).
-    str. str.
+    refine ({{x ::= n}}) ; str. 
   Defined.
 
   Definition string_next(s:list ascii)(x:ptr) : next_t (inhabits s)(string_rep s x).
@@ -113,15 +111,14 @@ Section STRING_INSTREAM.
     intros.
     refine (n <- x !! (fun n => offset ~~ [n = offset]) ;
             x ::= 1 + n <@> (offset ~~ [n = offset]) ;;
-            Return (nth_error s n) <@> (offset ~~ [n=offset] * string_rep s x (1+n)) @> _).
-    str. str. str. str. str.
+            Return (nth_error s n) <@> (offset ~~ [n=offset] * string_rep s x (1+n)) @> _);
+    str. 
   Defined.
 
   Definition string_close(s:list ascii)(x:ptr) : close_t (inhabits s)(string_rep s x).
     unfold close_t.
     intros.
-    refine ({{FreeT x :@ nat}}).
-    str. str.
+    refine ({{FreeT x :@ nat}}) ; str.
   Defined.
 
   (* Notice that this not only returns an instream_t object, with initial offset of 0,
