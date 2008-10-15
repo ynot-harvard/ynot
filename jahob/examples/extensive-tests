@@ -1,0 +1,1 @@
+time ./run-one-test "`find -name run-tests`"

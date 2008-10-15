@@ -1,0 +1,10 @@
+../../../bin/jahob.opt Vctest.java -method Vctest.main -nobackground -sastvc -usedp cvcl 
+ensure_verifies $? "Vctest.main"
+../../../bin/jahob.opt Vctest.java -method Vctest.first -nobackground -sastvc -usedp cvcl
+ensure_verifies $? "Vctest.first"
+../../../bin/jahob.opt Vctest.java -method Vctest.init -nobackground -sastvc -usedp cvcl
+ensure_verifies $? "Vctest.init"
+../../../bin/jahob.opt Vctest.java -method Vctest.unreachable -nobackground -sastvc -usedp e
+ensure_verifies $? "Vctest.unreachable"
+../../../bin/jahob.opt Vctest.java -method Vctest.reachable -nobackground -sastvc -usedp e
+ensure_fails $? "Vctest.unreachable"

@@ -1,0 +1,1 @@
+../../../bin/jahob.opt MapArray.java Node.java -method MapArray.MapArray -nobackground -v -debugmodules smtPrint -debug -usedp isa | tee out

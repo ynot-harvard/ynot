@@ -1,0 +1,45 @@
+
+--------------------------------------------------
+Results:
+	- work
+	- time: .8 secs
+	- size of presburger formulae: 2258 bytes
+
+    public static void test2()
+    /*:
+        requires "size = card GlobalSet.setContent & 
+	          alloc.Object Int GlobalSet.setContent = {}"
+	modifies "GlobalSet.setContent", "size"
+	ensures "size = (old size) + 1 & 
+	         size = card GlobalSet.setContent"
+     */
+    {	
+	GlobalSet s = new GlobalList();
+	Object o7 = new Object();
+	s.add(o7);
+	size = size + 1;
+    }
+--------------------------------------------------
+
+--------------------------------------------------
+Results:
+	- seems to take forever
+	- size of generated presburger formula: 11075 bytes
+
+    public static void test()
+    /*:
+        requires "size = card GlobalSet.setContent & 
+	          alloc.Object Int GlobalSet.setContent = {}"
+	modifies "GlobalSet.setContent", "size"
+	ensures "size = (old size) + 2 & 
+	         size = card GlobalSet.setContent"
+     */
+    {	
+	GlobalSet s = new GlobalList();
+	Object o7 = new Object();
+	s.add(o7);
+	Object o8 = new Object();
+	s.add(o8);
+	size = size + 1;
+    }
+--------------------------------------------------

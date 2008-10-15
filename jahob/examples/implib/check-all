@@ -1,0 +1,7 @@
+../../bin/jahob.opt ../../lib/String.java Library.java Set.java Relation.java Book.java Person.java FuncList.java AssocList.java -sastvc \
+  -class FuncList \
+  -class AssocList \
+  -class Set \
+  -class Relation \
+  -class Library \
+-usedp e:SortGuards=no:TimeOut=40 isa:TimeOut=0

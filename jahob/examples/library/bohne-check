@@ -1,0 +1,1 @@
+../../bin/jahob.opt -v ../../lib/String.java LBLibrary.java FuncList.java AssocList.java Book.java Person.java -method Library.printStatus -sastvc -bohne -sast -usedp e:SortGuards=no:TimeOut=10 | tee out

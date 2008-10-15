@@ -1,0 +1,2 @@
+../../../bin/jahob.opt ArraySet.java -method ArraySet.containsVC -nobackground -usedp cvcl 
+ensure_verifies $? "GlobalArraySet:ArraySet.containsVC"

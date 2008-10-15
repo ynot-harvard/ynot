@@ -1,0 +1,16 @@
+[
+(
+\<forall> (R :: Object set) (S :: Object set) (P :: Object set) (k :: int) (MAXK ::int)
+	(x :: Object set) (R1 :: Object set) (S1 :: Object set) .
+(\<exists> (P1 :: Object set) (k1 :: int). 
+(
+	((P = R \<union> S & k = card R) &
+	 (R1 = R \<union> x & S1 = S) &
+	 (~(x \<subseteq> P) & card x = 1 & k < MAXK))
+ --> 
+	((P1 = P \<union> x & k1 = k + 1) &
+         (P1 = R1 \<union> S1 & k1 = card R1 & k < MAXK))
+)
+)
+)
+]

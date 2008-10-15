@@ -1,0 +1,8 @@
+[
+(
+\<forall> (iter :: Object set) (iter1 :: Object set) (e :: Object set) .
+((card e = 1 & e \<subseteq> iter & iter1 \<seteq> iter - e)
+--> 
+(card iter1 < card iter))
+)
+]

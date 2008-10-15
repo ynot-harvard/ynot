@@ -1,0 +1,1 @@
+../../../bin/jahob.opt -v Relation.java Node.java -nobackground -method Relation.add -timeout 20 -usedp mona isa | tee out

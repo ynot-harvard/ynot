@@ -1,0 +1,6 @@
+The contents of an inode change when changing the contents of a file 
+or when changing its owner, permission, or link settings.
+
+The contents of a file change when change only when writing to it.
+
+change in file --> change in inode

@@ -1,0 +1,30 @@
+begin_problem(testproblem).
+
+list_of_descriptions.
+	name({* from paper *}).
+	author({* *}).
+	status(unsatisfiable).
+	description({* *}).
+end_of_list.
+
+
+list_of_symbols.
+	functions[(null,0)].
+	predicates[(oldxc,1),(c,2)].
+end_of_list.
+
+list_of_formulae(axioms).
+	
+end_of_list.
+
+list_of_formulae(conjectures).
+
+	formula(forall([x, y, e], implies(and(not(equal(x, y)), not(equal(x, null)), not(equal(y, null)),
+		forall([v], equiv(or(c(x,v), c(y,v)), oldxc(v)))), 
+		implies(c(x, e), and(not(equal(x,y)), 
+			forall([u], equiv(or (and(c(x, u), not(equal(u, e))), 
+				or(c(y, u), equal(u, e))) , oldxc(u))))))), 1).
+	
+end_of_list.
+
+end_problem.

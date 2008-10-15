@@ -1,0 +1,45 @@
+\section{Introduction}
+
+Jahob is a system for verification of data structure
+consistency.  It builds on our previous system Hob
+\cite{LamETAL05GeneralizedTypestateCheckingDataStructureConsistency,
+LamETAL04HobProjectWebPage,
+LamETAL04OurExperienceModularPluggableAnalyses,
+LamETAL03OnModularPluggableAnalysesUsingSetInterfaces,
+LamETAL05HobTool,
+LamETAL05CrossCuttingTechniquesProgramSpecificationAnalysis} and
+generalizes Hob to deal with dynamic instantiation of individual data
+structures and a richer specification language for procedure
+contracts, which allows describing properties of in terms of not only
+sets but also relations.  It is related to projects such as ESC/Java
+\cite{FlanaganETAL02ExtendedStaticCheckingJava}, ESC/Java2
+\cite{CokKiniry04ESCJava2} and Spec\#
+\cite{BarnettETAL04SpecProgrammingSystemOverview}, but has
+more emphasis on data structure consistency and automation
+through a combination of heterogeneous static analyses.
+
+\subsection{Design Decisions}
+
+We next motivate several design decisions in Jahob.
+\begin{itemize}
+
+\item Jahob uses a small subset of Java as an implementation language
+(see Section~\ref{sec:javaSubset}).
+
+\item Jahob uses a subset of Isabelle formulas as the specification language and as
+a communication language between different analysis plugins and
+decision procedures.
+
+\item Jahob views classes as the main units of encapsulation, not packages, and not objects.
+The fact that objects are not the unit of encapsulation means that the
+notions of an invariant, abstract variable, and private state are all
+defined on the collection of all objects of the class (along with
+potential \emph{claimed} fields from other classes).  This view, where
+object fields are global binary relations and encapsulation can be
+achieved using simple syntactic mechanisms, makes soundness arguments
+simple and supports data structure implementations that involve
+collaborations between different objects of the class.  Properties
+that involve defining per-object state of instantiatable data
+structures become a consequence of the global simulation relation.
+
+\end{itemize}

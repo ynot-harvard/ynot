@@ -1,0 +1,10 @@
+#!/bin/bash
+
+TEST_SCRIPTS="
+containers/array/run-tests 
+containers/hobgsll/run-tests 
+containers/gdll/run-tests 
+test/soundness/run-tests 
+test/small/run-tests"
+
+time ./run-one-test "$TEST_SCRIPTS"

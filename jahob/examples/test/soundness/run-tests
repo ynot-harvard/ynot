@@ -1,0 +1,39 @@
+PROVER=e
+../../../bin/jahob.opt -method Soundness.test0 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test0"
+../../../bin/jahob.opt -method Soundness.test1 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_verifies $? "test1"
+../../../bin/jahob.opt  -method Soundness.test2 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test2"
+../../../bin/jahob.opt  -method Soundness.test3 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_verifies $? "test3"
+../../../bin/jahob.opt  -method Soundness.test4 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test4"
+../../../bin/jahob.opt  -method Soundness.test5 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test5"
+../../../bin/jahob.opt  -method Soundness.test6 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_verifies $? "test6"
+#../../../bin/jahob.opt  -method Soundness.test7 List.java Soundness.java Node.java -usedp $PROVER 
+#ensure_verifies $? "test7"
+../../../bin/jahob.opt  -method Soundness.test8 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_verifies $? "test8"
+../../../bin/jahob.opt   -method Soundness.test9 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test9"
+../../../bin/jahob.opt   -method Soundness.test10 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_verifies $? "test10"
+../../../bin/jahob.opt   -method Soundness.test11 List.java Soundness.java Node.java -usedp $PROVER 
+ensure_fails $? "test11"
+#../../../bin/jahob.opt  -method Soundness.test12 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms 
+#ensure_verifies $? "test12"
+../../../bin/jahob.opt  -method Soundness.test13 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_fails $? "test13"
+../../../bin/jahob.opt  -method Soundness.test14 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_verifies $? "test14"
+../../../bin/jahob.opt  -method Soundness.test15 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_verifies $? "test15"
+../../../bin/jahob.opt  -method Soundness.test16 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_fails $? "test16"
+../../../bin/jahob.opt  -method Soundness.test17 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_verifies $? "test17"
+../../../bin/jahob.opt  -method Soundness.test18 List.java Soundness.java Node.java -usedp $PROVER:OrderAxioms:ArithAxioms  
+ensure_verifies $? "test18"

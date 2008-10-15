@@ -1,0 +1,13 @@
+[
+(
+\<forall> (R :: Object set) (S :: Object set) (P :: Object set) (k :: int)
+	(x :: Object set) .
+(
+	(((~(x \<subseteq> R)) & card x = 1) --> (P \<seteq> R \<union> S & k = card R))
+-->
+	(((~(x \<subseteq> P)) & (~(x \<subseteq> R)) & card x = 1) --> 
+		card (R \<union> x) = k + 1 &
+		(P \<union> x) \<seteq> ((R \<union> x) \<union> S))
+)
+)
+]

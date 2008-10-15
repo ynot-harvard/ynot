@@ -1,0 +1,13 @@
+[
+(
+\<forall> (e :: Object set) 
+	(content :: Object set) (content' :: Object set) 
+	(size :: int) (size' :: int) .
+	((card e) = 1 & (card (e \<inter> content) = 0) &
+	size = card content & 
+	content' \<seteq> content \<union> e &
+	size'=size + 1) 
+	-->
+	(size' > 0 & size' = card content')
+)
+]

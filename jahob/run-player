@@ -1,0 +1,11 @@
+JD="examples/jame"
+bin/jahob $* -nobackground -v -method JamePlayer.removeBuilding \
+  $JD/JamePlayer.java \
+  $JD/JameMapContainer.java \
+  $JD/JameCollection.java \
+  $JD/JameNode.java \
+  $JD/JameBuilding.java \
+  $JD/JameMapContainer.java \
+  $JD/JameBuildingType.java \
+  $JD/JameResourceSet.java \
+  $JD/JameMapType.java

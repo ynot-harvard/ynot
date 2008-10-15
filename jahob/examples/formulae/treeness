@@ -1,0 +1,16 @@
+([|
+(reach = (% x y. rtrancl_pt (% (x::obj) (y::obj). x..Node_next = y) x y));
+(Node_next2 = (fieldWrite Node_next e List_first));
+(reach2 = (% v w. rtrancl_pt (% x y. x..Node_next2 = y) v w ));
+(List_content = ({x. reach List_first x} :: obj set));
+((no_pred :: obj set) = ({v0. (ALL (n::obj). n..Node_next ~= v0)} :: obj set));
+(e ~= null);
+(tree [Node_next]);
+(List_first ~= null --> List_first : no_pred);
+(e ~: List_content);
+comment ''needed for proving preservation of acyclicity'' 
+  (ALL x y. reach2 x y <-> reach x y & (~(reach x e) | (reach y e)) 
+                         | reach x e & reach List_first y & (reach y e | ~(reach List_first e)))
+|] ==> 
+comment ''expansion of (tree [Node_next2])'' 
+  ((ALL x y z. Node_next2 x = z & Node_next2 y = z & z ~= null --> x = y) & (ALL x. reach2 x null)))

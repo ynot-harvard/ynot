@@ -1,0 +1,11 @@
+This is a strip-down version of Jame.
+It removes GUI functionality and does not produce anything on the screen,
+but retains all data structures.
+
+The following files have been removed:
+
+  JameDemo.java
+  *GUI*.java
+  JameStandardStartup.java
+
+Calls to GUI have also been removed from Jame.java .

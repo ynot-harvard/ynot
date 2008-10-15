@@ -1,0 +1,2 @@
+time ../../../bin/jahob.opt -nobackground -method Insertion.insertionSort Insertion.java InsertionSortNode.java -usedp cvcl isa
+ensure_verifies $? "InsertionSort"

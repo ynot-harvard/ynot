@@ -1,0 +1,31 @@
+digraph {
+
+
+"Start" -> "Cardinality constraints" -> "Set equality and inclusion" -> "Complex set expressions" 
+
+
+
+subgraph cluster {
+node [style=filled, color=white];
+style=filled;
+color=lightgrey;
+
+"Field equality" -> "Field write" -> "Flattening" -> "Symmetry" 
+}
+
+"Complex set expressions" -> "Field equality" [weight=2]
+"Symmetry" -> "First-Order Logic" -> "End"
+
+
+"Complex set expressions" -> "Complex set expressions" 
+"Field equality" -> "Field equality"
+"Field write" -> "Field write"
+"Flattening" -> "Flattening"
+
+"Field equality" -> "Complex set expressions"
+"Field write" -> "Complex set expressions"
+"Flattening" -> "Field write"
+
+"Start" [shape=triangle]
+"End" [shape=triangle]
+}

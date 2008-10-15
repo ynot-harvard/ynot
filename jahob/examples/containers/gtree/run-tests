@@ -1,0 +1,2 @@
+../../../bin/jahob.opt Tree.java Node.java -nobackground -bohne -method Tree.add -usedp mona | tee out
+ensure_verifies $? "BinaryTree:Tree.add"

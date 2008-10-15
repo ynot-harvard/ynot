@@ -1,0 +1,89 @@
+2.9.05
+* changed JameResourceSet.substract, had missed a "0 -" in specification
+* added "//: assume "addRes ~= null --> addRes.. JameResource.name ~= null"" to JameResourceSet.add body
+* played with JameResourceSet.find, providing some additional information about JameResourceSet.collection 
+	( //: assume "ALL x . x : resources .. JameCollection.collection --> x ~= null & x : JameResource" //: assume "cRes ~= null" )
+	and changed postcondition from if/then/else to -->
+
+...
+* build JameGUI
+
+13.9.05
+* fixed JameCollection.copy: it copied the nodes as objects. There is still a problem, the objects aren't duplicated.
+* added toString as debug helper in jameResourceSet
+* added copy in JameResourceSet. This method creates a real new JameResourceSet with no binding to the old one.
+* added get in JameResourceSet. It returns single resources from the set.
+* added reset method in JameCollection and JameResourceSet to empty the sets.
+* fixed JamePlayer.subResources - it added instead of substracting
+* added some sugar to jameCommandContainer, for queueing commands and an empty execute method should there be no execute in subclass (both not in use yet)
+* added resource use in JameBuildCommand, and callback for the gui refresh
+* added GUI and demo mode in Jame. Jame now can create new games, start them and change to next player (though nothing else happens) and run a demo.
+* added all GUI necessities for basic and demo mode in the JameGUI... classes.
+...
+* changed GUI sidebar, now displays area for each player
+* extended demo
+* added some JameCommands for placing and moving units
+
+14.9.05
+* fixed JameCollection.contains, it didn't report true even if an object was contained in the collection
+* moved JameDemo to a new class
+* added viewrange in GUI
+* made demo units more intelligent while walking
+* JameDemo now leads up to a fight between two units.
+* fixed JameCollection.remove, was prone to nullpointer exceptions
+...
+* added text messages in gui so user knows more about what is going on
+
+16.9.05
+* added moving mode, units can now be moved on map by keyboard
+* refactored JameGUI, especially viewrange calculation to get rid of some errors
+* added extended testcase: two players can now compete with each other!
+...
+* updated JameCollection.JameCollection specification
+
+19.9.05
+* made demo automatic, running (almost) infinitively on it's own
+* added JameResourceSet.get specification
+* added JameResourceSet.copy specification
+* completed JamePlayer specifications, however the isatyping fails due to inheritance problems
+
+20.9.05
+* modified JamePlayer.replenishUnits modifies clause
+
+21.9.05
+* removed super calls from subclasses, renamed and replaced constructors with init
+* removed some -= and += operators
+* removed some multiple dotted lines
+* fixed jastconsistency, readonly check for fields with equal names in several classes was buggy
+* extended treeConsistency test case
+* altered error message in javajast, jahob can't differentiate between unknown variables and class names
+* fixed jastconsistency, it wasn't able to find violations within a loop
+* removed readonly flag on movement and healthpoints in JameUnit -> they need to be assigned values elsewhere
+
+22.9.05
+* added hierarchy ability to jastconsistency: if a field gets inherited treat it as if it were in the subclass (including properties)
+* extended treeConsistency testcases
+* fixed many problems in constructor ensures clauses with a "this.." when assigned field was inherited
+
+26.9.05
+* changed specifications of JamePlayer.produceIncome, method now succeeds in verification
+* changed specifications of JamePlayer.replenishUnits, method now succeeds in verification
+* changed specifications of JamePlayer.register, method now succeeds in verification
+* changed specifications of JamePlayer.getPlayer, method now succeeds in verification
+* replaced assumption in JamePlayer.getPlayer with class invariant
+* verified all methods in JamePlayer except for addResources, subResources (timeout) and JamePlayer ( problems handling 'this')
+
+27.9.05
+* fixed JamePlayer so it works with receiverNotNull condition
+* strengthened JamePlayer.register ensures clause so no problems occur with classwide invariant
+* strengthened JameCollection.add ensures clause so no problems occur with set consisitency
+* verified all of JamePlayer
+* modified public invariant in JamePlayer talking about the player set, such that no initialisation flag is necessary: lazy initialisation is now possible, ensuring that the invariant holds in the methods working with it
+
+30.9.05
+* changed JameResourceSet.setResource specification so it verifies, added necessary lemma file
+
+
+3.10.05
+* while verifying noticed that start in JameMoveUNitCommand isn't necessary at all
+Jame.java JameBuildCommand.java JameBuilding.java JameBuildingType.java JameCollection.java JameCommandContainer.java JameCreateUnitCommand.java JameMap.java JameMapContainer.java JameMapType.java JameMoveUnitCommand.java JameNode.java JamePlaceUnitCommand.java JamePlayer.java JameResearch.java JameResource.java JameResourceSet.java JameTerrain.java JameTerrainType.java JameUnit.java JameUnitType.java JameStandardStartup.java

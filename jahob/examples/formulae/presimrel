@@ -1,0 +1,8 @@
+[(
+\<forall> (MAXR :: int) (k :: int) 
+(P :: Object set) (R :: Object set) (S :: Object set) (x :: Object set) .
+((P = R \<union> S & k = card R) & ((~(x \<subseteq> P)) & card x = 1 & k < MAXR))
+-->
+( (~(x \<subseteq> R)) & card x = 1 & card R < MAXR)
+
+)]

@@ -1,0 +1,1 @@
+../../../bin/jahob.opt -v ArraySet.java -method ArraySet.contains -nobackground  -bohne $@ -usedp cvcl isa

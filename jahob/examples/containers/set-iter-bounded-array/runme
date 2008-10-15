@@ -1,0 +1,1 @@
+../../../bin/jahob.opt ~/jahob/lib/String.java -nobackground SetIterBoundedArray.java -method SetIterBoundedArray.SetIterBoundedArray -timeout 5 -usedp cvcl vampire

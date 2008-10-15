@@ -1,0 +1,86 @@
+Buffer Cache Example
+
+1 Functionality
+File systems use a buffer cache to hide the latency and complexity of writing
+and reading disk blocks. The buffer cache abstraction is a exhaustive set of
+memory buffers each of which contains the data of a different disk
+block. Because main memory is typically much smaller than disk, only a
+small, static, fixed number of buffers are allocated in main memory to hold
+the contents of disk blocks.
+
+
+Each disk block is associated with a block id that ranges from one to the maximum
+disk block number. A block id of zero denotes an invalid block.
+
+
+The buffer cache's interface consists of two procedures named getBlock and
+releaseBlock:
+
+1) getBlock: the client passes a valid disk block number to the procedure, and
+   the procedure returns a locked, memory buffer containing the data of the
+   corresponding disk block.
+
+
+2) releaseBlock: the client passes a locked, memory buffer to the procedure,
+   and the procedure unlocks it.
+
+
+2 Implementation
+Internally, the buffer cache uses a fixed set of memory buffers smaller than
+the complete set of disk blocks. The requirement of efficiently allocating
+buffers to disk block requests motivates the design of the implementation.
+
+Each memory buffer of the cache is associated with a Buffer object that keeps
+the memory buffer’s metadata. Internally, the buffer cache uses three main
+data structures named the buffer pool, free list, and hash queues.
+
+2.1 Buffer Pool
+The buffer pool is fixed size array of Buffer object references collectively
+representing the full set of memory buffers.
+
+2.2 Free List
+The free list is a doubly linked list of BufferNode objects. A BufferNode
+object contains a Buffer object reference, a next BufferNode reference, and a
+previous BufferNode reference. The free list represents the set of unlocked
+memory buffers that can be allocated to new disk block requests. The memory
+buffers are arranged in a least recently used order maintained by appending
+newly unlocked memory buffers. The purpose of the free list is to provide
+constant time access to some unlocked buffer.
+
+2.3 Hash Queues
+The hash queues are a fixed size array of references to linked lists of
+BufferNode objects. The hash queues represent the set of valid memory
+buffers. A memory buffer is valid if it has been allocated to a disk block. A
+block id of -1 indicates that the memory buffer is not valid. Valid memory
+buffers added to the hash queues are keyed by block number. The hash function
+is modulo the number of queues. The purpose of the hash queues is to provide
+fast expected time access to a specific memory buffer.
+
+2.4 Buffer objects
+A Buffer object maintains the metadata of a memory buffer. The metadata
+includes information such as block id, lock status, and dirtiness. Each Buffer
+object also contains two immutable references to BufferNode objects named
+freelistNode and hashqueueNode. To add the memory buffer to the set of free
+buffers, the freelistNode is added to the free list. To add the memory buffer
+to the set of valid buffers, the hashqueueNode is added to the appropriate
+hash queue. The memory buffer requires constant time access to the
+freelistNode and hashqueueNode references in order to provide constant time
+removal from the data structures.
+
+
+3 Invariants
+
+1) A disk block can never map into more than one buffer at a time.
+2) After kernel allocates a buffer to a disk block, it cannot use the buffer
+for another block until all other buffers have been used more recently. The
+free list preserves the least recently used order.
+3) Each buffer always exists on a hash queue except initially.
+4) Every disk block in the buffer pool exists on one and only one hash queue
+and only once on that queue.
+5) A buffer is always on a hash queue, but it may or may not be on the free
+list.
+6) A buffer appears on the free list iff it is unlocked
+7) set of buffers in hash queues is equal to set of buffers in buffer array if
+a buffer with a -1 block id does not exist, otherwise, the set of buffers in
+hash queues is a subset of the buffer array.
+

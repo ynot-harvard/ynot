@@ -1,0 +1,5 @@
+Analyse global data structures. 
+ * all elements on the map have to be inside the bounds of the map
+ * units and buildings belong to players, who in turn know which units and buildings they own
+ 
+Look at JameReosurceSet. Prove mapping abilities, and some properties, e.g. players should not have negative resource sets.

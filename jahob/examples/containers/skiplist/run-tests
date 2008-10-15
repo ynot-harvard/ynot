@@ -1,0 +1,2 @@
+../../../bin/jahob.opt Skiplist.java Node.java -method Skiplist.add -nobackground -bohne -extraprecise -usedp mona
+ensure_verifies $? "Skiplist.add"

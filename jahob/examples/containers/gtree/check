@@ -1,0 +1,1 @@
+../../../bin/jahob.opt Tree.java Node.java -nobackground -v -bohne -method $* -usedp mona

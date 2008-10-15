@@ -1,0 +1,33 @@
+
+Problem: Need to verify consistency of on disk data structures
+
+Disk abstraction: a set of Blocks
+Each block has a type:
+     bootblock
+     superblock
+     inodesblock 
+     datablock
+	files
+	directories
+
+Disk class parametrized with disk size and inode count
+     returns Blocks given  buffer array
+     --> no: inode undefined at this level of abstraction
+
+Subsystem should load byte[] array from disk through buffer cache, then wrap
+it with the appropriate disk block wrapper
+   - block types:
+	   InodesBlock
+	   SuperBlock
+	   DataBlock
+		File
+		Directory
+
+   - implement block loader(understanded disk layout of superblock , inodes, etc)
+	   abstractly represents 
+		      - inode set
+		      - super block
+		      - data block set 
+
+Problem: Want to avoid making wrapper classes for the byte[] retrieved from the buffer cache,
+		but need to type the arrays.

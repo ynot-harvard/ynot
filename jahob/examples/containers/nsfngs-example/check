@@ -1,0 +1,1 @@
+../../../bin/jahob -v -method Client.move List.java Client.java Node.java -usedp cvcl isa | tee out

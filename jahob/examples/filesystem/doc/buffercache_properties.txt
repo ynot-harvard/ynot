@@ -1,0 +1,53 @@
+Buffer Cache Invariants
+
+1. A disk block can never map into more than one buffer at a time. 
+2. After kernel allocates a buffer to a disk block, it cannot use the buffer
+for another block until all other buffers have been used more recently. The
+freelist preserves the least recently used order.
+3. Each buffer always exists on a hashqueue except initially.
+4. Every disk block in the buffer pool exists on one and only one hash queue
+and only once on that queue.
+5. A buffer is always on a hash queue, but it may or may not be on the
+freelist.
+6, A buffer appears on the freelist iff it is unlocked
+7. set of buffers in hashqueues is equal to set of buffers in buffer array if 
+a buffer with a -1 blkid exists, otherwise, the set of buffers in hashqueues is a subset of the buffer array.
+
+Implementation invariants 
+
+1. for all b:Buffer . 
+
+
+Buffer States
+
+1. The buffer is currently locked.
+2. The buffer contains valid data.
+3. The kernel must write the buffer contents to disk before reassigning the
+buffer; this condition is known as delayed-write.
+4. The kernel is currently reading or writing the contents the buffer to disk.
+5. A process is currently waiting for the buffer to become free.
+
+
+Initial State
+
+1. Every buffer is put on the freelist when the system is booted.
+2. Once a buffer is placed on a hashqueue it will always remain on one of the hashqueues (not necessarily the same one).
+
+
+Operations
+
+1. The kernel takes a buffer from the head of the free list when it wants any
+   free buffer, but it can take a buffer from the middle of the free list if
+   it identities a particular block in the buffer pool. In both cases, it
+   removes the buffer from the free list.
+
+2. When the kernel returns a buffer to the buffer pool, it attaches
+   the buffer to the tail of the free list
+
+3. When kernel accesses a disk block, it searches for a buffer with its blkid
+   on the hash queue
+	       
+4. The kernel uses the hash queue if it is looking for a particular buffer.
+
+
+make hashqueues abstract

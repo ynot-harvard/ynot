@@ -1,0 +1,1 @@
+../../../bin/jahob.opt -nobackground -method Insertion.insertionSort Insertion.java InsertionSortNode.java -timeout 30 -v -usedp isa 2>&1 | tee isa.out

@@ -1,0 +1,94 @@
+\section{More on Using Jahob Constructs}
+
+\subsection{Claimed Fields}
+
+A class $C$ can claim a field $f$ of another class $D$.  To specify
+this relationship, write the annotation $\q{claimedby}\ C$ as a
+modifier of the declaration of the field $f$.  
+
+In this way, $f$ becomes part of the representation of $D$, which
+means that only $D$ and the classes directly owned by $D$ can modify
+$f$.
+
+Ownership exists among classes as well.  Parents see children's public
+variables, and children see their sibling's public variables.
+
+If no owner class is specified, a special class World is assumed; thus
+two classes with no owners are siblings.
+
+Field ownership overrides class ownership, it's an exception to class
+ownership.
+
+\subsection{Modifies clauses.}
+\label{sec:modifies}
+
+Modifies clauses cannot refer to private or public shorthands.
+
+Modifies clauses of public procedures in class $C$ can only refer to
+non-shorthand public specification variables of $C$ and public
+variables owned by owner of the current class.
+
+Modifies clauses of private procedures in class $C$ can only refer
+to non-shorthand private variables and public variables of ...
+
+Top-level occurrence of \q{x..f} denotes \q{f} location of \q{x}
+as opposed to the value denoted by \q{x..f}.
+
+\subsection{Receiver Parameter}
+
+On right hand side, if the name $f$ of a variable is a concrete
+non-static field or a specfield of the current class, and it is not
+qualified by some class name, and is not immediatelly enclosed in an
+expression of the form $x..f$, then $f$ is implicitly replaced by
+$this..f$.
+
+When specifying a field name, a receveir parameter
+\q{this} is understood to qualify this name.
+On the left-hand side, a reference to a field \q{f} of the current
+class \q{C} is replaced by \q{this..f}.  This rule applies to \q{requires} and
+\q{ensures} clauses.  
+Similarly, when using
+\q{vardefs} to define the field \q{f}, the right-hand side $R$ denotes the
+value of \q{this..f}, so the value of the entire field is
+the union of $R$ where $\q{R}$ ranges over all objects of
+the current class.
+
+This desugaring also applies to modifies clauses, although
+it there results in a different semantics.
+
+\subsection{Modifies Clause Desugaring}
+
+Assume that the modifies clause contains items of the one of the two
+forms 1) \q{v} where \q{v} is a variable (or field) declared
+in the class 2) \q{e..f} where \q{e} is an expression
+evaluating to an object of the class that contains an \q{f}
+field.  Using the desugaring, if \q{v} is a field of the current
+class, then it is transformed into the second form as \q{this..v},
+unless it is qualified with the class name.  Assume this transformation
+has been done.
+
+Let \q{v} be a variable in the static representation of the
+class (potentially a field).  Then if \q{v} or \q{e..v} is
+in modifies clause, it is removed from the list of variables
+for which full frame condition is introduced.
+
+If \q{f} is a field such that no item of the form \q{f} appears
+in modifies clause, but an item of the form \q{e..f} appears
+in the modifies clause, then let $\q{e}_1\q{..f}$,
+\ldots, $\q{e}_n\q{..f}$ be all such expressions.  As just described,
+then \q{f} is removed from the list of variables with full
+frame conditions, but a partial frame condition is introduced of
+the form:
+\begin{verbatim}
+ALL x::obj. x: old alloc.T & x ~= null & 
+               x ~= old(e1) & ... & x ~= old(en) &
+               x :~ rep
+  -->  
+    x..f = old (x..f)
+\end{verbatim}
+where \q{rep} is the variable denoting representation set of objects.
+
+\subsection{Permissible Sets of Modifiers}
+Cannot have claimed static variables, must be instance variables.  
+If readonly, then public.
+

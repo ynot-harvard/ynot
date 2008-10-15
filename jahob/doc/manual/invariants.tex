@@ -1,0 +1,64 @@
+\section{Class Invariants in Jahob}
+
+Consider a class $C$ that implements some data structure.  A class
+invariant of $C$ is a property of the data structure that holds ``most
+of the time'' or ``when a class is in consistent state''.  Class
+invariant approximates the set of states that are reachable after
+executing any finite number of operations of that class.  To ensure
+inductively that the invariants hold, we require that they hold when
+the variables have their initial values, and require that they are
+preserved by each public method of the class.  The public methods then
+assume that the invariants hold at their entry.  Finally, because of
+reentrant calls, the invariant is also assumed at all method calls to
+methods outside the class and the public methods of the same class, so
+that it can be assumed at the entry of those methods.  This simple
+policy is very general, especially in the light of the ability to add
+uninterpreted abstract ``guard'' variables that can make the truth
+value of the invariant conditional.
+
+Define an \emph{external call} as a call to a method outside the
+current class or a call to a public method of the same class.  Also,
+when we say \emph{method}, we include the constructors.  This means
+that constructors are not special from the viewpoint of the validity
+of invariants.
+
+To summarize, when a class $C$ contains an invariant $I$, Jahob
+takes the following actions:
+\begin{itemize}
+\item Jahob verifies that the invariant is true for the initial state
+of the class.  To make sure that the invariant is true in the initial
+state, the developer may wish to introduce auxiliary variables.
+\item Jahob asserts the invariant (that is, requires the invariant 
+to be true) at the following places:
+\begin{itemize}
+\item after the last statement in a public method of the class
+\item at the return statement
+\item before an external call
+\end{itemize}
+\item Jahob assumes the invariant at the following places:
+\begin{itemize}
+\item the entry of methods
+\item the point after an external call
+\end{itemize}
+\end{itemize}
+Note that, when we say ``the place before procedure call'' we are
+referring to the place after evaluating the arguments and performing
+any side-effects that this evaluation may require, and before the
+actual procedure invocation.  This location is more clearly visible in
+the Jahob Ast intermediate representation of the input program.
+
+When an object is created, all fields are initialized either
+to the specified simple value or to the default value
+otherwise.  Default value for objects is null, for integers
+0, for booleans false.
+
+Hence, when an object of class T is created, this is a
+sideffecting operation that modifies \q{T.alloc} and
+initializes object.  Constructor call is a separate
+statement, automatically generated in the intermediate
+language from Java new statement.
+
+Note that public constructors should thus also get to assume invariant
+and preserve at the end.  They will typically differ in that they will
+set the value of a boolean guard of an invariant, thus making the
+truth value of the invariant be non-trivial.

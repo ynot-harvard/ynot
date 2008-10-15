@@ -1,0 +1,17 @@
+([|(ArraySet_content = {n. (EX j. ((n = (arrayRead Array_arrayState ArraySet_a j)) & (0 <= j) & (intless j ArraySet_size)))});
+ArraySet_init;
+(x ~: ArraySet_content);
+comment ''ArraySet_PrivateInv '' (ArraySet_init --> ((ArraySet_a ~= null) & (intless 0 (fieldRead Array_length ArraySet_a)) & (0 <= ArraySet_size) & (ArraySet_size <= (fieldRead Array_length ArraySet_a))));
+comment ''ArraySet_PrivateInv a is part of private rep'' (ArraySet_init --> (ArraySet_a : ArraySet_hidden));
+comment ''x_type'' (x : Object);
+comment ''x_type'' (x : Object_alloc);
+comment ''tmp_9_type'' (tmp_9 : Object);
+comment ''tmp_9_type'' (tmp_9 : Object_alloc);
+comment ''tmp_6_type'' (tmp_6 : Array);
+comment ''tmp_6_type'' (tmp_6 : Object_alloc);
+comment ''b_type'' (b : Array);
+comment ''b_type'' (b : Object_alloc);
+(intless ArraySet_size (fieldRead Array_length ArraySet_a));
+(ArraySet_content_16 = {n. (EX j. ((n = (arrayRead (arrayWrite Array_arrayState ArraySet_a ArraySet_size x) ArraySet_a j)) & (0 <= j) & (intless j ArraySet_size)))});
+(ArraySet_content_13 = {n. (EX j. ((n = (arrayRead (arrayWrite Array_arrayState ArraySet_a ArraySet_size x) ArraySet_a j)) & (0 <= j) & (intless j (intplus ArraySet_size 1))))})|] ==>
+    (ArraySet_content_13 = (ArraySet_content Un {x})))

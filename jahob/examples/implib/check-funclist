@@ -1,0 +1,1 @@
+../../bin/jahob.opt FuncList.java -class FuncList -sastvc -usedp e:SortGuards=no isa:TimeOut=0

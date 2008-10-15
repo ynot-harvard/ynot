@@ -1,0 +1,72 @@
+\section{Data Abstraction in Jahob}
+
+The main idea is to do refinement at the class level,
+not at the object level.
+
+For convenience, the representation specification can
+refer to this, we take union of all representations over
+all objects.  There is also a static representation specification,
+which may not mention 'this'.
+
+
+Locations are given by a set of
+(object,field) pairs (and array regions?).
+The cool thing is that the range of representation may change dynamically (!)
+
+Specification variables.
+
+Interfaces and classes.  Interface ownership condition for
+interfaces with static fields: if an interface contains a
+static variable, it is implemented by at most one class;
+this class is called the owner of the interface.
+
+Representation exposure and global specification of refinement
+that allows object collaboration.
+
+Variables without definition.  Public and abstract.  Abstract
+statements in method bodies can modify them.
+
+Constdefs: public and private.  Constdefs are pure and dependent, they
+are logical shorthands.
+
+Public invariants can be free and cross-module.  You can tell them
+apart by checking whether they mention any variables outside the module: if they
+mention only variables of the module, they are free, otherwise they are cross-module.
+Free invariants are guaranteed by the module and need not be checked,
+they can be used for free.  Cross-module invariants must be maintained
+by all modules that see them; they are one module's contributions to
+global set of invariants.  (But not entirely global, at some point everything
+can be claimed by one module.)
+
+\paragraph{Representation locations.}
+Representation locations are locations that store the internal
+representation of a module.  There are two uses of representation
+locations:
+\begin{itemize}
+\item the invariants of a class $C$ may only depend on the representation
+locations of the class $C$;
+\item when a procedure in $C.p$ is called, the set of locations that are
+in the representation of $C$ at the time of the call is implicitly allowed
+to be modified by $C.p$, and need not be reported in the modifies clause.
+\end{itemize}
+In Jahob, the representation set contains both fixed and dynamically
+changing locations.  At any given state a location belongs to at most
+one module.  There is no way for a module $D$ to ``take away'' the
+representation locations of another module $C$, without $C$ first
+releasing these representation locations.
+
+The representation locations of class $C$ consist of
+\begin{itemize}
+\item private variables of $C$
+\item public variables of all classes claimed by $C$
+\item fields claimed by $C$
+\item fields of all objects in the set $C.rep$
+\end{itemize}
+
+Once the control is outside a module, the value of $C.rep$, and
+therefore the set of representation locations does not change.  To
+ensure that representation invariants are not violated outside the
+module, each procedure therefore ensures that, at the end of procedure
+execution, the truth value of each invariant remains the same when a
+location outside the representation set at the end of the
+procedure is changed.

@@ -1,0 +1,217 @@
+\documentclass{article}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage {mathpartir}
+\usepackage{graphics}
+\usepackage{color}
+
+% special for mac OS !
+\usepackage{graphicx}
+
+%\usepackage[latin1]{inputenc}  % accents 8 bits dans le source
+%\usepackage[T1]{fontenc}       % accents dans le DVI
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Mn}{\mathcal{M}_{n}}
+\DeclareMathOperator{\cardop}{Card}
+\newcommand{\card}[1]{\cardop \left( #1 \right)}
+\newtheorem{example}{example}
+
+\newcommand{\rulename}[1]{\mbox{{\tiny \sffamily \scshape \bfseries #1}}}
+
+%\typerule{name}{antecedent}{consequent}
+%both antecedent and consequent may contain // (newline)
+% i.e., they can have multiple line
+\newcommand{\typerule}[3]{%
+\noindent{}\ensuremath{
+\begin{array}[b]{l}
+{                               \rulename{#1}}\\[0.5mm]
+{\scriptsize
+\begin{array}[b]{c} \displaystyle
+#2 \\ \hline
+#3
+\end{array}}
+\end{array}
+}
+}
+
+
+% horizontal space between two parts of a rule precondition
+\newcommand{\rs}{\hspace{1em}}
+
+% newline + vertical space between precondition rows
+\newcommand{\rnl}{\rule[-0.9mm]{0mm}{2mm}\\}
+
+\newcommand{\imply}{\Rightarrow}
+
+\newcommand{\set}[1]{\left\{ #1 \right\} }
+
+\newcommand{\fieldwrite}[3]{#1 \left[ #2 \longrightarrow #3 \right]}
+
+
+\newcommand{\ofv}[1]{V_{f_{O}}^{#1}}
+\newcommand{\of}[1]{f_{O}^{#1}}
+\newcommand{\forallo}[1]{\forall #1}
+\newcommand{\obj}[1]{O_{#1}}
+\newcommand{\ov}[1]{V_{O}^{#1}}
+
+\newcommand{\sv}[1]{V_{S}^{#1}}
+\newcommand{\sfv}[1]{V_{f_{S}}^{#1}}
+\newcommand{\setf}[1]{f_{S}^{#1}}
+\newcommand{\sett}[1]{S_{#1}}
+
+\DeclareMathOperator{\Null}{null}
+
+\definecolor{LightGray}{gray}{0.8}
+\definecolor{LightOrange}{rgb}{0.9, 0.8, 0.5}
+
+\title{Set-valued field language to 1st order logic conversion rules}
+\author{Charles}
+
+\begin{document}
+\maketitle
+
+Language of incomming formulae :
+
+\begin{figure}[htbp] %  figure placement: here, top, bottom, or page
+   \centering
+   \begin{eqnarray*}
+   	\obj{} & ::= & \ov{} | \Null | \obj{}.\of{} \\
+	\sett{} & ::= & \sv{} | \sett{} \cap \sett{} | \sett{} \cup \sett{} | \sett{} \setminus \sett{} | \set{\obj{}, \dots, \obj{}} | \obj{}.\setf{} \\
+	\of{} & ::= & \ofv{} | \fieldwrite{\of{}}{\obj{}}{\obj{}} \\
+	\setf{} & ::= & \sfv{} | \fieldwrite{\setf{}}{\obj{}}{\sett{}} \\
+	A & ::= & \obj{} = \obj{} | \sett{} = \sett{} | \obj{} \in \sett{} | \card{\sett{}} \leq k | \of{} = \of{} | \setf{} = \setf{} \\
+	F &::=& A | F \wedge F | F \vee F | \neg F | \top | \bot
+    \end{eqnarray*}
+    \caption{Syntax of expresions and formulas}
+   \label{fig:transitions}
+\end{figure}
+
+\section{Unnesting for dummies}
+
+\begin{description}
+
+\item[Cardinalities constraints] Just expresses the fact that the set is equal to a finite set of cardinality $k$. All the introduced variables are fresh.
+
+%\typerule{CARD-CONSTRAINT}{\card{S} \leq k }{\exists \left(x_{1}, \hdots, x_{k} \right), S \subseteq \set{ x_{1}, \dots, x_{k} }}
+
+\begin{mathpar}
+\colorbox{LightGray}{  \inferrule[Card-Constraint]{\card{S} \leq k }{\exists \left(x_{1}, \hdots, x_{k} \right), S \subseteq \set{ x_{1}, \dots, x_{k} }}} \quad \colorbox{LightOrange}{$k \in \N$}
+\end{mathpar}
+
+\item[Set inclusion and equality] We unfold the definition. After that, we only have set membership.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Set-Inclusion]{S_{1} \subseteq S_{2}}{\forallo{x}, x \in S_{1} \imply x \in S_{2}}} \and
+\colorbox{LightGray}{\inferrule[Set-Equality]{S_{1} = S_{2}}{\forallo{x}, x \in S_{1} \iff x \in S_{2}}}
+\end{mathpar}
+
+
+\item[Complex set expressions] We unfold the definition. After that, the only set expressions are set variables or set-valued fields.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Intersection]{x \in S_{1} \cap S_{2}}{x \in S_{1} \wedge x \in S_{2}}} \and
+\colorbox{LightGray}{\inferrule[Union]{x \in S_{1} \cup S_{2}}{x \in S_{1} \vee x \in S_{2}}} \\
+\colorbox{LightGray}{\inferrule[Difference]{x \in S_{1} \setminus S_{2}}{x \in S_{1} \wedge x \notin S_{2}}} \and
+\colorbox{LightGray}{\inferrule[FiniteSet]{x \in \set{O_{1}, \dots, O_{k}}}{x=O_{1} \vee \dots \vee x=O_{k}}}
+\end{mathpar}
+
+
+\item[Field Equalities] we can unfold the definitions, and flaten everything to be in a finite number of case. Note that the set expressions that appears here may be complex, as they have not been processed by the rules above. Note that we can't write existential quantifiers on fields variables, so there must NOT be universal quantifier above in the formula. Just introducing a fresh constant symbol as we do is like doing some kind of immediate skolemization, assuming there are not universally quantified variables above.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Object-Field-Variables-Equality]{\ofv{1} = \ofv{2}}{\forallo{x}, x.\ofv{1} = x.\ofv{2}}} \and
+\colorbox{LightGray}{\inferrule[Object-Field-Write-Equality-Rectify]{\fieldwrite{ \of{2} }{ \obj{1} }{ \obj{2} } = \ofv{1}     }{  \ofv{1} =  \fieldwrite{ \of{2} }{ \obj{1} }{ \obj{2} }}}  \\
+
+
+\colorbox{LightGray}{\inferrule[Object-Field-Write-Flattening]{\fieldwrite{ \of{1} }{ \obj{1} }{ \obj{2} }  = \fieldwrite{ \of{2} }{ \obj{3} }{ \obj{4} }   }{
+\fieldwrite{ \of{1} }{ \obj{1} }{ \obj{2} }  = \ofv{fresh} \wedge \ofv{fresh} = \fieldwrite{ \of{2} }{ \obj{3} }{ \obj{4} }     } } \\
+
+\colorbox{LightGray}{\inferrule[Set-Field-Variables-Equality]{\sfv{1} = \sfv{2}}{\forallo{x, y}, x \in y.\sfv{1} \iff  x \in y.\sfv{2}}}  \and
+\colorbox{LightGray}{\inferrule[Set-Field-Write-Equality-Rectify]{\fieldwrite{ \setf{2} }{ \obj{} }{ \sett{} } = \sfv{1}     }{   \sfv{1} =  \fieldwrite{ \setf{2} }{ \obj{} }{ \sett{} } }} \\
+
+
+\colorbox{LightGray}{\inferrule[Set-Field-Write-Flattening]{   \fieldwrite{ \setf{1} }{ \obj{1} }{ \sett{1} }   =   \fieldwrite{ \setf{2} }{ \obj{2} }{ \sett{2} }   }{
+ \fieldwrite{ \sfv{fresh} = \setf{1} }{ \obj{1} }{ \sett{1} }  \wedge \sfv{fresh} =  \fieldwrite{ \setf{2} }{ \obj{2} }{ \sett{2} }     } }  \\
+
+\colorbox{LightGray}{\inferrule[Object-Field-Write-Equality-Unfolding]{\ofv{1} =  \fieldwrite{ \of{2} }{ \obj{1} }{ \obj{2} }   }{  \forall (x,y : Obj), x.\ofv{1} = y \iff  
+ \left( x = \obj{1} \wedge y= \obj{2} \right) 
+\vee \left( x \neq \obj{1} \wedge y= x.\of{2} \right) } }  \\
+
+\colorbox{LightGray}{\inferrule[Set-Field-Write-Equality-Unfolding]{\sfv{1} =  \fieldwrite{ \setf{2} }{ \obj{} }{ \sett{} }   }{ \forall (x,y : Obj), y \in x.\sfv{1}  \iff  
+ \left( x = \obj{} \wedge y \in \sett{} \right) 
+ \vee \left( x \neq \obj{} \wedge y \in x.\setf{2} \right) } }
+ 
+\end{mathpar}
+
+
+\item[Field Writes] We instanciate the previous UNFOLDING rules.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Object-Field-Write-Read]{\ov{1} = \ov{2}.\fieldwrite{ \of{} }{ \obj{1} }{ \obj{2} }   }{  \left( \ov{2} = \obj{1} \wedge \ov{1}= \obj{2} \right) 
+	\vee \left( \ov{2} \neq \obj{1} \wedge \ov{1}= \ov{2}.\of{} \right)  }} \\
+
+\colorbox{LightGray}{\inferrule[Set-Field-Write-Read]{\ov{1} \in \ov{2}.\fieldwrite{ \setf{} }{ \obj{} }{ \sett{} }   }{  \left( \ov{2} = \obj{} \wedge \ov{1} \in \sett{} \right) 
+	\vee \left( \ov{2} \neq \obj{} \wedge \ov{1} \in \ov{2}.\setf{} \right)  }}
+\end{mathpar}
+
+
+\item[Flattening] We must find any remaining field write : for this purpose we flatten everything. This may trigger the two previous rules, and the set expressions rules.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Object-Valued-Field-Flattening]{ \obj{1}.\of{1} = \obj{2}.\of{2} }{  \exists x, x = \obj{1}.\of{1}  \wedge  x =   \obj{2}.\of{2} } }\and
+\colorbox{LightGray}{\inferrule[Objet-Flattening]{ \ov{} = \obj{1}.\of{}.\ofv{} }{ \exists x, x = \obj{1}.\of{}  \wedge \ov{} = x.\ofv{} } } \\
+\colorbox{LightGray}{\inferrule[Membership-Flattening-Right]{ \ov{} \in \obj{}.\of{}.\setf{}  }{ \exists x,  x = \obj{}.\of{} \wedge  \ov{} \in x.\setf{} } } \and
+\colorbox{LightGray}{\inferrule[Membership-Flattening-Left]{ \ov{}.\of{} \in \sett{}}{ \exists x, x = \ov{}.\of{} \wedge  x \in  \sett{} }} \quad \colorbox{LightOrange}{$\sett{} $ not a set expression} 
+
+\end{mathpar}
+
+\item[1st order logic] Now we're finally ready to finish the conversion to first-order logic.
+
+\begin{mathpar}
+\colorbox{LightGray}{\inferrule[Field-Deferencing]{\ov{1} = \ov{2}.\ofv{}}{ \ofv{} \left( \ov{2}, \ov{1} \right)} } \and
+\colorbox{LightGray}{\inferrule[Variable-Membership]{\ov{} \in \sv{}}{ \sv{} \left( \ov{} \right)} } \\
+\colorbox{LightGray}{\inferrule[Field-Membership]{\ov{1} \in \ov{2}.\sv{}}{ \sv{} \left( \ov{2}, \ov{1} \right)} } \and
+\colorbox{LightGray}{\inferrule[Equality-Normalization]{ \ov{1}.\ofv{} = \ov{2} }{ \ov{2} = \ov{1}.\ofv{}  } }
+\end{mathpar}
+
+\end{description}
+
+I chose to instanciate the Field Writes rules instead of flatening the field writes because it generates less hypothesis.
+
+Figure \ref{fig:transitions} shows a summary of what's happening.
+
+\begin{figure}[htb] %  figure placement: here, top, bottom, or page
+   \centering
+   \includegraphics[height=12cm]{rewriting_schema.pdf} 
+   \caption{Possibles triggering of rules}
+   \label{fig:transitions}
+\end{figure}
+
+Termination is clear. 
+
+Confluence is trivial because for a given atom, there is no situation where two different rules could be applied (at least, if we enforce the $\sett{}$ in the OBJECT-VALUED-FIELD-FLATENING rule not to be a complex set expression). 
+
+Correcteness (i.e. that once the rewriting has terminated the result is a FO formula) is less evident.
+
+\begin{enumerate}
+\item When no rule from the Field Equality section can be applied, then there is no field equality in the formula. Although the UNFOLDING rules only apply to equality which left-side term is a field variable, the RECTIFY and FLATTENING rules are enough to put all the field equalities in the desired form.
+\item the trickiest point is to see that all the field writes disappear in the process. This is achieved by the recursive interaction between the ``Field write'' and the ``Flattening'' sets of rules. A field write cannot be hidden in the left-hand side of an equality or membership atom because of the OBJECT-VALUED-FIELD-FLATTENING  and MEMBERSHIP-FLATTENING-LEFT rules. It cannot be the first deferenced field because of the WRITE-READ rules. However, if we have multiple cascaded field deferences, they will be flattened by the OBJECT-FLATTENING and MEMBERSHIP-FLATTENING-RIGHT rules.This way, all the fields occuring in the formula will occur as the first and only field deference of an object variable, and the READ-WRITE rules then apply.
+\end{enumerate}
+
+
+\begin{figure}[htb] %  figure placement: here, top, bottom, or pa
+\centering
+   \includegraphics[width=5in]{call_graph.pdf} 
+   \caption{Call graph of the real implementation (black arrows), and result flow graph (red arrows)}
+   \label{fig:callgraph}
+\end{figure}
+
+The real implementation is summarized by figure \ref{fig:callgraph}
+
+\end{document}

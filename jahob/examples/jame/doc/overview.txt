@@ -1,0 +1,41 @@
+Linked list implementing an iterable set:
+
+  JameCollection.java
+  JameNode.java
+
+Map from objects to integers implemented on top of JameCollection:
+
+  JameResourceSet.java
+  JameResource.java
+  JameCollection.java
+
+Global data structure:
+
+  JI.java
+
+  JameMap.java
+  JamePlayer.java
+
+  Jame.java
+  JameMapContainer.java
+  JameBuildingType.java
+  JameMapType.java
+  JameResearch.java
+  JameTerrain.java
+  JameTerrainType.java
+  JameUnit.java
+  JameUnitType.java
+
+Control layer: 
+   JameCommandContainer.java
+   JameBuildCommand.java
+   JameCommandContainer.java
+   JameCreateUnitCommand.java
+   JameMoveUnitCommand.java
+   JamePlaceUnitCommand.java
+
+Don't analyze:
+
+  JameDemo.java
+  *GUI*.java
+  JameStandardStartup.java

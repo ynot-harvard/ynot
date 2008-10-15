@@ -1,0 +1,23 @@
+JD="examples/jame"
+LIB="lib/Jahob.java"
+METHOD=JameResourceSet.find
+OUT=out-run-resourceset
+bin/jahob -nobackground -v -method $METHOD $* \
+  $JD/JameResourceSet.java \
+  $JD/JameResource.java \
+  $JD/JameCollection.java \
+  $JD/JameNode.java \
+  $LIB | tee $OUT
+
+#  $JD/JameResourceSet.java \
+#  $JD/JameResource.java \
+#  $JD/JameMapContainer.java \
+#  $JD/JameCollection.java \
+#  $JD/JameNode.java \
+#  $JD/JameBuilding.java \
+#  $JD/JameMapContainer.java \
+#  $JD/JameBuildingType.java \
+#  $JD/JameMapType.java
+
+date >> $OUT
+echo "" >> $OUT

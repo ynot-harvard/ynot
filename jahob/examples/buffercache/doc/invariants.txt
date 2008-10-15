@@ -1,0 +1,495 @@
+Verifying Buffer Cache Invariants
+
+Buffer Cache interface: init, bread, brelse, bwrite. Init must be called
+exactly once and before bread, brelse, and bwrite are called
+
+INVARIANTS
+----------
+
+Invariants (only applicable after init is called)
+
+	   a) locked Int BufferFreeList.contents = {}
+	   b) locked <= valid
+	   c) BufferFreeList.contents = BufferPool.contents - locked
+	   d) valid = BufferHashQueues.contents
+	   e) valid <= Range contents
+	   f) valid <= BufferPool.contents
+	   g) (BufferPool.contents - valid) Int Range contents = {}
+	   h) (valid = BufferPool.contents) --> (BufferHashQueues.contents = BufferPool.contents)
+	   i) BufferHashQueues.contents <= BufferPool.contents
+	   j) BufferFreeList.contents <= BufferPool.contents 
+	   k) ALL bufa bufb. (bufa : valid & bufb : valid & bufa ~= bufb) --> (bufa.blkid ~= bufb.blkid)
+	   
+
+ASSUMPTION
+-----------
+
+init method is called before all other methods
+
+
+CLAIMS
+-----------
+
+Claim 0: Calling init method makes the following statements true (base case)
+	 
+	 Statements:
+
+	 a) BufferPool.contents <= Buffer
+	 b) ALL b . b:BufferPool.contents --> (b.isLocked & b.blkid=0)	    
+	 c) BufferFreeList.contents = BufferPool.contents
+	 d) BufferHashQueues.contents = {}
+
+
+	 Assumptions:
+	 (none)
+
+
+	 Correctness arguments:
+	 
+	 a) BufferPool.contents <= Buffer
+	 
+	 BufferCache.init calls BufferPool.init which satisfies the base case
+	 of the BufferPool specification. Statement a follows from the vardef
+	 of BufferPool.contents in the specification of BufferPool. 
+
+	 b) ALL b . b:BufferPool.contents --> (~b.isLocked & b.blkid=0)
+
+	 Same reasoning as for statement a
+
+	 c) BufferFreeList.contents = BufferPool.contents
+
+	    c.1) BufferPool.contents <= BufferFreeList.contents
+
+	    while construct in constructor interates over each element of
+	    BufferPool.contents and adds it to BufferFreeList.contents
+
+	    c.2) BufferFreeList.contents <= BufferPool.contents
+
+	    No objects other than those in BufferPool.contents are added to
+	    BufferFreeList.contents 
+	    
+	 d) BufferHashQueues.contents = {}
+	 
+	BufferCache.init calls BufferHashQueues.init which satisfies the base case
+	of the BufferHashQueues specification. The "ensures" clause of the
+	init method guarantees statement d. No other methods are invoked
+	on BufferHashQueues, so the state reached after calling init is the
+	same.
+
+
+
+Claim 1: all invariants hold right after init is called:
+
+	 Assumptions:
+
+	 a) All claim 0 statements hold. Conclude the following:
+	    
+	    1. locked = {}, by locked vardefs and stmt b of Claim 0 
+	    2. valid = {}, by valid vardefs and stmt b of Claim 0
+	    
+	 
+	 Correctness Arguments:
+
+	 a) locked Int BufferFreeList.contents = {}
+
+	    Antecedent: 
+			locked = {} 
+	 
+	 b) locked <= valid
+	 
+            Antecedent:	
+			locked = {};
+			valid = {}
+
+	 c) BufferFreeList.contents = BufferPool.contents - locked
+
+	    Antecedent:
+			locked = {};
+			BufferFreeList.contents = BufferPool.contents
+
+	 d) valid = BufferHashQueues.contents
+
+	    Antecedent:
+			valid = {};
+			BufferHashQueues.contents = {}
+
+         e) valid <= Range contents
+
+	    Antecedent:
+			valid = {};
+
+	 f) valid <= BufferPool.contents
+		
+	    Antecedent:
+			valid = {};
+
+	 g) (BufferPool.contents - valid) Int Range contents = {}
+
+	    Antecedent:
+			valid = {};
+			<vardefs of contents>
+			<stmt b of claim 0>			
+
+	 h) (valid = BufferPool.contents) --> (BufferHashQueues.contents =
+	 BufferPool.contents)
+
+	    Antecedent:
+			valid = {};
+			<stmt b of claim 0>
+
+	 i) BufferHashQueues.contents <= BufferPool.contents
+	 
+	    Antecedent:
+			BufferHashQueues.contents = {}
+
+	 j) BufferFreeList.contents <= BufferPool.contents 
+
+	    Antecedent:
+			<stmt c of claim 0>			   			
+
+	 k) ALL bufa bufb. (bufa : valid & bufb : valid & bufa ~= bufb) -->
+	 (bufa.blkid ~= bufb.blkid)
+
+	    Antecedent:
+			valid = {}
+
+
+
+Claim 2: calling brelse makes each of the following statements true assuming
+	 invariants hold on entry
+
+	 Statements:
+
+	 a) locked' = locked - {buffer}
+	 b) BufferFreeList.contents' = BufferFreeList.contents + {buffer}
+
+
+	 Assumptions:
+	 
+	 a) Invariants hold on entry and requires clause
+
+
+	 Correctness arguments:
+
+	 a) locked = locked - {buffer}
+
+	 Call to buffer.unlock sets buffer.isLocked to false by buffer.unlock
+	 ensures clause. Statement follows from vardef of "locked" abstract
+	 set.
+
+	 requires clause of buffer.unlock is satisfied by requires clause of brelse
+
+	 b) BufferFreeList.contents = BufferFreeList.contents + {buffer}
+
+	 Call to BufferFreeList.contents passing buffer as argument. buffer is
+	 added to BufferFreeList.contents abstract set by ensures clause of
+	 BufferFreeList.add method.
+
+	 requires clause of BufferFreeList.add satisfied because
+	 buffer.isLocked is false after statement a and because invariant
+	 c held on entry (note, it does not hold immediately before the add
+	 method invocation)
+
+
+
+Claim 3: brelse preserves all invariants:
+
+	 Assumptions:
+
+	 a) Invariants hold on entry
+	 b) Statements of claim 2 hold
+
+	 Statements:
+
+	 a) locked' Int BufferFreeList.contents' = {}
+
+	 Antecedent:
+		 locked Int BufferFreeList.contents = {}	(invariant held on entry)
+		 locked' = locked - {buffer}			(ensures)
+		 BufferFreeList.contents' = BufferFreeList.contents + {buffer} (ensures)
+ 
+
+	 b) locked' <= valid'
+
+	 Antecedents:
+		locked <= valid					(invariant held on entry)
+		locked' = locked - {buffer}			(ensures)
+		
+
+	 c) BufferFreeList.contents' = BufferPool.contents' - locked'
+
+	 Antecedents:
+		BufferFreeList.contents = BufferPool.contents - locked
+		locked' = locked - {buffer}
+		BufferFreeList.contents' = BufferFreeList.contents + {buffer}
+
+
+	 d) valid' = BufferHashQueues.contents'
+
+	 Antecedents:
+		valid = BufferHashQueues.contents
+		(nothing effects either set)
+
+	 e) valid' <= Range contents'
+
+ 	 Antecedents:
+		valid <= Range contents
+		(nothing effects either set)				
+
+	 f) valid' <= BufferPool.contents'
+
+  	 Antecedents:
+		valid <= BufferPool.contents
+		(nothing effects either set)				
+
+	 g) (BufferPool.contents' - valid') Int Range contents' = {}
+
+  	 Antecedents:
+		(BufferPool.contents - valid) Int Range contents = {}
+		(nothing effects either set)
+
+	 h) (valid' = BufferPool.contents') --> (BufferHashQueues.contents' =
+	 BufferPool.contents')
+
+  	 Antecedents:
+		(valid = BufferPool.contents) --> (BufferHashQueues.contents =
+		       BufferPool.contents)
+		(nothing effects either set)
+
+	 i) BufferHashQueues.contents' <= BufferPool.contents'
+
+  	 Antecedents:
+		BufferHashQueues.contents <= BufferPool.contents
+		(nothing effects either set)
+
+	 j) BufferFreeList.contents' <= BufferPool.contents' 
+			
+	 Antecedents:
+		invariant c shown above
+
+	 k) ALL bufa bufb. (bufa : valid' & bufb : valid' & bufa ~= bufb) -->
+	 (bufa.blkid ~= bufb.blkid)
+
+  	 Antecedents:
+		ALL bufa bufb. (bufa : valid & bufb : valid & bufa ~= bufb)
+		--> (bufa.blkid ~= bufb.blkid)
+		(nothing effects either set)
+	 
+
+NOTE: In the specifications, changing the blkid of a Buffer object changes the
+object identity (i.e. x : Buffer, x'.blkid = blkid --> x ~= x'
+
+
+
+
+
+Claim 4: calling balloc makes each of these statement true assuming invariants
+hold
+
+(note: have to modify these statement to say blkid : Domain contents in
+b-e. In general, have to change them so they are treated as cases
+(i.e. exactly one antecedent is true)
+
+	Statements
+
+	a) blkid ~: Domain contents --> result = null
+
+	b) blkid : Domain contents & contents$[blkid] :
+	BufferHashQueues.contents & contents$[blkid] : locked --> result =
+	null
+
+	c) blkid : Domain contents & contents$[blkid] :
+	BufferHashQueues.contents & contents$[blkid] ~: locked --> (result =
+	contents$[blkid] & BufferFreeList.contents' = BufferFreeList.contents
+	- {result} & locked = locked + {result})
+
+	d) blkid : Domain contents & contents$[blkid] ~:
+	BufferHashQueues.contents & BufferFreeList.contents = {} --> result =
+	null
+
+	e)  blkid : Domain contents & contents$[blkid] ~:
+	BufferHashQueues.contents & BufferFreeList.contents ~= {}
+	-->
+
+	result = contents$[blkid] &
+	(EX any . any : BufferFreeList.contents & 
+		   BufferFreeList.contents' = BufferFreeList.contents - {any} & 
+		   BufferHashQueues.contents' = BufferHashQueues.contents + {result} - {any} &
+ 	   	   BufferPool.contents' = BufferPool.contents + {result} - {any} &
+		   locked' = locked + {result} & 
+		   valid' = valid + {result} - {any}) 
+
+
+
+Claim 5: balloc preserves all invariants:
+
+	 Assumptions
+
+	 a) Stmts of claim 4 are correct
+	 b) Invariants held on entry
+
+	 Statements
+
+	 a) locked' Int BufferFreeList.contents' = {}
+	 Invariant holds on entry. In case c, the result object is removed
+	 from the BufferFreeList.contents and added to the locked set. In case
+	 e, argument is more complicated:
+
+	 subclaim:
+		contents[blkid] ~: BufferFreeList.contents
+
+		proof:			
+			hashqueues = valid		(invariant d)
+			contents[blkid] ~: hashqueues	(antedecent conjuct)
+			contents[blkid].blkid != 0	(def of contents)
+			----------------------------
+			 hashqueues = valid -->
+			 hashqueues = {b . b : bufferpool & b..blkid != 0 } -->	 
+			 hashqueues = bufferpool - { b . b : bufferpool & b..blkid = 0 }
+
+			 so, 
+			 hashqueues = bufferpool - { b . b : bufferpool & b..blkid = 0};
+			 contents[blkid] ~: hashqueues & contents[blkid].blkid != 0
+			 -->
+			 contents[blkid] ~: bufferpool	(set manip)
+			 -->
+			 contents[blkid] ~: freelist	(invariant j)
+			
+
+	 Invariants hold on entry. contents[blkid] is added to the locked set
+	 only. contents[blkid] is not originally in the FreeList as shown
+	 above. Invariant holds on exit
+		 
+	 b) locked <= valid
+	 Invariant holds on entry. Locked and valid are always modified
+	 together in each case in claim 4. In each case in which they are
+	 modified (c,e), the same object is added to each set.	 
+
+	 c) BufferFreeList.contents' = BufferPool.contents' - locked'
+	 Invariant holds on entry. contents[blkid] is originally on the
+	 BufferFreeList and the BufferPool but not in the locked set. 
+
+	 In case c, it is removed from the freelist and added to the locked
+	 set. Adding it to the locked set removes it from the BufferPool. So,
+	 contents[blkid] is not on either side of the equality. Assuming the
+	 invariant held on entry, the invariant holds on exit.
+
+	 In case e, any and contents[blkid] are the only objects moved around
+	 in these sets. any is originally on the freelist and contents[blkid]
+	 is not originally on the freelist nor in the bufferpool. any is
+	 removed from both the freelist and the buffer pool. contents[blkid]
+	 is added to the locked set and the bufferpool. These modifications
+	 preserve the invariant.
+
+
+	 d) valid = BufferHashQueues.contents
+	 Invariant holds on entry. Sets are only modified in case 3. In case
+	 e, hashqueues and valid are modified. contents[blkid] is added and
+	 any is removed from both valid and BufferHashqueues. So, invariant is
+	 preserved.
+
+	 e) valid <= Range contents	 
+	 By definitions of valid and contents
+	 
+
+	 f) valid <= BufferPool.contents
+	 Invariant holds on entry. valid and BufferPool.contents are only
+	 modified in case e where result is added to both sets and any is
+	 removed from both sets. So, invariant holds after exit.
+
+ 
+	 g) (BufferPool.contents - valid) Int Range contents = {}
+	 Implied by definitions
+
+
+	 h) (valid = BufferPool.contents) --> (BufferHashQueues.contents =
+	 BufferPool.contents)
+	 Invariant holds on entry. 
+
+	 Case 1: valid = BufferPool.contents
+		 On exit, valid' = BufferPool.contents' because both are
+		 modified in the same way. And, result is added and any is
+		 removed from BufferHashQueues.contents and
+		 BufferPool.contents alike. So, invariant holds on exit.
+
+	 Case 2: valid ~= BufferPool.contents
+		 result ~: BufferPool.contents & result ~: valid
+		 any : BufferPool.contents 
+
+		 case 2.a: any : valid
+		 valid' ~= BufferPool.contents' remains true and implication is
+		 vacuously true
+
+		 case 2.b: any ~: valid
+		 
+			case 2.b.a:  valid' = BufferPool.contents'	   
+				     By invariant d, this invariant holds on exit				     		     
+
+			case 2.b.b:  valid' ~= BufferPool.contents'
+				     implication is vacuously true
+
+
+	 i) BufferHashQueues.contents <= BufferPool.contents
+	 same argument as invariant f
+
+	 j) BufferFreeList.contents <= BufferPool.contents 
+	 immediately by invariant c	 
+
+	 k) ALL bufa bufb. (bufa : valid & bufb : valid & bufa ~= bufb) -->
+	 (bufa.blkid ~= bufb.blkid)
+	 Only time when we add something to valid is in case e.
+	 contents$[blkid] is never originally in valid because it is never
+	 originally in bufferpool.
+
+
+
+Claim 5: bread, bwrite preserves all invariants
+
+all of these follow from claim 4
+
+
+
+BufferFreeList.contents = BufferPool.contents - locked
+
+buffer ~: locked
+
+locked' = locked - {buffer}
+BufferFreeList.contents' = BufferFreeList.contents + {buffer}
+
+BufferFreeList.contents' = BufferPool.contents' - locked'
+
+
+
+
+
+([|
+
+(ALL (b::obj). ((~(b = (buffer :: obj))) --> ((fieldRead (x_3 :: (obj => bool)) b) = (fieldRead (Buffer_isLocked :: (obj => bool)) b))));
+
+(~(fieldRead (x_3 :: (obj => bool)) (buffer :: obj)));
+
+((BufferCache_init_called :: bool) --> (({buf. ((buf : (BufferPool_contents :: obj set)) & (fieldRead (Buffer_isLocked :: (obj => bool)) buf))} :: obj set) <= (Buffer :: (obj) set)));
+
+((BufferCache_init_called :: bool) --> ((({buf. ((buf : (BufferPool_contents :: obj set)) & (fieldRead (Buffer_isLocked :: (obj => bool)) buf))} :: obj set) Int (BufferFreeList_contents :: obj set)) = {}));
+
+((BufferFreeList_contents :: obj set) <= (Buffer :: (obj) set));
+
+((BufferHashQueues_contents :: obj set) <= (Buffer :: (obj) set));
+
+(ALL (this::obj). (~((fieldRead (Buffer_freelistNode :: (obj => obj)) (this :: obj)) = nullObj)));
+
+(ALL (this::obj). ((fieldRead (BufferList_nodes :: (obj => obj set)) (this :: obj)) <= (BufferNode :: (obj) set)));
+
+(ALL (this::obj). (~((fieldRead (BufferNode_buffer :: (obj => obj)) (this :: obj)) = nullObj)));
+
+(~((buffer :: obj) = nullObj));
+
+(fieldRead (Buffer_isLocked :: (obj => bool)) (buffer :: obj));
+
+(BufferCache_init_called :: bool)
+
+|] 
+
+
+==>
+    (~((buffer :: obj) : (BufferFreeList_contents :: obj set))))

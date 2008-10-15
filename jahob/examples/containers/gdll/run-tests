@@ -1,0 +1,2 @@
+../../../bin/jahob.opt DLL.java Node.java -nobackground -bohne -method DLL.addLast -usedp mona
+ensure_verifies $? "DLL.addLast"

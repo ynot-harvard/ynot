@@ -1,0 +1,218 @@
+(DEFPRED (MEMBER x s))
+
+(DEFPRED (SUBSETEQ sub sup)
+	(FORALL (x) (IMPLIES (MEMBER x sub) (MEMBER x sup))))
+
+(DEFPRED (SUBSET sub sup)
+	(FORALL (x) (AND (IMPLIES (MEMBER x sub) (MEMBER x sup))
+			 (EXISTS (y) (AND (MEMBER y sup) (NOT (MEMBER y sub))))))
+)
+
+
+(DEFPRED (SINGLETON s)
+	(FORALL (x1 x2) (AND (EXISTS (x) (MEMBER x s))
+			     (IMPLIES (AND (MEMBER x1 s) (MEMBER x2 s)) (EQ x1 x2))))
+)
+
+(DEFPRED (COMPLEMENT s cs)
+	(FORALL (x) (AND (IMPLIES (MEMBER x s) (NOT (MEMBER x cs))) 
+			 (IMPLIES (NOT (MEMBER x s)) (MEMBER x cs))))
+)
+
+; empty set
+(BG_PUSH
+	(FORALL (x) (NOT (MEMBER x EMPTYSET)))
+)
+
+; universal set
+(BG_PUSH
+	(FORALL (x) (MEMBER x UNIV))
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;(LEMMA
+;(FORALL (s cs) (IMPLIES (COMPLEMENT s cs) (INTER s cs EMPTYSET)))
+;)
+
+;(LEMMA
+;(FORALL (s cs) (IMPLIES (COMPLEMENT s cs) (UNION s cs UNIV)))
+;)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+; union
+(BG_PUSH
+ (FORALL (x s1 s2) (IFF (MEMBER x (UNION s1 s2)) (OR (MEMBER x s1) (MEMBER x s2))))
+)
+
+
+; intersection
+(BG_PUSH
+ (FORALL (x s1 s2) (IFF (MEMBER x (INTER s1 s2)) (AND (MEMBER x s1) (MEMBER x s2))))
+)
+
+; difference
+(BG_PUSH
+ (FORALL (x s1 s2) (IFF (MEMBER x (DIFF s1 s2)) (AND (MEMBER x s1) (NOT (MEMBER x s2)))))
+)
+
+; disjoint
+(DEFPRED (DISJOINT s1 s2)
+	(EQ (INTER s1 s2) EMPTYSET)
+)
+
+; set equality
+(BG_PUSH
+	(FORALL (s1 s2) (IFF (EQ s1 s2) (FORALL (x) (IFF (MEMBER x s1) (MEMBER x s2)))))
+)
+
+; identity of union
+(BG_PUSH
+ (FORALL (s) (EQ (UNION EMPTYSET s) s))
+ )
+
+; identity of intersection
+(BG_PUSH
+ (FORALL (s) (EQ (INTER UNIV s) s))
+)
+
+; commutivity
+(BG_PUSH
+ (FORALL (s1 s2) 
+	 (EQ (UNION s1 s2) (UNION s2 s1)))
+ )
+
+(BG_PUSH
+ (FORALL (s1 s2)
+	 (EQ (INTER s1 s2) (INTER s2 s1)))
+)
+
+; associativity
+(BG_PUSH
+ (FORALL (s1 s2 s3)
+	 (EQ (UNION (UNION s1 s2) s3) (UNION s1 (UNION s2 s3))))
+)
+
+
+(BG_PUSH
+ (FORALL (s1 s2 s3)
+	 (EQ (INTER (INTER s1 s2) s3) (INTER s1 (INTER s2 s3))))
+)
+
+
+(BG_PUSH
+ (FORALL (s1 s2)
+	 (IMPLIES (SUBSET s1 s2) (EQ s1 (INTER s1 s2))))
+)
+
+(BG_PUSH
+ (FORALL (s1 s2)
+	 (IMPLIES (SUBSET s1 s2) (EQ s2 (UNION s1 s2))))
+)
+
+
+; distributivity of union over intersection
+(BG_PUSH
+ (FORALL (s1 s2 s3)
+	 (EQ (UNION s1 (INTER s2 s3))
+	     (INTER (UNION s1 s2) (UNION s1 s3))))
+)
+
+; distributivity of intersection over union
+(BG_PUSH
+ (FORALL (s1 s2 s3)
+	 (EQ (INTER s1 (UNION s2 s3))
+	     (UNION (INTER s1 s2) (INTER s1 s3))))
+)
+
+
+(LEMMA
+ (FORALL (s1 s2 s3)
+	 (EQ (UNION s1 (UNION s2 s3))
+	     (UNION s3 (UNION s1 s2))))
+)
+
+; (a U b) ^ (c U d) = (a ^ (c U d)) U (b ^ (c U d))
+(LEMMA
+ (FORALL (a b c d)
+	 (EQ 
+	  (INTER (UNION a b) (UNION c d))
+	  (UNION (INTER a (UNION c d)) (INTER b (UNION c d)))))
+)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; cardinality
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(BG_PUSH
+	(EQ (CARD EMPTYSET) 0)
+)
+
+(BG_PUSH
+	(FORALL (s) (IFF (SINGLETON s) (EQ (CARD s) 1)))
+)
+
+(BG_PUSH
+	(FORALL (s) (>= (CARD s) 0))
+)
+
+(BG_PUSH
+ (FORALL (s s1 s2)
+	 (IMPLIES
+	  (AND (DISJOINT s1 s2) 
+	       (EQ (UNION s1 s2) s))
+	  (EQ (CARD s) (+ (CARD s1) (CARD s2)))))
+ )
+
+
+; try s1 subset s2 => CARD(s1) <= CARD(s2)
+(BG_PUSH
+	(FORALL (s1 s2)
+		(IMPLIES (SUBSET s1 s2)
+			(<= (CARD s1) (CARD s2))))
+)
+
+
+(FORALL (x) (SUBSETEQ x x))
+
+(FORALL (a b) (IMPLIES (SUBSETEQ a b) (<= (CARD a) (CARD b))))
+
+; causes Simplify to crash
+;(FORALL (a b) (IMPLIES (EQ (CARD (UNION a b)) (CARD b)) (<= (CARD a) (CARD b))))
+; (FORALL (a b) (<= (CARD (UNION a b)) (+ (CARD a) (CARD b))))
+
+; (FORALL (a b) (<= (CARD a) (CARD (UNION a b))))
+
+; CARD(s1 U s2) <= CARD(s1) + CARD(s2)
+;(BG_PUSH
+;	(FORALL (s1 s2)
+;		(EXISTS (n1 n2 s3 n3) 
+;			(AND (AND (UNION s1 s2 s3) (CARD s1 n1) (CARD s2 n2) (CARD s3 n3))
+;				(<= n3 (+ n1 n2)))))
+;)
+
+;(BG_PUSH
+;	(FORALL (s1 s2)
+;		(EXISTS (n1 n2 s3 n3) 
+;			(AND (AND (INTER s1 s2 s3) (CARD s1 n1) (CARD s2 n2) (CARD s3 n3))
+;				(<= n3 (+ n1 n2)))))
+;)
+
+; (LEMMA (< 1 0))
+
+;(LEMMA
+;	(FORALL (s1 s2)
+;		(EXISTS (n1 n2 s3 n3) 
+;			(AND (AND (INTER s1 s2 s3) (CARD s1 n1) (CARD s2 n2) (CARD s3 n3))
+;				(<= n3 (+ n1 n2)))))
+;)
+
+
+;(LEMMA
+;	(FORALL (s1 s2)
+;		(EXISTS (s3 n3 s4 n4) 
+;			(AND (AND (INTER s1 s2 s3) (CARD s3 n3) (CARD s4 n4))
+;				(<= n3 n4))))
+;)

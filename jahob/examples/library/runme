@@ -1,0 +1,1 @@
+../../bin/jahob.opt FuncList.java AssocList.java Book.java Person.java Library.java ../../lib/String.java -class Library -usedp e:SortGuards=no

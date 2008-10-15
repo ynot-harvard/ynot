@@ -1,0 +1,119 @@
+\section{Specification Constructs}
+
+Jahob introduces the following specification constructs:
+\begin{enumerate}
+\item procedure constracts, consisting of:
+      \begin{itemize}
+      \item \q{requires} clause (precondition)
+      \item \q{modifies} clause (set of modified locations)
+      \item \q{ensures} clause (postcondition, potentially as a function of the precondition).
+      \end{itemize}
+\item procedure invariants, such as loop invariants
+\item specification variables, introduced by $\q{specvar}$ declaration, which can be
+      \begin{itemize}
+      \item static specification variables (when their declaration contains $\q{static}$ keyword)
+      \item instance specification variables
+      \end{itemize}
+      A specification variable can be:
+      \begin{itemize}
+      \item \emph{public}, used in public specification of the class, or
+      \item \emph{private}, used to describe properties within
+      the class implementation.  
+      \end{itemize}
+      In addition, concrete variable of class $C$ 
+      can be marked as \emph{claimed} by a different class $D$,
+      which makes them effectively variables private to class $D$ although they
+      are physically stored in $C$ and accessed through instances of $C$.
+
+      According to how they depend other variables specification variables can be
+      \begin{itemize}
+      \item dependent: given in terms of other variables; we distinguish three uses of dependent
+            variables
+            \begin{itemize}
+            \item specifying abstraction function: specifying public specification variables
+                  in terms of implementation variables (using private vardef construct
+	          to define the contents of public specification variables); this is the
+                  most important case
+            \item specifying public shorthand variables in terms of other public variables,
+                  using public vardef construct (the resulting public variables are therefore
+                  visibly dependent on other public variables)
+            \item specifying private shorthands (private variables defined in terms of
+                  other private variables)
+	    \end{itemize}
+      \item independent (ghost) variables, which change only due to explicit abstract
+            assignments
+      \end{itemize}
+      Most variables depend on the current state and are therefore \emph{non-pure}.
+      Pure variables are just symbolic shorthands that define specification constants;
+      note that specification constants can be higher-order.  Pure variables are defined
+      using the \q{constdef} construct.
+\item \emph{class invariants}, given by the $\q{invariant}$ keyword; class invariants
+      can be 
+      \begin{itemize}
+      \item \emph{private}, describing properties of the encapsulated state of the class,
+      or 
+      \item \emph{public}, describing properties involving public variables of
+      the class, which are either
+          \begin{itemize}
+          \item \emph{free} invariants, which talk only about public variables of the class 
+            where they are declared, and are therefore guaranteed to hold by the class, or
+          \item \emph{cross-class} invariants, which relate values of variables from multiple
+            classes and place obligations on potentially the entire program
+            (or an entire group of classes claimed by a common class)
+          \end{itemize}
+      \end{itemize}
+\item $\q{readonly}$ variable modifier, indicating that a variable can
+      only be modified from within a class; this is distinct from
+      $\q{final}$ because variable can be modified even after initialization,
+      as long as it is modified by the procedures within the module.
+      This is analogous to the readonly \q{-} export in the programming language 
+      Oberon-2 \cite[Page 127]{Nikitin98InRealmOberon}.
+\item \emph{claimedby} construct for classes which establishes a simple, static, tree hierarchy
+      of classes that allows public variables of 
+      a class to be treated as a representation of another class
+\item \emph{rep} ghost variable of each class, specifying the dynamicallly changing
+      set of representation objects
+      of a class
+\end{enumerate}
+
+In invariants within a procedure and in the ensures clause,
+it is possible to refer to the value of a variable $x$ at
+the entry of the procedure using the notation $\q{old}\, x$.
+
+Specification constructs are written as annotations in Java
+using special comments that start with \q{//:} and end as
+normal comment signs.  Such annotations are automatically
+ignored by Java compilers and the same source can be used
+both as input to Jahob and as input to Java compiler.
+
+See \q{src/form/yaccSpec.mly} for the precise syntax of the
+specification constructs.
+
+\subsection{Specification Language}
+
+The properties of program state are specified using formulas
+that involve sets and relations and can refer to the
+variables of the state, including both concrete Java
+variables and the speciification variables.
+
+The concrete syntax of formula is given using the notation
+based on formulas used in the Isabelle interactive theorem
+prover \cite{NipkowETAL02IsabelleHOL}.
+We only support basic operations on sets and relations,
+see \q{src/form/yaccForm.mly} for the syntax of specification
+constructs.
+
+Quantification over objects: quantify over all objects that
+existed and will exist.  Use T.alloc to denote currently
+allocated objects of type T.  All objects exist in each state,
+it is just T.alloc that changes, and only allocated objects
+are reachable.
+
+In procedure contracts, \q{result} denotes the resulting value of a
+procedure.
+
+In formulas, both the beginning and the end of a string
+value are denoted by two openning apostrophe signs (\q{''})
+and are thus not confused with quotes (\q{"}), which are
+used to delimit the formulas.
+

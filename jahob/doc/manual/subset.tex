@@ -1,0 +1,59 @@
+\section{Java Subset}
+\label{sec:javaSubset}
+
+The goal of Jahob is to be a sound data structure consistency
+verification tool for a subset of Java that is reasonably easy to
+describe.\footnote{In principle, any unsound tool is sound on some
+implicitly defined set of programs, defined as ``the programs for
+which the tool is sound for'', but we would like to have an
+independent and natural characterization of the class of Java
+programs.}  The process of choosing features to analyze is similar to
+language design---but stripped off the superficial issues such as
+concrete syntax.
+
+Jahob does not support the following features:
+\begin{enumerate}
+\item Anything beyond Java 1.4, specifically generics (to start with,
+the Joust parser only supports ``Java Language Specification, 2nd Edition'').
+\item Dynamic class loading.
+\item Concurrency.
+\item Exceptions.
+\item Ad-hoc overloading (methods named the same in the same class).
+\item Dynamic dispatch.
+\end{enumerate}
+Some of these features would be easier to handle, some would be more
+difficult.  However, we were successful in writing programs that
+manipulate highly non-trivial data structures in this subset, and we
+have found that the use of Java subset makes the process easier than
+the use of a specialized language.  The features that we choose not to
+handle from Java seem largely orthogonal to the main goal of Jahob:
+data structure consistency verification.
+
+There are some additional restrictions on the use of
+existing constructs, which are mostly either result of
+keeping the specification methodology simple, or a result of
+the current status of the implementation:
+\begin{enumerate}
+\item Complex field initializers: it is possible to initialize
+a field to a simple constant value, but not to a value of some
+compound expression.  In particular, this ensures that the initialization
+does not require executing any code that may have side-effects.
+\item The only currently supported loop construct is \q{while},
+     the following control-flow constructs are \emph{not} supported: 
+     \q{break}, \q{continue}, \q{do}, \q{goto}.
+\end{enumerate}
+
+On a positive side, Jahob supports:
+\begin{enumerate}
+\item Dynamically linked data structures.
+\item Arrays.
+\item Certain uses of interfaces.
+\item Simple field initializers.
+\item Constructors.
+\end{enumerate}
+
+Finally, Jahob introduces a range of new specification constructs; we
+describe these constructs in the sequel.  These constructs are written
+as special Java comments that do not interfere with normal compilation
+using an ordinary Java compiler, but help the Jahob tool in the
+verification task.

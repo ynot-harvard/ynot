@@ -1,0 +1,8 @@
+../../../bin/jahob.opt SortedListVC.java Node.java -nobackground -method SortedList.vcadd1 -usedp mona cvcl isa:TimeOut=0
+ensure_verifies $? "(mutable)SortedListVC.vcadd1"
+../../../bin/jahob.opt SortedListVC.java Node.java -nobackground -method SortedList.vcadd2 -usedp mona cvcl isa:TimeOut=0
+ensure_verifies $? "(mutable)SortedListVC.vcadd2"
+../../../bin/jahob.opt SortedList.java Node.java -nobackground -method SortedList.add2 -bohne -abstractfinal -usedp mona cvcl isa
+ensure_verifies $? "(mutable)SortedList.add2"
+../../../bin/jahob.opt SortedList.java Node.java -nobackground -method SortedList.add -bohne -abstractfinal -usedp mona cvcl isa
+ensure_verifies $? "(mutable)SortedList.add"

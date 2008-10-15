@@ -1,0 +1,13 @@
+[|(ArraySet_content = {n. (EX j. ((n = (arrayRead Array_arrayState ArraySet_a j)) & (0 <= j) & (intless j ArraySet_size)))});
+(ALL xObj. (xObj : Object));
+((Array Int ArraySet) = {null});
+(null : Object_alloc);
+comment ''ProcedurePrecondition'' ArraySet_init;
+comment ''ProcedurePrecondition'' (x ~: ArraySet_content);
+comment ''ArraySet_PrivateInv ProcedurePrecondition'' (ArraySet_init --> ((ArraySet_a ~= null) & (intless 0 (fieldRead Array_length ArraySet_a)) & (0 <= ArraySet_size) & (ArraySet_size <= (fieldRead Array_length ArraySet_a))));
+comment ''x_type'' (x : Object);
+comment ''x_type'' (x : Object_alloc);
+comment ''TrueBranch'' (intless ArraySet_size (fieldRead Array_length ArraySet_a));
+(ArraySet_content_4 = {n. (EX j. ((n = (arrayRead (arrayWrite Array_arrayState ArraySet_a ArraySet_size x) ArraySet_a j)) & (0 <= j) & (intless j ArraySet_size)))});
+(ArraySet_content_1 = {n. (EX j. ((n = (arrayRead (arrayWrite Array_arrayState ArraySet_a ArraySet_size x) ArraySet_a j)) & (0 <= j) & (intless j (intplus ArraySet_size 1))))})|] ==>
+    (x : ArraySet_content_1)

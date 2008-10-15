@@ -1,0 +1,77 @@
+impl module Arrayset {
+    format Node {}
+
+    reference d : Node[];
+    var s : int; var m : int;
+
+    reference setInit : bool;
+
+    /* m is the size of the array. */
+    /* s is a bound on the set size; 
+     * for i >= s: d[i] is not in the set for sure.
+           i < s : if d[i] != null, then d[i] is in the set. */
+
+    proc init() {
+        m = 200;
+        d = new Node[m];
+        s = 0;
+        setInit = true;
+        pragma "proof by auto";
+    }
+
+    proc add(e:Node) {
+        d[s] = e;
+        s = s + 1;
+        pragma "proof by (rule add)";
+    }
+
+    proc remove(e:Node) {
+        assume "cardleq1(e)";
+        assume "forall i. cardleq1(d[i])";
+        int i = 0;
+        while "0 <= i' & i' <= s &
+               (forall j. (i' <= j & j < s) --> d'[j]=d[j]) &
+               ({x. (exists j. 0 <= j & j < i' & x : d'[j])}) = (({x. (exists j. 0 <= j & j < i' & x : d [j])}) - e)"
+        (i < s) {
+            if (d[i] == e) d[i] = null;
+            i = i + 1;
+        }
+        pragma "proof by auto;by auto;by auto;by auto;by auto;
+                      by auto;by auto;by auto;by auto;by auto;
+                      by auto;by auto;by auto;by auto";
+    }
+
+/*
+
+    proc remove1(e:Node) {
+        assume "s = 1";
+        assume "cardleq1(e)";
+        assume "forall i. cardleq1(d[i])";
+        if (d[0] == e) {
+          d[0] = null;
+        }
+    }
+
+    proc contains(e:Node) returns b : bool {
+        int i = 0;
+        while "true" (i < s)
+            if (d[i] == e) return true;
+        return false;
+    }
+
+    proc get(c:int) returns e:Node {
+        int i = 0, j = 0;
+        while "true" (i < c) {
+            if (j == s) return null;
+            if (d[j] != null) i = i + 1;
+            j = j + 1;
+        }
+        while "true" (d[j] == null) {
+            j = j + 1;
+            if (j >= s) return null;
+        }
+        return d[j];
+    }
+*/
+
+}

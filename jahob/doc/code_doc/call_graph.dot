@@ -1,0 +1,58 @@
+digraph {
+
+rankdir=LR
+size="5,8"
+centering="true"
+compound=true
+
+subgraph cluster0 {
+rewrite_card_constraints -> rewrite_card_atom
+rewrite_card_constraints -> rewrite_card_constraints 
+}
+
+subgraph cluster1 {
+rewrite_seteq -> rewrite_seteq_atom 
+rewrite_seteq -> rewrite_seteq
+}
+
+subgraph cluster2 {
+rewrite_setop_atom -> rewrite_setop
+rewrite_setop -> rewrite_setop_atom
+rewrite_setop -> rewrite_setop
+}
+
+subgraph cluster3 {
+node [style=filled, color=white];
+style=filled;
+color=lightgrey;
+rewrite_fieldWrite_atom -> generate_binding -> rewrite_fieldeq
+rewrite_fieldWrite_atom -> rewrite_fieldeq
+rewrite_fieldWrite_atom -> rewrite_fieldWrite_atom
+rewrite_fieldeq -> rewrite_fieldeq
+rewrite_fieldeq -> rewrite_fieldWrite_atom
+rewrite_fieldWrite_atom -> rewrite_setop_atom
+}
+
+big_rewriting -> rewrite_card_constraints [weight=10, lhead=cluster0]
+big_rewriting -> rewrite_seteq [weight=10, lhead=cluster1]
+big_rewriting -> rewrite_setop_atom [weight=0, lhead=cluster2]
+
+// this is cheating
+big_rewriting -> rewrite_fieldeq [weight=10, lhead=cluster3]
+
+process_formula -> big_rewriting [weigth=1000]
+process_formula -> fol_of_unnested [wight=1000]
+
+"Original Formula" [shape=triangle]
+
+edge [color=red, style=dotted, weight=50]
+
+
+
+"Original Formula" -> rewrite_card_constraints -> rewrite_seteq -> rewrite_setop -> rewrite_fieldeq -> big_rewriting -> fol_of_unnested -> process_formula
+
+
+{rank=source ; "Original Formula" ; process_formula}
+{rank=same ; rewrite_card_constraints ; rewrite_seteq ;rewrite_setop ; rewrite_fieldeq}
+
+}

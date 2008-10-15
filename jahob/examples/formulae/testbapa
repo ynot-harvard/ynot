@@ -1,0 +1,22 @@
+[
+# toy formulae 
+#  a+b < c;
+#  d + 10 < 2;
+# 1 < 2;
+
+# some more toys
+
+#(\<forall> (x :: Object set) . x <= x);
+(\<forall> (x :: Object set) . x \<subseteq> x);
+ 
+# # a in b => card(a) <= card(b)
+(\<forall> (a :: Object set) (b :: Object set) . a \<subseteq> b --> card a <= card b); 
+
+# # another version
+(\<forall> (a :: Object set) (b :: Object set) . card (a \<union> b) = card b --> card a <= card b);
+
+# # card (a Un b) <= card(a) + card(b) and friends
+  (\<forall> (a :: Object set) (b :: Object set) . card (a Un b) <= card a + card b); # one more comment
+(\<forall> (a :: Object set) (b :: Object set) . card a <= card (a Un b))
+
+]

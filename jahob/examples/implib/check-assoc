@@ -1,0 +1,1 @@
+../../bin/jahob.opt AssocList.java FuncList.java -class AssocList -sastvc -usedp e:SortGuards=no isa:TimeOut=0

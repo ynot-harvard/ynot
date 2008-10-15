@@ -1,0 +1,1 @@
+make -f Makefile.opt ../bin/jahob.opt
