@@ -1,1 +1,0 @@
-time ../../../bin/jahob.opt -nobackground -method Insertion.insertionSort Insertion.java InsertionSortNode.java -timeout 40 -usedp spass:OrderAxioms:ArithAxioms:TimeOut=4:SortGuards=no isa cvcl

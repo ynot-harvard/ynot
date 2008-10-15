@@ -1,2 +1,0 @@
-#!/bin/sh
-../../../bin/jahob.opt -v List.java Node.java -nobackground -method $* -usedp mona isa

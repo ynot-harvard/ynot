@@ -1,1 +1,0 @@
-../../../bin/jahob.opt -nobackground -method Insertion.insertionSort Insertion.java InsertionSortNode.java -timeout 40 -v -debugmodules SmtPrint -usedp cvcl 2>&1 | tee cvcl.out

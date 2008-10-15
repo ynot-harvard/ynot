@@ -1,1 +1,0 @@
-rm *.smt *.in *.out pending*.v pending*.thy in.mona mona-out.txt *~

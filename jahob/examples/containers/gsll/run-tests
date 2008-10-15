@@ -1,2 +1,0 @@
-../../../bin/jahob.opt -nobackground List.java Node.java -method List.add -usedp mona isa | tee output-test-verifies
-ensure_verifies $? "GlobalSinglyLinkedList"

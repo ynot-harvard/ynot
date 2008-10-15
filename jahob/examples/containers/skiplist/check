@@ -1,1 +1,0 @@
-../../../bin/jahob.opt Skiplist.java Node.java -method Skiplist.add -nobackground -v -bohne $* -usedp mona

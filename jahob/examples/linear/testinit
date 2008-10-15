@@ -1,2 +1,0 @@
-../../bin/jahob -nobackground -method Init.init Init.java -v -timeout 20 -bohne -usedp cvcl | tee out-init
-echo See files out-init.

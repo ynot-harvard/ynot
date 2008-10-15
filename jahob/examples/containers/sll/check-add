@@ -1,1 +1,0 @@
-../../../bin/jahob.opt -v List.java Node.java -method List.add -failfast -timeout 30 -usedp spass:TimeOut=20 mona 

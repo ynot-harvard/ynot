@@ -1,3 +1,0 @@
-JAHOB="../../../bin/jahob"
-LIBS="../../../lib/String.java ../../../lib/Math.java"
-$JAHOB $LIBS -nobackground -v $*

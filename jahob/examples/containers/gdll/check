@@ -1,1 +1,0 @@
-../../../bin/jahob.opt DLL.java Node.java -nobackground -v -bohne -method DLL.addLast $@ -usedp mona

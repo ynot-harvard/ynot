@@ -1,2 +1,0 @@
-../../../bin/jahob.opt -v Relation.java Node.java -nobackground -method Relation.add -timeout 20 -usedp mona e | tee out
-ensure_verifies $? "(mutable)Relation.add"
