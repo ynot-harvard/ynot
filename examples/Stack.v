@@ -80,7 +80,7 @@ Module Stack : STACK.
         IfNull hd Then
           {{Return None}}
         Else
-          Unpack ls;;
+          Elim ls;;
           nd <- !hd;
           Free hd;;
           s ::= next nd;;

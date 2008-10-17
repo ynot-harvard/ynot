@@ -454,4 +454,4 @@ Qed.
 
 Hint Resolve split_free : Ynot.
 
-Definition pleaseFocus T (x : T) := True.
+Definition pleaseElim T (x : T) := True.

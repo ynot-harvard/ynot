@@ -511,7 +511,7 @@ Ltac sep' tacPre tac :=
           || apply himp_unpack_conc
             || (apply himp_inj_conc; [s; fail | idtac]) in
               (repeat match goal with
-                        | [ |- _ ==> [pleaseFocus ?X] * _ ] =>
+                        | [ |- _ ==> [pleaseElim ?X] * _ ] =>
                           apply himp_inj_conc; [ constructor
                             | inhabiter;
                               match goal with
