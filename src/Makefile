@@ -1,4 +1,4 @@
-MODULES    := Axioms Util Heap Hprop ST STsep Separation Ynot
+MODULES    := Axioms Util Heap Hprop ST STsep Separation Case Ynot
 VS         := $(MODULES:%=%.v)
 
 .PHONY: coq clean
