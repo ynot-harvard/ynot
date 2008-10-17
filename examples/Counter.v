@@ -19,21 +19,22 @@ Module Counter : COUNTER.
 
   Ltac t := unfold rep; sep simpl.
 
+  Open Scope hprop_scope.
   Open Scope stsepi_scope.
 
   Definition new : STsep __ (fun c => rep c 0).
     refine {{New 0}}; t.
   Qed.
 
-  Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __)%hprop.
+  Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __).
     intros; refine {{Free c}}; t.
   Qed.
 
-  Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n])%hprop.
+  Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n]).
     intros; refine {{!c}}; t.
   Qed.
   
-  Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n))%hprop.
+  Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
     intros; refine (
       n' <- !c;
 

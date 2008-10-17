@@ -49,17 +49,18 @@ Module Stack : STACK.
 
     Ltac t := unfold rep; sep simplr.
     
+    Open Scope hprop_scope.
     Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun s => rep s nil).
       refine {{New (@None ptr)}}; t.
     Qed.
 
-    Definition free : forall s, STsep (rep s nil) (fun _ : unit => __)%hprop.
+    Definition free : forall s, STsep (rep s nil) (fun _ : unit => __).
       intros; refine {{Free s}}; t.
     Qed.
 
-    Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
+    Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
       intros; refine (hd <- !s;
 
         nd <- New (Node x hd);
@@ -72,23 +73,23 @@ Module Stack : STACK.
       STsep (ls ~~ rep s ls) (fun xo => ls ~~ match xo with
                                                 | None => [ls = nil] * rep s ls
                                                 | Some x => Exists ls' :@ list T, [ls = x :: ls'] * rep s ls'
-                                              end)%hprop.
+                                              end).
       intros; refine (hd <- !s;
 
-        ocase hd
-        (fun _ => {{Return None}})
-        (fun hd' _ =>
-          Assert (ls ~~ Exists nd :@ node, hd' --> nd
+        IfNull hd Then
+          {{Return None}}
+        Else
+          Assert (ls ~~ Exists nd :@ node, hd --> nd
             * Exists ls' :@ list T, [ls = data nd :: ls']
-            * s --> Some hd' * listRep ls' (next nd))%hprop;;
+            * s --> Some hd * listRep ls' (next nd));;
 
-          nd <- !hd';
+          nd <- !hd;
 
-          Free hd';;
+          Free hd;;
 
           s ::= next nd;;
 
-          {{Return (Some (data nd))}}%hprop));
+          {{Return (Some (data nd))}});
       solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
