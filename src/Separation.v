@@ -450,7 +450,7 @@ Ltac unfold_local :=
 
 Open Local Scope hprop_scope.
 
-Ltac focus x :=
+Ltac focus' :=
   let F := fresh "F" with F2 := fresh "F2" in
     match goal with
       | [ |- ?P ==> ?Q ] =>
@@ -493,6 +493,15 @@ Ltac focus x :=
           let y := eval cbv delta [F] in F in
             equate Q y
     end.
+
+Ltac focus x :=
+  destruct x; simpl;
+    match goal with
+      [ H : ?X = Some _ |- context[[?X = None]] ] =>
+      repeat (search_prem ltac:(apply himp_inj_prem); intro);
+        congruence
+    end
+    || focus'.
 
 Ltac sep tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in

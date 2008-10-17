@@ -90,11 +90,7 @@ Module Stack : STACK.
       t.
       t.
       hdestruct ls; t.
-      inhabiter; destruct x.
-      Focus 2.
-      focus x.
-      t.
-      t.
+      inhabiter; focus x; t.
       t.
       t.
       t.
