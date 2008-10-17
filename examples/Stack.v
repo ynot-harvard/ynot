@@ -33,7 +33,7 @@ Module Stack : STACK.
       data : T;
       next : option ptr
     }.
-    
+
     Fixpoint listRep (ls : list T) (hd : option ptr) {struct ls} : hprop :=
       match ls with
         | nil => [hd = None]
@@ -80,9 +80,10 @@ Module Stack : STACK.
         IfNull hd Then
           {{Return None}}
         Else
-          Assert (ls ~~ Exists nd :@ node, hd --> nd
-            * Exists ls' :@ list T, [ls = data nd :: ls']
-            * s --> Some hd * listRep ls' (next nd));;
+          Assert (ls ~~ s --> Some hd
+            * Exists nd :@ node, hd --> nd
+              * Exists ls' :@ list T, [ls = data nd :: ls']
+                * listRep ls' (next nd));;
 
           nd <- !hd;
 

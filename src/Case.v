@@ -17,7 +17,7 @@ Implicit Arguments ocase [A B].
 
 Notation "'IfNull' x 'Then' e1 'Else' e2" :=
   (ocase x (fun _ => e1) (fun x _ => e2))
-  (no associativity, at level 70).
+  (no associativity, at level 90).
 Notation "'IfNull' e 'As' x 'Then' e1 'Else' e2" :=
   (ocase e (fun _ => e1) (fun x _ => e2))
-  (no associativity, at level 70).
+  (no associativity, at level 90).

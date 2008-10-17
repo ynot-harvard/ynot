@@ -131,11 +131,11 @@ Module Queue : QUEUE.
       IfNull ba Then
         {{front q ::= Some nd}}
       Else    
-        Assert (ls ~~ Exists ban :@ node, ba --> ban
-          * Exists fr :@ ptr,
-          nd --> Node x None * front q --> Some fr * back q --> Some nd
-          * Exists ls' :@ list T,
-          [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None]);;
+        Assert (ls ~~ nd --> Node x None * back q --> Some nd
+          * Exists ban :@ node, ba --> ban
+            * Exists fr :@ ptr, front q --> Some fr
+              * Exists ls' :@ list T, [ls = ls' ++ data ban :: nil]
+                * listRep ls' fr ba * [next ban = None]);;
 
         ban <- !ba;
         
@@ -165,15 +165,15 @@ Module Queue : QUEUE.
         IfNull fr Then
           {{Return None}}
         Else
-          Assert (ls ~~ Exists nd :@ node, fr --> nd
-            * Exists ba :@ ptr,
-              front q --> Some fr * back q --> Some ba
-              * Exists ls' :@ list T, [ls = data nd :: ls']
-              * match next nd with
-                  | None => [ls' = nil]
-                  | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                    [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                end);;
+          Assert (ls ~~ front q --> Some fr
+            * Exists nd :@ node, fr --> nd
+              * Exists ba :@ ptr, back q --> Some ba
+                * Exists ls' :@ list T, [ls = data nd :: ls']
+                * match next nd with
+                    | None => [ls' = nil]
+                    | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
+                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
+                  end);;
 
           nd <- !fr;
 
@@ -187,7 +187,7 @@ Module Queue : QUEUE.
             {{Return (Some (data nd))}}
           Else    
             {{Return (Some (data nd))}});
-      solve [ t | hdestruct ls; t ] || idtac.
+      solve [ t | hdestruct ls; t ].
     Qed.
   End Queue.
 
