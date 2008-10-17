@@ -75,23 +75,21 @@ Module Stack : STACK.
                                               end)%hprop.
       intros; refine (hd <- !s;
 
-        match hd return STsep (ls ~~ s --> hd * listRep ls hd)%hprop _ with
-          | None =>
-            {{Return None}}
+        ocase hd
+        (fun _ => {{Return None}})
+        (fun hd' _ =>
+          Assert (ls ~~ Exists nd :@ node, hd' --> nd
+            * Exists ls' :@ list T, [ls = data nd :: ls']
+            * s --> Some hd' * listRep ls' (next nd))%hprop;;
 
-          | Some hd' =>
-            Assert (ls ~~ Exists nd :@ node, hd' --> nd
-              * Exists ls' :@ list T, [ls = data nd :: ls']
-              * s --> Some hd' * listRep ls' (next nd))%hprop;;
+          nd <- !hd';
 
-            nd <- !hd';
+          Free hd';;
 
-            Free hd';;
+          s ::= next nd;;
 
-            s ::= next nd;;
-
-            {{Return (Some (data nd))}}%hprop
-        end); solve [ t | hdestruct ls; t].
+          {{Return (Some (data nd))}}%hprop));
+      solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
 

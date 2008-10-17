@@ -5,3 +5,4 @@ Require Export Ynot.Hprop.
 Require Export Ynot.ST.
 Require Export Ynot.STsep.
 Require Export Ynot.Separation.
+Require Export Ynot.Case.
