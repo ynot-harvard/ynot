@@ -453,5 +453,3 @@ Theorem split_free : forall h h1 h2 p d,
 Qed.
 
 Hint Resolve split_free : Ynot.
-
-Definition pleaseElim T (x : T) := True.

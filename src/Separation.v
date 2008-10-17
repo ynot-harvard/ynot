@@ -448,78 +448,14 @@ Ltac unfold_local :=
            | [ x : _ |- _ ] => unfold x in *; clear x
          end.
 
-Open Local Scope hprop_scope.
-
-Ltac focus' :=
-  let F := fresh "F" with F2 := fresh "F2" in
-    match goal with
-      | [ |- ?P ==> ?Q ] =>
-        pose (F := P);
-          repeat match goal with
-                   | [ H : ?V = [?f ?T ?arg1 ?arg2]%inhabited |- _ ] =>
-                     match type of T with
-                       | Set =>
-                         let doit :=
-                           pattern arg1, arg2 in F;
-                             let y := eval cbv delta [F] in F in
-                               match y with
-                                 | ?F' _ _ =>
-                                   pose (F2 := V ~~ Exists arg1 :@ _, Exists arg2 :@ _,
-                                     [V = f T arg1 arg2] * F' arg1 arg2);
-                                   clear F; rename F2 into F
-                               end in
-
-                               let y := eval cbv delta [F] in F in
-                                 match y with
-                                   | context[arg1] => doit
-                                   | context[arg2] => doit
-                                 end
-                     end
-                 end;
-          repeat match goal with
-                   | [ H : isExistential ?v |- _ ] =>
-                     let y := eval cbv delta [F] in F in
-                       match y with
-                         | context[v] =>
-                           pattern v in F;
-                             let y := eval cbv delta [F] in F in
-                               match y with
-                                 | ?F' _ =>
-                                   pose (F2 := Exists v :@ _, F' v)
-                               end;
-                               clear F; rename F2 into F
-                       end
-                 end;
-          let y := eval cbv delta [F] in F in
-            equate Q y
-    end.
-
-Ltac focus x :=
-  destruct x; simpl;
-    match goal with
-      [ H : ?X = Some _ |- context[[?X = None]] ] =>
-      repeat (search_prem ltac:(apply himp_inj_prem); intro);
-        congruence
-    end
-    || focus'.
-
-Ltac sep' tacPre tac :=
+Ltac sep tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
     let concer := apply himp_empty_conc
       || apply himp_ex_conc_trivial
         || (apply himp_ex_conc; econstructor)
           || apply himp_unpack_conc
             || (apply himp_inj_conc; [s; fail | idtac]) in
-              (repeat match goal with
-                        | [ |- _ ==> [pleaseElim ?X] * _ ] =>
-                          apply himp_inj_conc; [ constructor
-                            | inhabiter;
-                              match goal with
-                                | [ _ : X = [?x]%inhabited |- _ ] => focus x
-                              end ]
-                      end;
-              tacPre;
-              intros; equater || specFinder; tac;
+              (intros; equater || specFinder; tac;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
@@ -529,5 +465,3 @@ Ltac sep' tacPre tac :=
                       search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))));
                   s);
                   try finisher).
-
-Ltac sep := sep' idtac.

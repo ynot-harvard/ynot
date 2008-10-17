@@ -49,7 +49,7 @@ Module Stack : STACK.
 
     Ltac simplr := try discriminate.
 
-    Ltac t := unfold rep; sep' ltac:(simpl; subst) simplr.
+    Ltac t := unfold rep; sep simplr.
     
     Open Scope stsepi_scope.
 
@@ -80,12 +80,19 @@ Module Stack : STACK.
         IfNull hd Then
           {{Return None}}
         Else
-          Elim ls;;
+          Assert (ls ~~ s --> Some hd
+            * Exists nd :@ node, hd --> nd
+              * Exists ls' :@ list T, [ls = data nd :: ls']
+                * listRep ls' (next nd));;
+
           nd <- !hd;
+
           Free hd;;
+
           s ::= next nd;;
+
           {{Return (Some (data nd))}});
-      solve [ t | hdestruct ls; t ].
+      solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
 
