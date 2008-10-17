@@ -58,6 +58,18 @@ and 0 for the overall insert front spec. Since monads are
 associative, we could also create A1 instead.
 *)
 
+Ltac t := unfold rep; unfold rep'; sep auto.
+
+
+Definition insertFront (ll : LinkedList) (m : [list A]) (a : A) : 
+  STsep (m ~~ rep m ll)
+        (fun _:unit => m ~~ rep (a::m) ll ).
+  intros ll m a.
+  refine ( x <- ll !! (fun x => m ~~ rep' m x)
+         ; r <- New (node a x)
+         ; {{ll ::= Some r}}); t.
+Defined.
+(**
 Definition insertFront0A (ll: LinkedList) (m: [list A]) (a: A) :
  STsep (m ~~ rep m ll)
        (fun x:option ptr => m ~~ ll --> x * rep' m x ).
@@ -89,18 +101,32 @@ Definition insertFront01 (ll: LinkedList) (m: [list A]) (a: A) :
 intros ll m a. refine (
  r <- insertFront0B ll m a;
  {{ insertFrontB1 ll m a r }} ); unfold rep; sep auto. Defined.
+**)
 
 (*  With just insertFront and removeFront, a 
    linked list implements a stack. *)
-Conjecture removeFront: forall (ll: LinkedList) (m: [list A]) ,
- STsep (m ~~ rep m ll)
-       (fun r:option A => m ~~ match r with
+Definition removeFront: forall (ll: LinkedList) (m: list A) ,
+ STsep (rep m ll)
+       (fun r:option A => match r with
                                  | None => [m = nil] 
                                  | Some r' => match m with
                                                 | nil => [False]
                                                 | a :: b => [r' = a]
                                               end
                                end).
+  intros ll m.
+  refine ( x <- ll !! (fun x => rep' m x)
+         ; match x as x with 
+             | None => {{Return None}}
+             | Some r' =>
+               n <- r' !! (fun n => match m with 
+                                      | nil => [False]
+                                      | _ :: t => ll --> x * rep' t (next n)
+                                    end)
+               ; z <- ll ::= next n
+               ; {{Return (Some (data n))}}
+           end); t. fold rep'. 
+
 
 (* With computing the elements in the linked list,
    and add and remove after elements, we have 
