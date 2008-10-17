@@ -4,6 +4,8 @@ Require Import Ynot.
 
 Set Implicit Arguments.
 
+Open Local Scope hprop_scope.
+
 
 Module Type STACK.
   Parameter t : Set -> Set.
@@ -12,15 +14,15 @@ Module Type STACK.
   Parameter new : forall T,
     STsep __ (fun s : t T => rep s nil).
   Parameter free : forall T (s : t T),
-    STsep (rep s nil) (fun _ : unit => __)%hprop.
+    STsep (rep s nil) (fun _ : unit => __).
 
   Parameter push : forall T (s : t T) (x : T) (ls : [list T]),
-    STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls))%hprop.
+    STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
   Parameter pop : forall T (s : t T) (ls : [list T]),
     STsep (ls ~~ rep s ls) (fun xo => ls ~~ match xo with
                                               | None => [ls = nil] * rep s ls
                                               | Some x => Exists ls' :@ list T, [ls = x :: ls'] * rep s ls'
-                                            end)%hprop.
+                                            end).
 End STACK.
 
 Module Stack : STACK.
@@ -49,7 +51,6 @@ Module Stack : STACK.
 
     Ltac t := unfold rep; sep simplr.
     
-    Open Scope hprop_scope.
     Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun s => rep s nil).

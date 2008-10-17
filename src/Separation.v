@@ -145,6 +145,15 @@ Theorem himp_ex_conc : forall p T (p1 : T -> _) p2,
   firstorder.
 Qed.
 
+Theorem himp_ex_conc_trivial : forall T p p1 p2,
+  p ==> p1 * p2
+  -> T
+  -> p ==> hprop_ex (fun _ : T => p1) * p2.
+  unfold hprop_imp, hprop_ex, hprop_sep; firstorder.
+  generalize (H _ H0); clear H H0.
+  firstorder.
+Qed.
+
 Theorem himp_unpack_prem : forall T (x : T) p1 p2 p,
   p1 x * p2 ==> p
   -> hprop_unpack [x] p1 * p2 ==> p.
@@ -442,10 +451,11 @@ Ltac unfold_local :=
 Ltac sep tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
     let concer := apply himp_empty_conc
-      || (apply himp_ex_conc; econstructor)
-        || apply himp_unpack_conc
-          || (apply himp_inj_conc; [s; fail | idtac]) in
-            (intros; equater || specFinder; tac;
+      || apply himp_ex_conc_trivial
+        || (apply himp_ex_conc; econstructor)
+          || apply himp_unpack_conc
+            || (apply himp_inj_conc; [s; fail | idtac]) in
+              (intros; equater || specFinder; tac;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;

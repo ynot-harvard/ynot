@@ -2,15 +2,17 @@ Require Import Ynot.
 
 Set Implicit Arguments.
 
+Open Local Scope hprop_scope.
+
 
 Module Type COUNTER.
   Parameter t : Set.
   Parameter rep : t -> nat -> hprop.
 
   Parameter new : STsep __ (fun c => rep c 0).
-  Parameter free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __)%hprop.
-  Parameter get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n])%hprop.
-  Parameter inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n))%hprop.
+  Parameter free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __).
+  Parameter get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n]).
+  Parameter inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
 End COUNTER.
 
 Module Counter : COUNTER.
@@ -19,7 +21,6 @@ Module Counter : COUNTER.
 
   Ltac t := unfold rep; sep simpl.
 
-  Open Scope hprop_scope.
   Open Scope stsepi_scope.
 
   Definition new : STsep __ (fun c => rep c 0).

@@ -4,6 +4,8 @@ Require Import Ynot.
 
 Set Implicit Arguments.
 
+Open Local Scope hprop_scope.
+
 
 Module Type QUEUE.
   Parameter t : Set -> Set.
@@ -12,10 +14,10 @@ Module Type QUEUE.
   Parameter new : forall T,
     STsep __ (fun q : t T => rep q nil).
   Parameter free : forall T (q : t T),
-    STsep (rep q nil) (fun _ : unit => __)%hprop.
+    STsep (rep q nil) (fun _ : unit => __).
 
   Parameter enqueue : forall T (q : t T) (x : T) (ls : [list T]),
-    STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop.
+    STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
   Parameter dequeue : forall T (q : t T) (ls : [list T]),
     STsep (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
                                               | None => [ls = nil] * rep q ls
@@ -24,7 +26,7 @@ Module Type QUEUE.
                                                   | nil => [False]
                                                   | x' :: ls' => [x' = x] * rep q ls'
                                                 end
-                                            end)%hprop.
+                                            end).
 End QUEUE.
 
 Module Queue : QUEUE.
@@ -40,7 +42,7 @@ Module Queue : QUEUE.
       match ls with
         | nil => [hd = tl]
         | h :: t => Exists p :@ ptr, hd --> Node h (Some p) * listRep t p tl
-      end%hprop.
+      end.
 
     Record queue : Set := Queue {
       front : ptr;
@@ -53,14 +55,16 @@ Module Queue : QUEUE.
         | Some fr, Some ba => Exists ls' :@ list T, Exists x :@ T,
           [ls = ls' ++ x :: nil] * listRep ls' fr ba * ba --> Node x None
         | _, _ => [False]
-      end%hprop.
+      end.
           
     Definition rep q ls := (Exists fr :@ option ptr, Exists ba :@ option ptr,
-      front q --> fr * back q --> ba * rep' ls fr ba)%hprop.
+      front q --> fr * back q --> ba * rep' ls fr ba).
 
     Ltac simplr := repeat (try congruence;
       match goal with
         | [ x : option ptr |- _ ] => destruct x
+        | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intro; subst
+        | [ H : next _ = _ |- _ ] => rewrite H
         | [ H : nil = ?ls ++ _ :: nil |- _ ] => destruct ls; discriminate
           
         | [ |- __ ==> match ?O with
@@ -79,7 +83,7 @@ Module Queue : QUEUE.
     try match goal with
           | [ ls' : list T |- _ ] =>
             match goal with
-              | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _)%hprop ] ] => destruct ls'
+              | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
             end
         end.
 
@@ -95,7 +99,7 @@ Module Queue : QUEUE.
         {{Return (Queue fr ba)}}); t.
     Qed.
 
-    Definition free : forall q, STsep (rep q nil) (fun _ : unit => __)%hprop.
+    Definition free : forall q, STsep (rep q nil) (fun _ : unit => __).
       intros; refine (Free (front q);;
         
         {{Free (back q)}}); t.
@@ -117,32 +121,27 @@ Module Queue : QUEUE.
 
     Hint Immediate push_nil.
 
-    Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil))%hprop.
+    Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
       
       nd <- New (Node x None);
         
       back q ::= Some nd;;
 
-      match ba return STsep (ls ~~ Exists fr :@ option ptr,
-          nd --> Node x None * front q --> fr * back q --> Some nd * rep' ls fr ba)%hprop
-          _ with
-        | None =>
-          {{front q ::= Some nd}}%hprop
-      
-        | Some ba =>
-          Assert (ls ~~ Exists ban :@ node, ba --> ban
-            * Exists fr :@ ptr,
-              nd --> Node x None * front q --> Some fr * back q --> Some nd
-              * Exists ls' :@ list T,
-                [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None])%hprop;;
+      IfNull ba Then
+        {{front q ::= Some nd}}
+      Else    
+        Assert (ls ~~ Exists ban :@ node, ba --> ban
+          * Exists fr :@ ptr,
+          nd --> Node x None * front q --> Some fr * back q --> Some nd
+          * Exists ls' :@ list T,
+          [ls = ls' ++ data ban :: nil] * listRep ls' fr ba * [next ban = None]);;
 
-          ban <- !ba;
-          
-          ba ::= Node (data ban) (Some nd);;
+        ban <- !ba;
+        
+        ba ::= Node (data ban) (Some nd);;
 
-          {{Return tt}}%hprop
-       end); t.
+        {{Return tt}}); t.
     Qed.
 
     Lemma add_empty : forall p,
@@ -160,43 +159,35 @@ Module Queue : QUEUE.
                                                     | nil => [False]
                                                     | x' :: ls' => [x' = x] * rep q ls'
                                                   end
-                                              end)%hprop.
+                                              end).
       intros; refine (fr <- !front q;
 
-        match fr return STsep (ls ~~ Exists ba :@ option ptr,
-          front q --> fr * back q --> ba * rep' ls fr ba)%hprop
-        _ with
-          | None => {{Return None}}%hprop
-          | Some fr =>
-            let spec frnt nd nnd := 
-              (ls ~~ Exists ba :@ ptr,
-                front q --> frnt * back q --> Some ba
-                * Exists ls' :@ list T, [ls = data nd :: ls']
-                  * match nnd with
-                      | None => [ls' = nil]
-                      | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                        [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                    end)%hprop in
+        IfNull fr Then
+          {{Return None}}
+        Else
+          Assert (ls ~~ Exists nd :@ node, fr --> nd
+            * Exists ba :@ ptr,
+              front q --> Some fr * back q --> Some ba
+              * Exists ls' :@ list T, [ls = data nd :: ls']
+              * match next nd with
+                  | None => [ls' = nil]
+                  | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
+                    [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
+                end);;
 
-            Assert (ls ~~ Exists nd :@ node, fr --> nd
-              * spec (Some fr) nd (next nd))%hprop;;
+          nd <- !fr;
 
-            nd <- !fr;
+          Free fr;;
 
-            Free fr;;
+          front q ::= next nd;;
 
-            front q ::= next nd;;
+          IfNull next nd As nnd Then
+            back q ::= None;;
 
-            match next nd as nnd return STsep (spec nnd nd nnd) _ with
-              | None =>
-                back q ::= None;;
-
-                {{Return (Some (data nd))}}
-                
-              | Some nnd =>
-                {{Return (Some (data nd))}}
-            end
-        end); unfold_local; solve [ t | hdestruct ls; t ].
+            {{Return (Some (data nd))}}
+          Else    
+            {{Return (Some (data nd))}});
+      solve [ t | hdestruct ls; t ] || idtac.
     Qed.
   End Queue.
 
