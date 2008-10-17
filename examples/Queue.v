@@ -123,9 +123,7 @@ Module Queue : QUEUE.
 
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
-      
       nd <- New (Node x None);
-        
       back q ::= Some nd;;
 
       IfNull ba Then
@@ -138,9 +136,7 @@ Module Queue : QUEUE.
                 * listRep ls' fr ba * [next ban = None]);;
 
         ban <- !ba;
-        
         ba ::= Node (data ban) (Some nd);;
-
         {{Return tt}}); t.
     Qed.
 
@@ -176,14 +172,11 @@ Module Queue : QUEUE.
                   end);;
 
           nd <- !fr;
-
           Free fr;;
-
           front q ::= next nd;;
 
           IfNull next nd As nnd Then
             back q ::= None;;
-
             {{Return (Some (data nd))}}
           Else    
             {{Return (Some (data nd))}});

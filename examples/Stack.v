@@ -63,9 +63,7 @@ Module Stack : STACK.
 
     Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
       intros; refine (hd <- !s;
-
         nd <- New (Node x hd);
-
         {{s ::= Some nd}}
       ); t.
     Qed.
@@ -86,11 +84,8 @@ Module Stack : STACK.
                 * listRep ls' (next nd));;
 
           nd <- !hd;
-
           Free hd;;
-
           s ::= next nd;;
-
           {{Return (Some (data nd))}});
       solve [ t | hdestruct ls; t].
     Qed.

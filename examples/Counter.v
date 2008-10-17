@@ -38,7 +38,6 @@ Module Counter : COUNTER.
   Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
     intros; refine (
       n' <- !c;
-
       {{c ::= S n'}}
     ); t.
   Qed.
