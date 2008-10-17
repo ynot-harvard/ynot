@@ -49,7 +49,7 @@ Module Stack : STACK.
 
     Ltac simplr := try discriminate.
 
-    Ltac t := unfold rep; subst; simpl; sep simplr.
+    Ltac t := unfold rep; sep' ltac:(simpl; subst) simplr.
     
     Open Scope stsepi_scope.
 
@@ -80,26 +80,12 @@ Module Stack : STACK.
         IfNull hd Then
           {{Return None}}
         Else
-          Assert _;;
+          Unpack ls;;
           nd <- !hd;
           Free hd;;
           s ::= next nd;;
-          {{Return (Some (data nd))}}).
-
-      t.
-      t.
-      t.
-      hdestruct ls; t.
-      inhabiter; focus x; t.
-      t.
-      t.
-      t.
-      t.
-      t.
-      t.
-      t.
-      t.
-      t.
+          {{Return (Some (data nd))}});
+      solve [ t | hdestruct ls; t ].
     Qed.
   End Stack.
 

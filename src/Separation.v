@@ -503,14 +503,23 @@ Ltac focus x :=
     end
     || focus'.
 
-Ltac sep tac :=
+Ltac sep' tacPre tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
     let concer := apply himp_empty_conc
       || apply himp_ex_conc_trivial
         || (apply himp_ex_conc; econstructor)
           || apply himp_unpack_conc
             || (apply himp_inj_conc; [s; fail | idtac]) in
-              (intros; equater || specFinder; tac;
+              (repeat match goal with
+                        | [ |- _ ==> [pleaseFocus ?X] * _ ] =>
+                          apply himp_inj_conc; [ constructor
+                            | inhabiter;
+                              match goal with
+                                | [ _ : X = [?x]%inhabited |- _ ] => focus x
+                              end ]
+                      end;
+              tacPre;
+              intros; equater || specFinder; tac;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
@@ -521,3 +530,4 @@ Ltac sep tac :=
                   s);
                   try finisher).
 
+Ltac sep := sep' idtac.

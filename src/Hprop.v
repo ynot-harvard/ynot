@@ -453,3 +453,5 @@ Theorem split_free : forall h h1 h2 p d,
 Qed.
 
 Hint Resolve split_free : Ynot.
+
+Definition pleaseFocus T (x : T) := True.

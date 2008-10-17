@@ -180,6 +180,18 @@ Section Sep.
     t.
     refine {{{STReturn tt}}}; intuition; subst; eauto.
   Qed.
+
+  Definition SepUnpack T (v : T) P
+    : STsep ([pleaseFocus v] * P) (fun _ : unit => P).
+    t.
+    unfold pleaseFocus.
+    refine {{{STReturn tt}}}; intuition; subst.
+    exists h1; intuition.
+    clear H H0 h h2 T v.
+    red in H3; firstorder; subst.
+    rewrite join_id1.
+    assumption.
+  Qed.
 End Sep.
 
 Implicit Arguments SepFree [T].
@@ -231,5 +243,7 @@ Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
 Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
+Notation "'Unpack' x" := (SepUnpack x _)
+  (at level 75) : stsepi_scope.
 
 Delimit Scope stsepi_scope with stsepi.
