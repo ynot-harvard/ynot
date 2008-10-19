@@ -53,29 +53,36 @@ Module AssocList(A : ASSOCIATION).
 
 End AssocList.
 
-(*******************************************************************)
-(* The finite-map interface, relative to an ASSOCIATION definition *)
-(*******************************************************************)
-Module Type FINITE_MAP.
-  Declare Module A : ASSOCIATION.
+Module Type FINITE_MAP_AT.
+  Declare Module A:ASSOCIATION.
   Module AL := AssocList(A).
 
   (* the abstract type of finite maps *)
-  Parameter fmap_t : Set.
+  Variable fmap_t : Set.
 
   (* the abstract representation predicate -- connects an fmap_t to our model,
    * which is an association list of (key,value) pairs. *)
-  Parameter rep : fmap_t -> AL.alist_t -> hprop.
+  Variable rep : fmap_t -> AL.alist_t -> hprop.
+End FINITE_MAP_AT.
+
+(*******************************************************************)
+(* The finite-map interface, relative to an ASSOCIATION definition *)
+(*******************************************************************)
+Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
+  Module A := AT.A.
+  Module AL := AT.AL.
+
+  Import AT AL.
 
   Open Local Scope hprop_scope.
 
   (* new returns an fmap_t that represents the empty association list *)
-  Parameter new : 
-    STsep __ (fun (ans:fmap_t) => rep ans AL.nil_al).
+  Definition new := 
+    STsep __ (fun (ans:fmap_t) => rep ans nil_al).
 
   (* free takes an fmap_t that represents some association list, and destroys it *)
-  Parameter free : 
-    forall (x:fmap_t), STsep (Exists l :@ AL.alist_t, rep x l) (fun (_:unit) => __).
+  Definition free := 
+    forall (x:fmap_t), STsep (Exists l :@ alist_t, rep x l) (fun (_:unit) => __).
 
   (* insert takes an fmap_t that represents some association list l satisfying the
    * predicate P, a key k, and a value v, and updates the fmap_t so it represents 
@@ -84,24 +91,42 @@ Module Type FINITE_MAP.
    * over a computationally irrelevant version in order to get something useful -- 
    * see the use in the hash-table below.
    *)
-  Parameter insert : 
-    forall (x:fmap_t)(k:A.key_t)(v:A.value_t k)(l:[AL.alist_t]),
+  Definition insert :=
+    forall (x:fmap_t)(k:A.key_t)(v:A.value_t k)(l:[alist_t]),
       STsep (l ~~ rep x l)
-        (fun (_:unit) => l ~~ rep x ((k,, v)::(AL.remove k l))).
+        (fun (_:unit) => l ~~ rep x ((k,, v)::(remove k l))).
 
   (* lookup takes an fmap_t that represents some list l satisfying the predicate P, 
    * and a key k, and returns the value v associatied with k in l if any, while
    * the map continues to represent l. *)
-  Parameter lookup : 
-    forall (x:fmap_t)(k:A.key_t)(P : AL.alist_t -> hprop), 
-      STsep (Exists l :@ AL.alist_t, rep x l * P l) 
+  Definition lookup :=
+    forall (x:fmap_t)(k:A.key_t)(P : alist_t -> hprop), 
+      STsep (Exists l :@ alist_t, rep x l * P l) 
             (fun (ans:option (A.value_t k)) =>
-               Exists l :@ AL.alist_t, rep x l * P l * [ans = AL.lookup k l]).
+               Exists l :@ alist_t, rep x l * P l * [ans = lookup k l]).
 
-  Parameter remove :
-    forall (x:fmap_t)(k:A.key_t)(l:[AL.alist_t]),
+  Definition remove :=
+    forall (x:fmap_t)(k:A.key_t)(l:[alist_t]),
       STsep (l ~~ rep x l)
-        (fun (_:unit) => l ~~ rep x (AL.remove k l)).
+        (fun (_:unit) => l ~~ rep x (remove k l)).
+
+  Ltac unfm_t := unfold new, free, insert, lookup, remove.
+
+End FINITE_MAP_T.
+
+(*******************************************************************)
+(* The finite-map interface, relative to an ASSOCIATION definition *)
+(*******************************************************************)
+Module Type FINITE_MAP.
+  Declare Module A : ASSOCIATION.
+  Declare Module AT : FINITE_MAP_AT with Module A:=A.
+  Module T := FINITE_MAP_T(A)(AT).
+
+  Parameter new : T.new.
+  Parameter free : T.free.
+  Parameter insert : T.insert.
+  Parameter remove : T.remove.
+  Parameter lookup : T.lookup.
 
 End FINITE_MAP.
 
@@ -110,54 +135,49 @@ End FINITE_MAP.
 (* use a ref to an association list.                               *)
 (*******************************************************************)
 Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
-  Module A := Assoc.
-  Module AL := AssocList(A).
 
-  Definition fmap_t := ptr.
+Module AT <: FINITE_MAP_AT with Module A:=Assoc.
+    Module A := Assoc.
+    Module AL := AssocList(Assoc).
+    Open Local Scope hprop_scope.
+    Definition fmap_t := ptr.
+    Definition rep(x:fmap_t)(y:AL.alist_t) := (x --> y).
+End AT.
+
+  Module T:=FINITE_MAP_T(Assoc)(AT).
+  Module A := T.A.
+  Module AL := T.AL.
+
+  Import AT.
   
   Open Local Scope stsepi_scope.
   Open Local Scope hprop_scope.
 
-  Definition rep(x:fmap_t)(y:AL.alist_t) := (x --> y).
+  Ltac t := unfold AT.rep; sep auto.
+  Ltac s := T.unfm_t; intros.
 
-  Ltac t := unfold rep; sep auto.
+  Definition new : T.new. s;
+    refine ({{New AL.nil_al}})
+  ; t. Defined.
 
-  Open Scope stsepi_scope.
+  Definition free : T.free. s;
+    refine ({{Free x}})
+  ; t. Defined.
 
-  Definition new : STsep __ (fun (ans:fmap_t) => rep ans AL.nil_al).
-    refine ({{New AL.nil_al}}) ; t.
-  Defined.
-
-  Definition free(x:fmap_t) : 
-    STsep (Exists l :@ AL.alist_t, rep x l) (fun (_:unit) => __).
-    intros.
-    refine ({{Free x}}) ; t.
-  Defined.
-
-  Definition lookup(x:fmap_t)(k:A.key_t)(P : AL.alist_t -> hprop) : 
-    STsep (Exists l :@ AL.alist_t, rep x l * P l) 
-          (fun (ans:option (A.value_t k)) => 
-             Exists l :@ AL.alist_t, rep x l * P l * [ans = AL.lookup k l]).
-    intros.
+  Definition lookup : T.lookup. s;
     refine (z <- ! x ; 
-            {{Return (AL.lookup k z)}}) ; t.
-    Defined.
+            {{Return (AL.lookup k z)}})
+  ; t. Defined.
 
-  Definition insert(x:fmap_t)(k:A.key_t)(v:A.value_t k)(l:[AL.alist_t]) :
-    STsep (l ~~ rep x l)
-          (fun (_:unit) => l ~~ rep x ((k,, v):: (AL.remove k l))).
-    intros.
+  Definition insert : T.insert. s;
     refine (z <- ! x ;
-            {{x ::= ((k,, v):: (AL.remove k z))}}); t.
-    Defined.
+            {{x ::= ((k,, v):: (AL.remove k z))}})
+  ; t. Defined.
 
-  Definition remove(x:fmap_t)(k:A.key_t)(l:[AL.alist_t]) :
-    STsep (l ~~ rep x l)
-          (fun (_:unit) => l ~~ rep x (AL.remove k l)).
-    intros.
+  Definition remove : T.remove. s;
     refine (z <- ! x ;
-            {{x ::= (AL.remove k z)}}); t.
-    Defined.
+            {{x ::= (AL.remove k z)}})
+  ; t. Defined.
 
 End RefAssocList.
 
