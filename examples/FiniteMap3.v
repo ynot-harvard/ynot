@@ -7,6 +7,7 @@ Require Import Ynot.
 Set Implicit Arguments.
 
 Notation "( x ,, y )" := (@existT _ _ x y) : core_scope.
+Notation "` x" := (projT1 x) (at level 10): core_scope.
 
 
 (*************************************************)
@@ -507,3 +508,372 @@ Defined.
   Defined.
 
 End HashTable.
+
+Module Type ORDERED_ASSOCIATION.
+  Require Import Relations.
+
+  Variable key_t : Set.
+  Variable value_t : key_t -> Set.
+  Variable key_eq_dec : forall (k1 k2:key_t), {k1 = k2} + {k1 <> k2}.
+  Variable key_lt : key_t -> key_t -> Prop.
+
+  Notation "k1 '<' k2" := (key_lt k1 k2) (at level 70).
+
+  Variable key_lt_eq_total : forall (k1 k2:key_t), {k1 < k2} + {k2 < k1} + {k1 = k2}.
+  Variable key_lt_trans : transitive _ key_lt.
+  Variable key_lt_irrefl : forall (k1:key_t), ~ k1 < k1.
+End ORDERED_ASSOCIATION.
+
+Module OA_FACTS(OA : ORDERED_ASSOCIATION).
+Export OA.
+
+Ltac compare_keys k1 k2 :=   
+  let klt := (fresh "klt") in
+    let kgt := (fresh "kgt") in
+      let keq := (fresh "keq") in
+    destruct (key_lt_eq_total k1 k2) as [[klt | kgt] | keq].
+
+Lemma key_lt_antisym (k1 k2 : key_t) : k1 < k2 -> k2 < k1 -> False.
+Proof. 
+intros. refine (@key_lt_irrefl k1 _). apply (key_lt_trans H H0). 
+Qed.
+
+Lemma key_eq_dec_derived (k1 k2:key_t) : {k1 = k2} + {k1 <> k2}.
+Proof.
+  intros k1 k2. compare_keys k1 k2.
+    right. intro. subst. apply (key_lt_irrefl klt).
+    right. intro. subst. apply (key_lt_irrefl kgt). 
+    left. trivial.
+Qed.
+
+Lemma key_lt_dec (k1 k2:key_t) : {k1 < k2} + {~ k1 < k2}.
+Proof.
+  intros k1 k2. compare_keys k1 k2.
+    left. trivial. 
+    right. intro. eapply key_lt_antisym; eauto.
+    right. subst. apply key_lt_irrefl.
+Qed.
+
+End OA_FACTS.
+
+(*****************************************************************************************)
+(* The splay tree implementation is a functor, parameterized by an ORDERED_ASSOCIATION,  *)
+(*****************************************************************************************)
+Module SplayMap(OA : ORDERED_ASSOCIATION) : FINITE_MAP with Module A := OA.
+
+  Module OAF := OA_FACTS(OA).
+  Import OAF.
+
+(* define functional binary-association-trees. *)
+  Module TREE.
+    Module AL := AssocList(OA).
+
+(* first, lets define our functional representation: a functional tree. 
+   The external representation has already been fixed by SSet: a list.
+   However it is useful to have an intermediary representation that
+   precisely captures the shape of the data structure. *)
+
+  Inductive tree : Type :=
+    Empty
+  | Node : forall (k:key_t) (v:value_t k) (left:tree) (right:tree), tree.
+ 
+  (* We now define what it means to be in a (functional) tree *)
+  
+  Function InT (k':key_t) (t:tree) {struct t} : Prop :=
+    match t with
+      Empty => False
+      | Node k v l r => k = k' \/ InT k' l \/ InT k' r
+    end.
+
+  Inductive bst : forall (t:tree), Prop :=
+    bst_empty : bst Empty
+  | bst_node : forall k (v:value_t k) (l r:tree)
+    (bstl : bst l) (bstr:bst r)
+    (lessl:forall k', InT k' l -> k' < k)
+    (lessr:forall k', InT k' r -> k < k'),
+    bst (Node v l r).
+  
+  
+  (* we now define an inorder traversal of a (functional) tree.  We will
+     use this to relate the (functional) tree representation to the
+     external list representation *)
+  Function inorder (t:tree)
+    {struct t} : AL.alist_t :=
+    match t with
+      Empty => nil
+      | Node k v l r => (inorder l) ++ ((k,,v)::nil) ++(inorder r)
+    end.
+
+  (* being in the tree is equivalent to being in the inorder traversal of it *)
+  Definition in_inorder_in (t:tree) (k:key_t) : InT k t <-> exists v:value_t k, In (k,,v) (inorder t).
+  Proof.
+    split; intros. 
+    functional induction (InT k t); simpl; intuition;
+    try (subst; exists v; apply in_or_app; intuition);
+    destruct H0 as [x ?]; exists x; apply in_or_app; intuition. 
+
+    destruct H as [d ind].
+    induction t; auto; simpl in *.
+    destruct (in_app_or (inorder t1) (_ :: inorder t2) _ ind); intuition.
+    destruct (in_inv H); intuition.
+    inversion H0; intuition.
+  Qed.
+
+  (* we will be sorting with < *)
+  Require Import Sorting.
+  Definition ltSig (x y : sigT value_t) := ` x < ` y.
+
+  Notation sort := (sort ltSig).
+
+
+Lemma sort_app (l1 l2:AL.alist_t) (k:key_t) (v:value_t k) (sort1:sort l1) (sort2:sort ((k,,v) :: l2))
+  (dgreat : forall k', In k' l1 -> (`k') < k) (dless : forall k', In k' l2 -> k < (`k')) :
+  sort (l1 ++ ((k,,v)::l2)).
+Proof.
+  intros.
+  induction l1; simpl; intuition.
+  assert (IHconcl : sort (l1 ++ (k,,v) :: l2)).
+    apply IHl1. intuition. inversion sort1. intuition.
+    intros. apply dgreat. intuition.
+  constructor; intuition.
+    destruct l1; simpl. constructor. unfold ltSig. apply dgreat. intuition.
+    constructor.  inversion sort1. inversion H2. intuition.
+Qed.
+
+Lemma sort_app_inv (l1 l2:AL.alist_t) : sort (l1 ++ l2) -> 
+     sort l1 
+  /\ sort l2 
+  /\ forall d1 d2, In d1 l1 -> In d2 l2 -> `d1 < `d2.
+Proof.
+  intros. induction l1; simpl in *.
+    intuition.
+    inversion H. subst. destruct (IHl1 H2) as [sort1 [sort2 inlt]]. clear IHl1 H.
+    intuition. constructor; intuition.
+    clear sort2 inlt. induction l1; intuition. inversion H3. constructor; intuition.
+    subst.
+    assert (In d2 (l1 ++ l2)). apply in_or_app; intuition.
+    clear H0 inlt sort1 sort2. set (l:=l1++l2) in *. clearbody l. clear l1 l2.
+    revert l H2 d1 d2 H3 H. induction l. inversion 3.
+    do 3 inversion 1; subst. auto.
+    eapply key_lt_trans. apply H6.
+    apply IHl; auto.
+  Qed.
+
+(* Binary search trees are sorted -- meaning that an inorder traversal should be sorted.
+   conversly, if an inorder traversal is sorted, then the tree is a binary search tree. *)
+Lemma inorder_bst_sorted (t:tree): bst t <-> sort (inorder t).
+  intros; split; intros b. induction t; simpl; intuition.
+  inversion b; subst. simpl.
+  assert (sortd : sort ((k,,v1)::(inorder t2))).
+    constructor. intuition.
+    destruct (destruct_list (inorder t2)).
+    destruct s. destruct s. rewrite e.
+    constructor. unfold ltSig. apply (lessr (`x)).
+    destruct (in_inorder_in t2 (`x)). apply H0.
+    exists (projT2 x). rewrite e. destruct x; intuition.
+    rewrite e. constructor.
+  apply sort_app; auto.
+  intros; apply lessl. destruct (in_inorder_in t1 (`k')). 
+      apply H2. exists (projT2 k'). destruct k'; auto.
+  intros; apply lessr. destruct (in_inorder_in t2 (`k')). 
+      apply H2. exists (projT2 k'). destruct k'; auto.
+  (* other direction *)
+  induction t. constructor.
+  simpl in b. destruct (sort_app_inv _ _ b) as [sort1 [sort2 inlt]].
+  inversion sort2. subst.
+  constructor; auto.
+  intros k' int.
+  destruct (in_inorder_in t1 k') as [G1 G2].
+  destruct (G1 int) as [d' ind]. clear G1 G2.
+  apply (inlt (k',,d') (k,,v) ind). intuition.
+  clear sort1 sort2 inlt.
+  replace (inorder t1 ++ (k,,v) :: inorder t2) with ((inorder t1 ++ (k,,v) :: nil) ++ inorder t2) in b.
+  destruct (sort_app_inv _ _ b) as [sort1 [sort2 inlt]].
+  intros k' int.
+  destruct (in_inorder_in t2 k') as [G1 G2].
+  destruct (G1 int) as [d' ind]. clear G1 G2.
+  apply (inlt (k,,v) (k',,d')); auto. apply in_or_app. intuition.
+  rewrite app_ass; rewrite <- app_comm_cons. auto.
+Qed.
+
+  End TREE.
+
+  Import TREE.
+
+  Module AT <: FINITE_MAP_AT with Module A:=OA.
+    Module A := OA.
+    Module AL := AssocList(A).
+    Open Local Scope hprop_scope.
+
+    (* This is our imperative representation of trees.  The left_node and
+       right_node contain pointers to other nodes. *) 
+    
+    Record node : Type :=
+      mkNode {
+        key : key_t ;
+        value : value_t key ;
+        left_node : ptr; 
+        right_node : ptr
+      }.
+
+    (* This is the invariant that relates the imperative model to the
+functional model. It is parameterized by a null location used as a
+sentinel.  Note that it exactly captures the shape of the tree (it is
+precise) as well as the functional node (the functional tree
+representation is unique) *)
+Fixpoint models_tree (nullRef:ptr) (root:ptr) (t:tree) {struct t} :
+hprop :=
+  match t with
+       Empty => [root = nullRef]
+    |  Node k v l r => [root <> nullRef] * Exists n :@ node, [(k,,v) = (key n,,value n)] * 
+      ((root-->n) * ((models_tree nullRef (left_node n) l) * (models_tree nullRef (right_node n) r)))
+  end.
+
+(* the actual bst invariant: relates the imperative structure with the
+external representation (list) using an intermediary functional bst.  
+
+The complete imperative data structure is a base pointer, which points
+to the root node of the tree (or nullRef if the tree is empty).
+We also use base as nullRef -- yes, it (provably) works ( :). *) 
+Definition fmap_t := ptr.
+Definition rep(base:fmap_t)(s:AL.alist_t) 
+  := (Exists root :@ ptr, (base --> root) *
+    Exists t :@ tree,  [bst t] * [Permutation s (inorder t)] * models_tree base root t).
+
+Lemma models_tree_null (nullRef:ptr) (t:tree) : models_tree nullRef nullRef t ==> [t = Empty].
+Proof. intros; destruct t; sep auto. Qed.
+
+(* want a flattening lemma *)
+
+(* the model is a unique model of the tree in the heap *)
+Lemma models_tree_uniq (nullRef root : ptr) (t1 t2 : tree) :
+  models_tree nullRef root t1 & models_tree nullRef root t2 ==> [t1 = t2].
+Proof.
+  intros nullRef root t1. revert root. 
+  induction t1; simpl.
+    intros. intro. destruct 1. destruct H. subst. destruct (models_tree_null _ _ _ H0). sep auto.
+    intros root t2 h H.
+    destruct t2; simpl in H.
+    do 4 destruct H. destruct H1. destruct H2. destruct H1; destruct H0; contradiction.
+
+    do 4 destruct H. destruct H1. destruct H2. destruct H1. subst. 
+  Admitted. (* there has to be a better proof, adam style *)
+
+End AT.
+
+  Module T:=FINITE_MAP_T(OA)(AT).
+
+  Import AT.
+  
+  Open Local Scope stsepi_scope.
+  Open Local Scope hprop_scope.
+
+  Module A := OA.
+  Ltac s := T.unfm_t; intros.
+
+  Hint Constructors bst.
+  Hint Resolve Permutation_refl.
+
+
+  Lemma models_tree_null' (nullRef:ptr) (t:tree) p : models_tree nullRef nullRef t * p ==> [t = Empty] * p.
+  Proof. intros; destruct t; sep auto. Qed.
+
+  Lemma models_tree_null_hyp1 (nullRef:ptr) (t:tree) R : [t = Empty] ==> R -> models_tree nullRef nullRef t ==> R.
+  Proof. intros; destruct t; sep auto. do 2 intro. apply (H h). sep auto. Qed.
+
+  Lemma models_tree_null_hyp2 (nullRef:ptr) (t:tree) p R : [t = Empty] * p ==> R -> models_tree nullRef nullRef t * p ==> R.
+  Proof. intros; destruct t; sep auto. do 2 intro. apply (H h). exists empty. exists h. sep auto. Qed.
+
+    Ltac find_model :=
+      repeat 
+        match goal with
+          | [|- context [models_tree ?x ?x ?a]] => equate a Empty
+          | [|- models_tree ?nullRef ?nullRef ?v ==> ?R] => apply models_tree_null_hyp1
+          | [|- models_tree ?nullRef ?nullRef ?v * ?p ==> ?R] => apply models_tree_null_hyp2
+        end; eauto.
+
+  Ltac t := unfold rep, AL.nil_al; sep find_model.
+
+  Definition new : T.new. s.
+  refine  (*  allocate a new location to be the base of the tree. Initialize to some dummy value *)
+         ( base <- New 0 
+         (* since base doubles as nullRef, and the tree starts empty, set base to nullRef (itself). *)
+         ; base ::= base
+         (* return the base of the new tree *)
+         ;; {{Return base}})
+  ; t. Defined.
+
+Definition free_node_t (nullRef root:ptr) := 
+  STsep (Exists rep :@ tree, models_tree nullRef root rep) 
+  (fun _ : unit => __).
+
+  Require Import Peano_dec.
+  Notation "x == y" := (eq_nat_dec x y) (at level 70, no associativity).
+
+Definition free_node' (nullRef:ptr)
+  (free_node : forall (root:ptr), free_node_t nullRef root)
+  (root:ptr) 
+  : free_node_t nullRef root. s.
+  refine (if root == nullRef
+          then {{Return tt}}
+          else node <- ! root 
+             ; free_node (left_node node) 
+            ;; free_node (right_node node)
+            ;; {{Free root}}).
+
+subst; find_model. sep auto. t. t.
+sep auto.
+  ; t.
+  models_tree 
+  
+  pose (models_tree_null
+
+Next Obligation.
+nextvc. destruct H0 as [t models].
+poses (models_tree_null models). auto. 
+Qed.
+Next Obligation.
+destruct H0 as [t models].
+destruct t; simpl in models; unlift_in models.
+(* get rid of the null case *)
+  destruct models. contradiction.
+destruct models as [nnull [n [datad [i1 [i2 [splitsi_12 [ptsroot [i1_1 [i1_2 [splitsi1_12 [modelsl modelsr]]]]]]]]]]].
+nextvc. 
+  splits_rewrite_in splitsi1_12 splitsi_12. splits_join_in H0 (1 :: 0 :: 1 :: nil).
+  exists i1_1. split. exists t1. trivial.
+  exists (union (i1 :: i1_2 :: nil) pf0).
+  split. 
+    apply* splits_commute. split.
+    (* normal cases *)
+    intros x [eqx emph2]. inversion_clear eqx. clear x. rewrites.
+    nextvc. exists i1_2. split. exists t2. trivial.
+    exists i1. split. apply* splits_commute. unfold splits. simpl. 
+      exists pf0. trivial.
+    
+    intros j0 j2. split. intros x [eqx empj2]. inversion_clear eqx. rewrites.
+    nextvc. exists empty. exists i1. split.
+      eauto.
+      nextvc.
+    (* exceptional case *)
+    intros e [contr rest]. discriminate.
+    intros e [contr rest]. discriminate.
+Qed.
+
+(* tie the knot *)
+Program Definition free_node (nullRef:loc) (root:loc) : free_node_def nullRef root
+  := sfix (@free_node' nullRef) root.
+
+Program Definition free_set (base:loc) : free_t bst_inv base
+  := sdo ( root <-- !! base
+         ; free_node base root
+        ;; STsep.sfree base).
+Next Obligation.
+Proof with trivial.
+  rename H into valid1.
+  destruct valid1 as [set1 [root [h1 [h2 [splitsh_12 [ptsroot [t [bstt [fp mod]]]]]]]]].
+  nextvc.
+  exists h2. split.
+    exists t...
+    exists h1. nextvc.
+      nextvc. exists empty. exists h1. nextvc. 
+Qed.
