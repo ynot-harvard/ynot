@@ -3,7 +3,9 @@
  * The hash-table functor is parameterized by another finite map implementation
  * so that each bucket in the hash-table is implemented by a "nested" finite map.
  *)
+
 Require Import Ynot.
+Require Import Relations.
 Set Implicit Arguments.
 
 Notation "( x ,, y )" := (@existT _ _ x y) : core_scope.
@@ -82,7 +84,7 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
 
   (* free takes an fmap_t that represents some association list, and destroys it *)
   Definition free := 
-    forall (x:fmap_t), STsep (Exists l :@ alist_t, rep x l) (fun (_:unit) => __).
+    forall (x:fmap_t)(l:[alist_t]), STsep (l ~~ rep x l) (fun (_:unit) => __).
 
   (* insert takes an fmap_t that represents some association list l satisfying the
    * predicate P, a key k, and a value v, and updates the fmap_t so it represents 
@@ -100,10 +102,10 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
    * and a key k, and returns the value v associatied with k in l if any, while
    * the map continues to represent l. *)
   Definition lookup :=
-    forall (x:fmap_t)(k:A.key_t)(P : alist_t -> hprop), 
-      STsep (Exists l :@ alist_t, rep x l * P l) 
+    forall (x:fmap_t)(k:A.key_t)(l:[alist_t]), 
+      STsep (l ~~ rep x l) 
             (fun (ans:option (A.value_t k)) =>
-               Exists l :@ alist_t, rep x l * P l * [ans = lookup k l]).
+               l ~~ [ans = lookup k l] * rep x l).
 
   Definition remove :=
     forall (x:fmap_t)(k:A.key_t)(l:[alist_t]),
@@ -118,9 +120,12 @@ End FINITE_MAP_T.
 (* The finite-map interface, relative to an ASSOCIATION definition *)
 (*******************************************************************)
 Module Type FINITE_MAP.
-  Declare Module A : ASSOCIATION.
+(* do we need A? *)
+  Declare Module A  : ASSOCIATION.
   Declare Module AT : FINITE_MAP_AT with Module A:=A.
   Module T := FINITE_MAP_T(A)(AT).
+
+  Export AT.
 
   Parameter new : T.new.
   Parameter free : T.free.
@@ -136,13 +141,13 @@ End FINITE_MAP.
 (*******************************************************************)
 Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
 
-Module AT <: FINITE_MAP_AT with Module A:=Assoc.
+  Module AT <: FINITE_MAP_AT with Module A:=Assoc.
     Module A := Assoc.
     Module AL := AssocList(Assoc).
     Open Local Scope hprop_scope.
     Definition fmap_t := ptr.
     Definition rep(x:fmap_t)(y:AL.alist_t) := (x --> y).
-End AT.
+  End AT.
 
   Module T:=FINITE_MAP_T(Assoc)(AT).
   Module A := T.A.
@@ -153,8 +158,8 @@ End AT.
   Open Local Scope stsepi_scope.
   Open Local Scope hprop_scope.
 
-  Ltac t := unfold AT.rep; sep auto.
   Ltac s := T.unfm_t; intros.
+  Ltac t := unfold AT.rep; sep auto.
 
   Definition new : T.new. s;
     refine ({{New AL.nil_al}})
@@ -203,7 +208,7 @@ End HASH_ASSOCIATION.
 Module HashTable(HA : HASH_ASSOCIATION)
                 (F : FINITE_MAP with Module A := HA) : FINITE_MAP with Module A := HA.
 
-  Require Import Euclid Peano_dec Array.
+  Require Import Euclid Peano_dec Minus Array.
 
   Module AT <: FINITE_MAP_AT with Module A:=HA.
     Module A := HA.
@@ -214,14 +219,16 @@ Module HashTable(HA : HASH_ASSOCIATION)
                                   
     (* We compose the modulo function from the Peano_dec library with the key hash
      * to get something that's guaranteed to be in range. *)
-    Program Definition hash(k:A.key_t) : nat := 
-      modulo HA.table_size HA.table_size_gt_zero (HA.hash k).
+    Program Definition hash(k:A.key_t) : nat := modulo HA.table_size HA.table_size_gt_zero (HA.hash k).
+
+    Ltac simpl_sig := 
+      match goal with 
+        | [|- context [proj1_sig ?x]] => destruct x; simpl
+        | [H:context [proj1_sig ?x] |- _] => destruct x; simpl in H
+      end. 
   
     Lemma hash_below(k:A.key_t) : hash k < HA.table_size.
-    Proof.
-      intros. unfold hash. destruct modulo.
-      simpl. destruct e. omega.
-    Qed.
+    Proof. unfold hash; intros; simpl_sig; destruct e; omega. Qed.
 
     (* given a list of key value pairs, return only those where the hash of the key equals i *)
     Fixpoint filter_hash (i:nat) (l:AL.alist_t) {struct l} : AL.alist_t := 
@@ -236,18 +243,23 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
     (* The ith bucket of a hash-table is well-formed with respect to the association list
      * l, if it points to an F.fmap_t that represents l filtered by i. *)
+
+    (* Some notation for unpacking pointer arithmetic *)
+    (* why isn't this being pulled in from Array? *)
+    Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
+
     Definition wf_bucket (f:fmap_t) (l:AL.alist_t) (i:nat) : hprop := 
       (Exists r :@ F.AT.fmap_t, 
-        (let p := array_plus f i in p ~~ p --> r) * F.AT.rep r (filter_hash i l)).
+        (p :~~ array_plus f i in p --> r) * F.AT.rep r (filter_hash i l)).
+
+    (* notation for iter_sep, modeled after list/array comprehensions *)
+    Notation "{@ P | i <- s + l }" := (iter_sep (fun i => P) s l) (i ident, s at next level).
 
     (* A hash-table represents list l if each of the buckets is well-formed with respect
      * to l.  Note that we also have to keep around the fact that the array_length of the
      * array is equal to HA.table_size so that we can free the array. *)
     Definition rep (f:fmap_t) (l:AL.alist_t) : hprop := 
-      [array_length f = HA.table_size]* iter_sep (wf_bucket f l) 0 HA.table_size.
-
-    Lemma sub_self(x:nat) : (x - x = 0).
-    Proof. intros ; omega. Qed.
+      [array_length f = HA.table_size] * {@ (wf_bucket f l i) | i <- 0 + HA.table_size}.
 
     Lemma sub_succ(x:nat) : 
       S x <= HA.table_size -> S (HA.table_size - S x) = HA.table_size - x.
@@ -256,8 +268,9 @@ Module HashTable(HA : HASH_ASSOCIATION)
     Ltac sub_simpl :=
       (repeat 
         match goal with
-          | [|- context [?x - ?x]] => rewrite sub_self
+          | [|- context [?x - ?x]] => rewrite <- minus_n_n
           | [|- context [S (HA.table_size - S ?x)]] => rewrite sub_succ; [idtac | solve[auto]]
+          | [H:array_length ?x = _ |- context [array_length ?x]] => rewrite H
         end); simpl; auto.
     End AT.
 
@@ -272,14 +285,11 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Module AL := F.AT.AL.
   Ltac s := T.unfm_t; intros.
 
-
   (* The following is used to initialize an array with empty F.fmap_t's *)
   Definition init_pre(f:array)(n:nat) := 
-    iter_sep (fun i => 
-               let p := array_plus f i in p ~~ 
-                 (Exists A :@ Set, Exists v :@ A, p --> v)) (HA.table_size - n) n.
+    {@ p :~~ array_plus f i in (Exists A :@ Set, Exists v :@ A, p --> v) | i <- (HA.table_size - n) + n }.
 
-  Definition init_post (f:array)(n:nat)(_:unit) := (iter_sep (AT.wf_bucket f AL.nil_al) (HA.table_size - n) n).
+  Definition init_post (f:array)(n:nat)(_:unit) := {@ AT.wf_bucket f AL.nil_al i | i <- (HA.table_size - n) + n}.
   Definition init_table_spec (f:array)(n:nat) := (n <= HA.table_size) -> STsep (init_pre f n) (init_post f n).
 
   Definition init_table(f:array)(n:nat) : init_table_spec f n.
@@ -287,8 +297,8 @@ Module HashTable(HA : HASH_ASSOCIATION)
   refine(
     fix init(n:nat) : init_table_spec f n :=
           match n as n' return init_table_spec f n' with
-         | 0 => fun H => {{Return tt}}
-         | S i => fun H => 
+         | 0 => fun _ => {{Return tt}}
+         | S i => fun _ => (* ANNOTE *)
                     m <- F.new 
                       <@> init_pre f (S i)
                   ; upd_array f (HA.table_size - S i) m
@@ -298,39 +308,45 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Defined.
 
   (* We allocate an array and then initialize it with empty F.fmap_t's *)
-  Definition new : T.new. s;
+  Definition new : T.new. s.
+    Ltac r:= unfold init_pre, init_post, rep; sep sub_simpl.
     refine (  t <- new_array HA.table_size 
-            ; @init_table t HA.table_size _  
-                <@> [array_length t = HA.table_size] 
-           ;; {{Return t <@> rep t AL.nil_al}}) ; unfold init_pre, init_post, rep ; 
-    sep sub_simpl.
+            ; @init_table t HA.table_size _
+              <@> [array_length t = HA.table_size] 
+           ;; {{Return t}}); unfold  init_pre, init_post, rep; r.
   Defined.
 
-  Definition free_pre (f:array)(n:nat) := (Exists l :@ _, iter_sep (wf_bucket f l) (HA.table_size - n) n).
-  Definition free_post (f:array)(n:nat) := (fun (_:unit) => 
-    iter_sep (fun i => let p := array_plus f i in p ~~ ptsto_any p) 
-    (HA.table_size - n) n).
-  Definition free_spec (f:array)(n:nat) := (n <= HA.table_size) -> STsep (free_pre f n) (free_post f n).
+  Definition free_pre (f:array)(l:[AL.alist_t])(n:nat) := l ~~ {@ wf_bucket f l i | i <- (HA.table_size - n) + n}.
+  Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in ptsto_any p | i <- (HA.table_size - n) + n}.
+  Definition free_spec (f:array)(l:[AL.alist_t])(n:nat) := (n <= HA.table_size) -> STsep (free_pre f l n) (free_post f n).
 
+  (* this definition and notation is useful enough that it probably ought to 
+   * go in Separation.v or somewhere else... *)
+
+  Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] := 
+    match inh with
+    | inhabits v => inhabits (f v)
+    end.
+  Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
+    (at level 91, right associativity) : hprop_scope.
 
   (* the following runs through the array and calls F.free on each of the buckets. *)
-  Definition free_table(f:array)(n:nat) : free_spec f n.
-  intro f.
-  refine (fix free_tab(n:nat) : free_spec f n := 
-          match n as n' return free_spec f n' 
+  Definition free_table(f:array)(l:[AL.alist_t])(n:nat) : free_spec f l n.
+  intros f l.
+  refine (fix free_tab(n:nat) : free_spec f l n := 
+          match n as n' return free_spec f l n' 
           with
           | 0 => fun H => {{Return tt}}
           | S i => fun H => let j := HA.table_size - (S i) in
                               let p := array_plus f j in 
               fm <- sub_array f j 
-                       (fun fm => Exists l :@ _,
-                        F.AT.rep fm (filter_hash j l) * 
+                       (fun fm => l ~~ F.AT.rep fm (filter_hash j l) * 
                         iter_sep (wf_bucket f l) (HA.table_size - i) i) 
-            ; F.free fm 
-                <@> ((p ~~ p --> fm) * free_pre f i)
-           ;; {{free_tab i _
-                <@> (p ~~ ptsto_any p )}}
-          end); unfold free_pre, free_post, wf_bucket, ptsto_any; try solve[
+            ; F.free fm (l ~~~ filter_hash j l)
+                <@> ((p ~~ p --> fm) * free_pre f l i)
+           ;; {{free_tab i _ <@> (p ~~ ptsto_any p )}}
+          end); unfold free_pre, free_post, wf_bucket, ptsto_any; clear free_tab;
+ try solve[
 (* the first goal *)
 simpl; apply himp_comm_conc; apply himp_empty_conc; apply himp_refl];
 (* the other ones *)
@@ -339,12 +355,11 @@ Defined.
 
   (* Run through the array, call F.free on all of the maps, and then call array_free *)
   Definition free : T.free. s.
-  refine (@free_table x HA.table_size _ 
+  refine (@free_table x l HA.table_size _ 
               <@> [array_length x = HA.table_size] 
       ;; free_array x)
-    ; unfold free_pre, free_post, rep; sep sub_simpl; rewrite H; sep auto.
+    ; unfold free_pre, free_post, rep; sep sub_simpl.
   Defined.
-
 
   (* an attempt to keep the sep tactic from unfolding things -- it's a bit too
    * eager to instantiate existentials in the conclusion of himp's, leading to
@@ -418,25 +433,21 @@ Defined.
   Definition lookup : T.lookup. s;
     refine (fm <- sub_array x (hash k)   (* extract the right bucket *)
               (fun fm => 
-                [array_length x = HA.table_size] * 
-                Exists l :@ AL.alist_t, F.AT.rep fm (filter_hash (hash k) l) * P l * 
+                l ~~ [array_length x = HA.table_size] * 
+                F.AT.rep fm (filter_hash (hash k) l) * 
                    iter_sep (wf_bucket x l) 0 (hash k) * 
-                   iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1)) ;
-           F.lookup fm k                 (* and use F.lookup to find the value *)
-              (fun l' => 
-                [array_length x = HA.table_size] *
-                Exists l :@ AL.alist_t, 
-                   [l' = filter_hash (hash k) l] * P l *
-                   (let p := array_plus x (hash k) in p ~~ p --> fm) *
-                   iter_sep (wf_bucket x l) 0 (hash k) * 
-                   iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1)) @> _);
-    unfold rep, wf_bucket ; intros ; fold_ex_conc ; sep sp_index ; unfold myExists.
-    unhide ; sep auto.
-    unhide ; sep auto.
-    apply himp_empty_conc' ; apply himp_ex_conc ; econstructor ; 
-      search_conc ltac:(eapply sp_index_conc) ; sp_index;
-      rewrite look_filter_hash ; sep auto.
-  Defined.
+                   iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1))
+         ; {{F.lookup fm k (l ~~~ (filter_hash (hash k) l))
+               <@> (l ~~ [array_length x = HA.table_size] * 
+                 (let p := array_plus x (hash k) in p ~~ p --> fm) *
+                 iter_sep (wf_bucket x l) 0 (hash k) * 
+                 iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1))}})
+    ; unfold rep, wf_bucket ; intros; sep auto.
+
+  search_prem sp_index. sep auto. unhide. sep auto.
+  unhide. sep auto.
+  rewrite look_filter_hash. sep auto.  fold_ex_conc. sp_index. sep auto.
+  Defined. (* this proof could be simpler/more automated. eliminateing fold_ex_conc should be easy *)
 
   Lemma remove_filter_eq (k:A.key_t)(l:AL.alist_t) : 
     AL.remove k (filter_hash (hash k) l) = filter_hash (hash k) (AL.remove k l).
@@ -445,16 +456,6 @@ Defined.
   Lemma remove_filter_neq (k:A.key_t)(i:nat)(l:AL.alist_t) : 
     (hash k <> i) -> filter_hash i l = filter_hash i (AL.remove k l).
   Proof. induction l ; simpl ; intros ; mysimplr. rewrite IHl ; auto. Qed.
-
-  (* this definition and notation is useful enough that it probably ought to 
-   * go in Separation.v or somewhere else... *)
-  Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] := 
-    match inh with
-    | inhabits v => inhabits (f v)
-    end.
-  Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
-    (at level 91, right associativity) : hprop_scope.
-
     
   Definition insert : T.insert. s;
   refine (fm <- sub_array x (hash k) (* find the right bucket *)
@@ -480,7 +481,6 @@ Defined.
          sep auto
      end.
   Defined.
-
 
   Definition remove : T.remove. s;
   refine (fm <- sub_array x (hash k) (* find the right bucket *)
@@ -593,7 +593,6 @@ Module SplayMap(OA : ORDERED_ASSOCIATION) : FINITE_MAP with Module A := OA.
     (lessr:forall k', InT k' r -> k < k'),
     bst (Node v l r).
   
-  
   (* we now define an inorder traversal of a (functional) tree.  We will
      use this to relate the (functional) tree representation to the
      external list representation *)
@@ -604,87 +603,107 @@ Module SplayMap(OA : ORDERED_ASSOCIATION) : FINITE_MAP with Module A := OA.
       | Node k v l r => (inorder l) ++ ((k,,v)::nil) ++(inorder r)
     end.
 
-  (* being in the tree is equivalent to being in the inorder traversal of it *)
-  Definition in_inorder_in (t:tree) (k:key_t) : InT k t <-> exists v:value_t k, In (k,,v) (inorder t).
-  Proof.
-    split; intros. 
-    functional induction (InT k t); simpl; intuition;
-    try (subst; exists v; apply in_or_app; intuition);
-    destruct H0 as [x ?]; exists x; apply in_or_app; intuition. 
-
-    destruct H as [d ind].
-    induction t; auto; simpl in *.
-    destruct (in_app_or (inorder t1) (_ :: inorder t2) _ ind); intuition.
-    destruct (in_inv H); intuition.
-    inversion H0; intuition.
-  Qed.
-
   (* we will be sorting with < *)
-  Require Import Sorting.
-  Definition ltSig (x y : sigT value_t) := ` x < ` y.
+  (*  equivalent to Sorting.sort *)
 
-  Notation sort := (sort ltSig).
+  Definition lelist k (l:AL.alist_t) : Prop :=
+    match l with 
+      | nil => True
+      | (k',,v')::l => if key_lt_dec k k' then True else False
+    end.
+
+  Fixpoint sort (l:AL.alist_t) : Prop := 
+    match l with 
+      | nil => True
+      | (k,,v)::l => lelist k l /\ sort l
+    end.
+  
+  Hint Constructors bst : tree.
+
+  Ltac tree_tac tac := repeat (progress match goal with
+      | [H:exists a, _ |- _ ] => destruct H
+      | [v: _ : value_t ?k |- exists v : value_t ?k, _ ] => exists v
+      | [H: sigT _ |- _] => destruct H
+      | [|- In ?a (?l1 ++ ?l2)] => apply in_or_app
+      | [H:In ?a (?l1 ++ ?l2) |- _] => destruct (in_app_or l1 l2 _ H); clear H
+      | [H:In ?a (?x :: ?l) |- _] => destruct (in_inv H); clear H
+      | [H: (_,,_) = (_,,_)|- _] => let H1 := (fresh "H") in let H2 := (fresh "H") in  
+                                      inversion H as [[H1 H2]]; clear H2; destruct H1
+(*      | [|- Sorting.sort _ nil] => constructor
+      | [|- Sorting.sort _ (?a::?l)] => constructor
+      | [H:Sorting.sort _ (?a::?l)|-_] => inversion H; clear H
+      | [|- lelistA _ _ (_::_)] => constructor *)
+      | [|- lelist _ (?l1 ++ _)] => destruct l1; simpl
+      | [H:True|-_] => clear H
+      | [H:lelist _ (_::_)|- _] => inversion H; clear H
+      | [|- lelist _ ?l] => destruct (destruct_list l) as [[? [? e]] | e]; rewrite e; simpl in *
+      | [H:bst (Node _ _ _)|- _] => inversion H; clear H
+      | [|- bst (Node _ _ _)] => constructor
+      | [ |- context[if key_lt_dec ?e1 ?e2 then True else False]] => let G := fresh "H" in destruct (key_lt_dec e1 e2) as [G|G]; [trivial|apply G; clear G]
+      | [ |- context[if key_lt_dec ?e1 ?e2 then _ else _] ] => destruct (key_lt_dec e1 e2) ; try congruence ; subst
+      | [H: if key_lt_dec ?e1 ?e2 then _ else _|-_] => destruct (key_lt_dec e1 e2) ; try congruence ; subst
+      | [H:inorder ?x = _ |- context [?x]] => rewrite H
+      | _ => try tac; simpl in *; firstorder; eauto with tree; subst
+    end).
 
 
-Lemma sort_app (l1 l2:AL.alist_t) (k:key_t) (v:value_t k) (sort1:sort l1) (sort2:sort ((k,,v) :: l2))
-  (dgreat : forall k', In k' l1 -> (`k') < k) (dless : forall k', In k' l2 -> k < (`k')) :
-  sort (l1 ++ ((k,,v)::l2)).
-Proof.
-  intros.
-  induction l1; simpl; intuition.
-  assert (IHconcl : sort (l1 ++ (k,,v) :: l2)).
-    apply IHl1. intuition. inversion sort1. intuition.
-    intros. apply dgreat. intuition.
-  constructor; intuition.
-    destruct l1; simpl. constructor. unfold ltSig. apply dgreat. intuition.
-    constructor.  inversion sort1. inversion H2. intuition.
-Qed.
 
-Lemma sort_app_inv (l1 l2:AL.alist_t) : sort (l1 ++ l2) -> 
-     sort l1 
-  /\ sort l2 
-  /\ forall d1 d2, In d1 l1 -> In d2 l2 -> `d1 < `d2.
-Proof.
-  intros. induction l1; simpl in *.
-    intuition.
-    inversion H. subst. destruct (IHl1 H2) as [sort1 [sort2 inlt]]. clear IHl1 H.
-    intuition. constructor; intuition.
-    clear sort2 inlt. induction l1; intuition. inversion H3. constructor; intuition.
-    subst.
-    assert (In d2 (l1 ++ l2)). apply in_or_app; intuition.
-    clear H0 inlt sort1 sort2. set (l:=l1++l2) in *. clearbody l. clear l1 l2.
-    revert l H2 d1 d2 H3 H. induction l. inversion 3.
-    do 3 inversion 1; subst. auto.
-    eapply key_lt_trans. apply H6.
-    apply IHl; auto.
-  Qed.
+  Ltac rewriter := repeat match goal with [H:?x = _ |- context [?x]] => rewrite H end.
+
+  (* being in the tree is equivalent to being in the inorder traversal of it *)
+  Definition inT_inorder_in (t:tree) (k:key_t) : InT k t -> exists v:value_t k, In (k,,v) (inorder t).
+  Proof. intros; functional induction (InT k t); tree_tac idtac. Qed.
+
+  Definition in_inorder_inT (t:tree) (k:key_t) (v:value_t k): In (k,,v) (inorder t) -> InT k t.
+  Proof. induction t; tree_tac idtac. Qed.
+
+  Hint Resolve inT_inorder_in in_inorder_inT : tree.
+
+  Lemma sort_app (l1 l2:AL.alist_t) (k:key_t) (v:value_t k) (sort1:sort l1) (sort2:sort ((k,,v) :: l2))
+    (dgreat : forall k' v', In (k',,v') l1 -> k' < k) (dless : forall k' v', In (k',,v') l2 -> k < k') :
+    sort (l1 ++ ((k,,v)::l2)).
+  Proof. induction l1; tree_tac idtac. Qed.
+
+  Lemma lelist_app_inv  k l1 l2 : lelist k (l1 ++ l2) -> lelist k l1.
+  Proof. induction l1; tree_tac idtac. Qed.
+
+  Hint Resolve lelist_app_inv sort_app key_lt_trans: tree.
+
+  Lemma sort_in_order l a k v: sort l -> lelist a l -> In (k,,v) l -> a < k.
+  Proof. induction l; tree_tac idtac. Qed.
+
+  Lemma sort_app_inv (l1 l2:AL.alist_t) : sort (l1 ++ l2) -> 
+        sort l1 
+     /\ sort l2 
+     /\ forall d1 d2, In d1 l1 -> In d2 l2 -> `d1 < `d2.
+  Proof. Hint Resolve lelist_app_inv in_or_app sort_in_order : tree. induction l1; tree_tac idtac. Qed.
+
+  Hint Resolve sort_app_inv : tree.
+  Hint Constructors bst : tree.
 
 (* Binary search trees are sorted -- meaning that an inorder traversal should be sorted.
    conversly, if an inorder traversal is sorted, then the tree is a binary search tree. *)
-Lemma inorder_bst_sorted (t:tree): bst t <-> sort (inorder t).
-  intros; split; intros b. induction t; simpl; intuition.
-  inversion b; subst. simpl.
-  assert (sortd : sort ((k,,v1)::(inorder t2))).
-    constructor. intuition.
-    destruct (destruct_list (inorder t2)).
-    destruct s. destruct s. rewrite e.
-    constructor. unfold ltSig. apply (lessr (`x)).
-    destruct (in_inorder_in t2 (`x)). apply H0.
-    exists (projT2 x). rewrite e. destruct x; intuition.
-    rewrite e. constructor.
-  apply sort_app; auto.
-  intros; apply lessl. destruct (in_inorder_in t1 (`k')). 
-      apply H2. exists (projT2 k'). destruct k'; auto.
-  intros; apply lessr. destruct (in_inorder_in t2 (`k')). 
-      apply H2. exists (projT2 k'). destruct k'; auto.
-  (* other direction *)
-  induction t. constructor.
-  simpl in b. destruct (sort_app_inv _ _ b) as [sort1 [sort2 inlt]].
-  inversion sort2. subst.
-  constructor; auto.
-  intros k' int.
-  destruct (in_inorder_in t1 k') as [G1 G2].
-  destruct (G1 int) as [d' ind]. clear G1 G2.
+Lemma bst_inorder_sorted (t:tree): bst t -> sort (inorder t).
+  induction t; tree_tac idtac. apply sort_app; tree_tac idtac. 
+  eapply lessr; eapply in_inorder_inT; tree_tac idtac.
+Qed.
+
+Ltac sort_dest := repeat match goal with
+                           | [H : sort (?a ++ ?b) |- _] => destruct (sort_app_inv _ _ H); clear H
+                         end.
+Ltac tree_tac2 tac := tree_tac ltac:(try sort_dest; tac).
+
+Lemma inorder_sorted_bst (t:tree): sort (inorder t) -> bst t.
+Proof.
+  induction t; tree_tac2 idtac; tree_tac2 idtac. 
+  destruct (inT_inorder_in t1 k' H0).
+  replace k' with (`(k',,x)); [idtac|auto].
+  replace k with (`(k,,v)); [idtac|auto]. auto.
+  destruct (inT_inorder_in t2 k' H0).
+  replace k' with (`(k',,x)); [idtac|auto].
+  replace k with (`(k,,v)); [idtac|auto]. apply H2.
+
+  apply H2.
   apply (inlt (k',,d') (k,,v) ind). intuition.
   clear sort1 sort2 inlt.
   replace (inorder t1 ++ (k,,v) :: inorder t2) with ((inorder t1 ++ (k,,v) :: nil) ++ inorder t2) in b.
@@ -717,17 +736,17 @@ Qed.
       }.
 
     (* This is the invariant that relates the imperative model to the
-functional model. It is parameterized by a null location used as a
-sentinel.  Note that it exactly captures the shape of the tree (it is
-precise) as well as the functional node (the functional tree
-representation is unique) *)
-Fixpoint models_tree (nullRef:ptr) (root:ptr) (t:tree) {struct t} :
-hprop :=
-  match t with
-       Empty => [root = nullRef]
-    |  Node k v l r => [root <> nullRef] * Exists n :@ node, [(k,,v) = (key n,,value n)] * 
-      ((root-->n) * ((models_tree nullRef (left_node n) l) * (models_tree nullRef (right_node n) r)))
-  end.
+       functional model. It is parameterized by a null location used as a
+       sentinel.  Note that it exactly captures the shape of the tree (it is
+       precise) as well as the functional node (the functional tree
+       representation is unique) *)
+    Fixpoint models_tree (nullRef:ptr) (root:ptr) (t:tree) {struct t} :
+      hprop :=
+      match t with
+        Empty => [root = nullRef]
+        |  Node k v l r => [root <> nullRef] * Exists n :@ node, [(k,,v) = (key n,,value n)] * 
+          ((root-->n) * ((models_tree nullRef (left_node n) l) * (models_tree nullRef (right_node n) r)))
+      end.
 
 (* the actual bst invariant: relates the imperative structure with the
 external representation (list) using an intermediary functional bst.  
@@ -757,7 +776,7 @@ Proof.
     do 4 destruct H. destruct H1. destruct H2. destruct H1; destruct H0; contradiction.
 
     do 4 destruct H. destruct H1. destruct H2. destruct H1. subst. 
-  Admitted. (* there has to be a better proof, adam style *)
+  Admitted. (* there has to be a better proof, adam style. and we may no longer need this lemma anyway... *)
 
 End AT.
 
@@ -804,7 +823,7 @@ End AT.
   ; t. Defined.
 
 Definition free_node_t (nullRef root:ptr) := 
-  STsep (Exists rep :@ tree, models_tree nullRef root rep) 
+  STsep (ists rep :@ tree, models_tree nullRef root rep) 
   (fun _ : unit => __).
 
   Require Import Peano_dec.
@@ -813,20 +832,16 @@ Definition free_node_t (nullRef root:ptr) :=
 Definition free_node' (nullRef:ptr)
   (free_node : forall (root:ptr), free_node_t nullRef root)
   (root:ptr) 
-  : free_node_t nullRef root. s.
+  : free_node_t nullRef root. s. 
   refine (if root == nullRef
           then {{Return tt}}
           else node <- ! root 
              ; free_node (left_node node) 
-            ;; free_node (right_node node)
-            ;; {{Free root}}).
+                <@> ([root <> nullRef] * Exists n :@ AT.node,  ((root-->n)) * (models_tree nullRef (right_node n) r))
+            ;; free_node (right_node node) 
+                <@> ([root <> nullRef] * Exists n :@ AT.node,  ((root-->n)))
+            ;; {{Free root}}); sep find_model.
 
-subst; find_model. sep auto. t. t.
-sep auto.
-  ; t.
-  models_tree 
-  
-  pose (models_tree_null
 
 Next Obligation.
 nextvc. destruct H0 as [t models].
