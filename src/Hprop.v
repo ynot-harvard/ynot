@@ -73,6 +73,11 @@ Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] :=
 Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f))
   (at level 91, right associativity).
 
+Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
+
+Definition ptsto_any(p:ptr) : hprop := Exists A :@ Set, Exists v :@ A, p --> v.
+Notation "p '-->?'" := (ptsto_any p) (at level 38, no associativity) : hprop_scope.
+
 Definition hprop_imp (p1 p2 : hprop) : Prop := forall h, p1 h -> p2 h.
 Infix "==>" := hprop_imp (right associativity, at level 85).
 

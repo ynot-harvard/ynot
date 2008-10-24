@@ -92,13 +92,6 @@ Parameter array_length : array -> nat.
  *)
 Parameter array_plus : array -> nat -> [ptr].
 
-(* Some notation for unpacking pointer arithmetic *)
-Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
-
-(* Should go in hprop *)
-Definition ptsto_any(p:ptr) : hprop := Exists A :@ Set, Exists v :@ A, p --> v.
-Notation "p '-->?'" := (ptsto_any p) (at level 38, no associativity) : hprop_scope.
-
 (* The assumed operations on arrays -- note that operations such as sub and upd
  * only require that the location being manipulated point to something. *)
 

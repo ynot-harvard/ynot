@@ -204,6 +204,8 @@ End Sep.
 
 Implicit Arguments SepFree [T].
 Implicit Arguments SepStrengthen [pre T post].
+Implicit Arguments SepFix [dom ran].
+Implicit Arguments SepFix2 [dom1 dom2 ran].
 
 Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
 
@@ -243,13 +245,12 @@ Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
 Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
   (right associativity, at level 84) : stsepi_scope.
 Notation "!!!" := (SepContra _) : stsepi_scope.
-Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
-  (SepFix (dom := dom) ran pre post (fun f x => e))
-  (at level 85) : stsepi_scope.
 Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
 Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
 Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
+Notation "'Fix'" := SepFix.
+Notation "'Fix2'" := SepFix2.
 
 Delimit Scope stsepi_scope with stsepi.

@@ -11,16 +11,14 @@ Section LINKED_LIST.
 
 Variable A: Set.
 
-(* I'm taking these definitions from wikipedia. *)
 Record Node : Set := node {
-  data: A;         (* data being stored in the node *)
-  next: option ptr (* a reference to the next node, none for last node *)
+  data: A;
+  next: option ptr
 }.
 
 (* ptr to
      (some (ptr to first node of list) | none) *)
 Definition LinkedList : Set := ptr.
-Definition null : option ptr := None.
 
 Fixpoint rep' (m : list A) (p : option ptr) {struct m} : hprop :=
   match p with 
@@ -34,43 +32,62 @@ Fixpoint rep' (m : list A) (p : option ptr) {struct m} : hprop :=
 Definition rep (m: list A) (ll: LinkedList) : hprop :=
   Exists n :@ option ptr, ll --> n * rep' m n.
 
+Definition head (ls : list A) :=
+  match ls with
+    | nil => None
+    | x :: _ => Some x
+  end.
+
+Definition tail (ls : list A) :=
+  match ls with
+    | nil => nil
+    | _ :: ls' => ls'
+  end.
+
 Ltac simplr := repeat (try discriminate;
   match goal with
+    | [ H : head ?x = Some _ |- _ ] =>
+      destruct x; simpl in *; [
+        discriminate
+        | injection H; clear H; intros; subst
+      ]
     | [ |- match ?v with
              | Some _ => _
              | None   => _
            end ==> _] => destruct v
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
-    | [ |- ?d = node (data ?d) (next ?d)] => destruct d; reflexivity
   end).
 
 Ltac t := unfold rep; unfold rep'; sep simplr.
 Ltac f := fold rep'; fold rep.
 
 Definition new : STsep __ (rep nil).
-  refine {{ New None }}; t.
-Defined.
+  refine {{ New None }};
+    t.
+Qed.
 
 Definition free (ll: LinkedList) :
   STsep (rep nil ll) (fun _:unit => __).
-  intros; refine {{ FreeT ll :@ option ptr }}; t.
-Defined.  
+  intros; refine {{ FreeT ll :@ option ptr }};
+    t.
+Qed.
 
 Definition insertFront (ll : LinkedList) (m : [list A]) (a : A) : 
   STsep (m ~~ rep m ll)
         (fun _:unit => m ~~ rep (a::m) ll ).
   intros;
-  refine ( x <- !ll
-         ; r <- New (node a x)
-         ; {{ll ::= Some r}}); t.
-Defined.
+  refine ( x <- !ll;
+    r <- New (node a x);
+    {{ll ::= Some r}});
+  t.
+Qed.
 
-Definition removeFront: forall (ll: LinkedList) (m: [list A]) ,
- STsep (m ~~ rep m ll)
-       (fun r:option A => m ~~ match r with
-                                 | None => [m = nil] * rep m ll
-                                 | Some r' => Exists m' :@ list A, [m = r' :: m'] * rep m' ll
-                               end).
+Definition removeFront (ll: LinkedList) (m: [list A]) :
+  STsep (m ~~ rep m ll)
+        (fun r:option A => m ~~ match r with
+                                  | None => [m = nil] * rep m ll
+                                  | Some r' => Exists m' :@ list A, [m = r' :: m'] * rep m' ll
+                                end).
   intros;
   refine (x <- !ll;
           IfNull x As h Then 
@@ -82,12 +99,12 @@ Definition removeFront: forall (ll: LinkedList) (m: [list A]) ,
             n <- !h;
             ll ::= next n;;
             Free h;;
-            {{Return (Some (data n))}}); solve [ t | hdestruct m; t ].
-Defined.
+            {{Return (Some (data n))}});
+  solve [ t | hdestruct m; t ].
+Qed.
 
 Lemma eta_node : forall fn, fn = node (data fn) (next fn).
-  intros.
-  destruct fn. trivial.
+  destruct fn; reflexivity.
 Qed.
 
 Hint Resolve eta_node.
@@ -95,32 +112,31 @@ Hint Resolve eta_node.
 Definition getElements' (hd : option ptr) (m: [list A]) :
   STsep (m ~~ rep' m hd)
         (fun res:list A => m ~~ [res = m] * rep' m hd).
-  refine (SepFix2 (dom1 := option ptr) (dom2 := [list A]) (fun _ _ => list A)
-                 (fun hd m => m ~~ rep' m hd)
-                 (fun hd m o => m ~~ [o = m] * rep' m hd)
-                 (fun self hd m => 
-                   IfNull hd Then
-                     {{Return nil}}
-                   Else
-                     Assert (m ~~ Exists nde :@ Node, Exists m' :@ list A, [m = data nde :: m'] * 
-                             hd --> nde * rep' m' (next nde));;
-                     fn <- !hd;
-                     rest <- self (next fn) (m ~~~ match m with
-                                                     | _ :: v => v
-                                                     | _ => nil
-                                                   end) <@> (m ~~ Exists m' :@ list A, 
-                                                             [m = data fn :: m'] * hd --> fn);
-                     {{Return (data fn :: rest)}}
-                   )); solve [ t | hdestruct m; t ].
-Defined.
+  refine (Fix2
+    (fun hd m => m ~~ rep' m hd)
+    (fun hd m o => m ~~ [o = m] * rep' m hd)
+    (fun self hd m => 
+      IfNull hd Then
+        {{Return nil}}
+      Else
+        Assert (m ~~ Exists nde :@ Node, [head m = Some (data nde)] * 
+          hd --> nde * rep' (tail m) (next nde));;
+        fn <- !hd;
+        Assert ((m ~~ [head m = Some (data fn)] * hd --> fn)
+          * (m' :~~ (m ~~~ tail m) in rep' m' (next fn)));;
+        rest <- self (next fn) (m ~~~ tail m) <@> _;
+        {{Return (data fn :: rest)}}));
+  solve [ t | hdestruct m; t ].
+Qed.
 
-Definition getElements : forall (ll: LinkedList) (m: [list A]) ,
+Definition getElements (ll: LinkedList) (m: [list A]) :
   STsep (m ~~ rep m ll)
         (fun elts: list A => m ~~ rep m ll * [elts = m]).
-  intros;
-  refine (hd <- !ll;
-          {{getElements' hd m <@> ll --> hd}});  t.
-Defined.
+  intros; refine (hd <- !ll;
+    Assert (ll --> hd * (m ~~ rep' m hd));;
+    {{getElements' hd m <@> _}});
+  t.
+Qed.
 
 Conjecture insertAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
  STsep (a ~~ c ~~ rep (a ++ b :: c) ll)
@@ -139,3 +155,5 @@ Definition iterate : forall (this : LinkedList) (f : A -> STsep) (ls : [list A])
   STsep (ls ~~ rep ls this)
         (
 **)
+
+End LINKED_LIST.
