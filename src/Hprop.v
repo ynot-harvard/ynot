@@ -66,6 +66,12 @@ Definition hprop_unpack T (inh : inhabited T) (p : T -> hprop) : hprop :=
   fun h => exists v, inh = inhabits v /\ p v h.
 Arguments Scope hprop_unpack [type_scope inhabited_scope hprop_scope].
 Notation "inh ~~ p" := (hprop_unpack inh (fun inh => p)) (at level 91, right associativity) : hprop_scope.
+Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] :=
+  match inh with
+    | inhabits v => inhabits (f v)
+  end.
+Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f))
+  (at level 91, right associativity).
 
 Definition hprop_imp (p1 p2 : hprop) : Prop := forall h, p1 h -> p2 h.
 Infix "==>" := hprop_imp (right associativity, at level 85).

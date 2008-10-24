@@ -6,3 +6,6 @@ syntax: glob
 *.depend
 *.vo
 */Makefile.coq
+*.aux
+*.log
+*.pdf

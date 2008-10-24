@@ -103,7 +103,7 @@ Section Sep.
     t.
     exact (STFix _ _ _ F v).
   Qed.
-
+  
   Definition SepNew T (v : T)
     : STsep __ (fun p => p --> v)%hprop.
     t.
@@ -179,6 +179,26 @@ Section Sep.
     : STsep P (fun _ : unit => P).
     t.
     refine {{{STReturn tt}}}; intuition; subst; eauto.
+  Qed.
+
+  Implicit Arguments SepStrengthen [pre T post].
+  Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
+  Definition SepFix2 : forall (dom1 dom2 : Type) (ran : dom1 -> dom2 -> Type)
+    (pre : dom1 -> dom2 -> hprop) (post : forall v1 v2, ran v1 v2 -> hprop)
+    (F : (forall (v1 : dom1) (v2 : dom2), STsep (pre v1 v2) (post v1 v2))
+      -> (forall (v1 : dom1) (v2 : dom2), STsep (pre v1 v2) (post v1 v2)))
+    (v1 : dom1) (v2 : dom2) , STsep (pre v1 v2) (post v1 v2).
+    intros.
+    refine ((SepFix (dom := dom1 * dom2) (fun i => ran (fst i) (snd i))
+                    (fun i => pre (fst i) (snd i))
+                    (fun i o => post (fst i) (snd i) o)
+                    (fun self args =>
+                      let self' := fun a b => self (a,b) in
+                        {{match args 
+                            return STsep (pre (fst args) (snd args))
+                                         (post (fst args) (snd args)) with
+                            | (a,b) => F self' a b
+                          end}})) (v1,v2)); destruct args; red; intuition. 
   Qed.
 End Sep.
 
