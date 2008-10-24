@@ -238,7 +238,7 @@ Inductive ilist : nat -> Set :=
  | inil : A -> ilist 1
  | icons : forall n, ilist n -> ilist n -> ilist (n+n).
 
-Fixpoint rep0' (n: nat) (ls: ilist (S n)) {struct ls} : btree n -> hprop :=
+(* Fixpoint rep0' (n: nat) (ls: ilist (S n)) {struct ls} : btree n -> hprop :=
  match ls in ilist n0 return btree  with
   | inil a0 => [True]
   | icons n0 l1 l2 => fun _ => [True]
@@ -255,7 +255,7 @@ Fixpoint rep0' (n: nat) {struct n} : btree n -> ilist (S n) -> hprop :=
  end. 
 
 Eval simpl in rep0' 2 t2.
-
+*)
 
 End BINOMIAL_TREE.
 
