@@ -1,0 +1,89 @@
+\documentclass[preprint]{sigplanconf}
+%\usepackage[square, comma, sort&compress]{natbib}
+
+\usepackage{amsmath}
+
+\begin{document}
+
+%\conferenceinfo{PLDI ’09}{ todo }
+
+%\copyrightyear{2005}
+
+%\copyrightdata{1-59593-056-6/05/0006}
+
+\preprintfooter{DRAFT}
+
+%\titlebanner{DRAFT}
+
+\title{Title}
+
+
+\authorinfo{Double blind}
+{ }
+
+\maketitle
+
+\begin{abstract}
+This is the text of the abstract.
+\end{abstract}
+
+\category{CR-number}{subcategory}{third-level}
+
+\terms
+term1, term2
+
+\keywords
+keyword1, keyword2
+
+\section{Introduction}
+  Ynot is the right design from a modularity, re-use perspective.  Much of the success hinges on the use of a higher-order dependently-typed language (Coq) and the ability to smoothly integrate modeling (inductive definitions), domain-specific abstractions (e.g., STsep) and uniform abstraction (Pi). If Ynot is to succeed, need drastic improvements in automation.
+  \subsection{Summary of pain from ICFP paper}
+  \subsection{Contributions}
+    Dramatic reduction in cost of writing/maintaining Ynot code:
+    \begin{itemize}
+    \item new formulation of HTT in Coq (specifically STsep)
+    \item general higher-order tactic for discharging STsep VCs (sep)
+    \item how how domain-specific predicates (e.g., listseg, itersep, etc.) can be integrated to keep verification burden relatively low.
+    \item careful proving ``style'' avoids sensitivities that make proof
+       maintenance difficult.
+    \item comparison against previous work and work of others.
+ \end{itemize}
+
+\section{Overview of HTT and previous version of Ynot}
+   Condensed version of ICFP paper.
+
+\section{Ynot in practice}
+  Demonstrate problems with binary post-conditions (including need for precision), size of old proofs, difficulty in maintaining them.
+
+\section{New version of Ynot}
+ Perhaps use association list as running example?
+  \subsection{Re-formulate STsep to use only unary heap predicates}
+     key advantage: can use traditional separation-logic reasoning.  Things to include:
+     \begin{enumerate}
+     \item list some of the key theorems
+     \item argue that these will be strung together below with Ltac support
+     \item here's where we have to fudge the issue of ``ghost'' values and the need to add an injectivity axiom.
+     \item another price is that code needs more annotations (but we attempt to minimize)
+     \end{enumerate}
+   \subsection{new tactic library - sep}
+     Explain structure of sep, sketch how it's coded, and what it can do.
+
+\section{Imperative ADTs in Ynot 2.0}
+    Focus on extensibility -- e.g., adding itersep to support arrays, adding listseg to support linked lists, etc. and showing how these get used in ADTs like the queue, hash-table, etc.
+
+\section{Comparison}
+ \subsection{comparison to old Ynot ADT implementations}
+  Some of this would happen above too.
+ \subsection{comparison to Jahob}
+ \subsection{comparison to Smallfoot}
+
+\section{Other related work}
+\section{Summary and conclusions}
+Check that bibliography is working~\cite{1159812}.
+
+%\bibliographystyle{plainnat}
+\bibliographystyle{plain}
+
+\bibliography{bib}
+
+\end{document}

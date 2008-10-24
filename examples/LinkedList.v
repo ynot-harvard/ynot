@@ -21,18 +21,34 @@ Record Node : Set := node {
 (* ptr to
      (some (ptr to first node of list) | none) *)
 Definition LinkedList : Set := ptr.
+Definition null : option ptr := None.
 
+Fixpoint rep' (m : list A) (p : option ptr) {struct m} : hprop :=
+  match p with 
+    | None => [m = nil]
+    | Some hd => match m with
+                   | a :: b => Exists nxt :@ option ptr, hd --> node a nxt * rep' b nxt
+                   | nil => [False]
+                 end
+  end.
 
+(**
 Fixpoint rep' (m: list A) (p: option ptr) {struct m} : hprop :=
  match m with
   | nil => [p = None]
-  | a :: b => Exists p' :@ ptr, [p = Some p'] * 
-              Exists tl :@ option ptr, p' --> node a tl * rep' b tl
- end.  
+  | a :: b => match p with
+                | None => [False]
+                | Some hd => Exists nxt :@ option ptr, hd --> node a nxt * rep' b nxt
+              end
+ end.
+**)  
 
 
 Definition rep (m: list A) (ll: LinkedList) : hprop :=
  Exists n :@ option ptr, ll --> n * rep' m n.
+
+Ltac t := unfold rep; unfold rep'; sep auto.
+Ltac f := fold rep'; fold rep.
 
 Definition new : STsep __ (rep nil).
 refine ( {{ New None }} ); unfold rep; sep auto.  
@@ -40,7 +56,7 @@ Defined.
 
 Definition free (ll: LinkedList) :
  STsep (rep nil ll) (fun _:unit => __).
-intros ll; refine ( {{ FreeT ll :@ option ptr }} ); unfold rep; sep auto.
+intros ll; refine ( {{ FreeT ll :@ option ptr }} ); solve [ t | t; destruct v; t ].
 Defined.  
 
 (* Our ultimate goal is
@@ -60,13 +76,11 @@ and 0 for the overall insert front spec. Since monads are
 associative, we could also create A1 instead.
 *)
 
-Ltac t := unfold rep; unfold rep'; sep auto.
-
 Definition insertFront (ll : LinkedList) (m : [list A]) (a : A) : 
   STsep (m ~~ rep m ll)
         (fun _:unit => m ~~ rep (a::m) ll ).
   intros ll m a.
-  refine ( x <- ll !! (fun x => m ~~ rep' m x)
+  refine ( x <- !ll (** !! (fun x => m ~~ rep' m x) **)
          ; r <- New (node a x)
          ; {{ll ::= Some r}}); t.
 Defined.
@@ -106,36 +120,103 @@ intros ll m a. refine (
 
 (*  With just insertFront and removeFront, a 
    linked list implements a stack. *)
-Conjecture removeFront: forall (ll: LinkedList) (m: list A) ,
- STsep (rep m ll)
-       (fun r:option A => match r with
-                                 | None => [m = nil] 
-                                 | Some r' => match m with
-                                                | nil => [False]
-                                                | a :: b => [r' = a]
-                                              end
+
+Axiom todo : forall A, A.
+
+Definition removeFront: forall (ll: LinkedList) (m: [list A]) ,
+ STsep (m ~~ rep m ll)
+       (fun r:option A => m ~~ match r with
+                                 | None => [m = nil] * rep m ll
+                                 | Some r' => Exists m' :@ list A, [m = r' :: m'] * rep m' ll
                                end).
-(**
   intros ll m.
-  refine ( x <- ll !! (fun x => rep' m x)
-         ; match x as x with 
-             | None => {{Return None}}
-             | Some r' =>
-               n <- r' !! (fun n => match m with 
-                                      | nil => [False]
-                                      | _ :: t => ll --> x * rep' t (next n)
-                                    end)
-               ; z <- ll ::= next n
-               ; {{Return (Some (data n))}}
-           end); t. fold rep'. 
-**)
+  refine ( x <- ll !! (fun x => m ~~ rep' m x) (** read ll and bind result to x **); _ ).
+    t. 
+    t.
+  refine (IfNull x As h Then _
+          Else _).
+  refine ({{Return None}}). t. hdestruct m; t.
+
+  fold rep'.
+  refine (Assert (m ~~ ll --> (Some h) * Exists nde :@ Node, Exists m' :@ list A, [m = (data nde) :: m'] * h --> nde * rep' m' (next nde));; _).
+    subst. hdestruct m. t. t.
+    intros. instantiate (1 := hprop_unpack m
+     (fun m0 : list A =>
+      ll --> Some h *
+      (Exists nde :@ Node,
+       (Exists m' :@ list A,
+        [m0 = data nde :: m'] * h --> nde * rep' m' (next nde))))). t.
+
+  refine (n <- h !! (fun n : Node => ll --> Some h *
+    (m ~~ Exists m' :@ list A,
+      [m = data n :: m'] * rep' m' (next n))); _). t. t.
+
+  refine (ll ::= next n;; _). t. t.
+
+  refine (Free h;; _). t. t.
+
+  refine ({{Return (Some (data n))}}). t. t.
+Defined.
+
+Definition removeFront': forall (ll: LinkedList) (m: [list A]) ,
+ STsep (m ~~ rep m ll)
+       (fun r:option A => m ~~ match r with
+                                 | None => [m = nil] * rep m ll
+                                 | Some r' => Exists m' :@ list A, [m = r' :: m'] * rep m' ll
+                               end).
+  intros ll m.
+  refine (x <- !ll (** !! (fun x => m ~~ rep' m x) **); 
+          IfNull x As h
+          Then {{Return None}}
+          Else (Assert (m ~~ ll --> (Some h) * Exists nde :@ Node, Exists m' :@ list A, [m = (data nde) :: m'] * h --> nde * rep' m' (next nde));;
+                n <- !h (** !! (fun n : Node => 
+                             ll --> Some h * (m ~~ Exists m' :@ list A, [m = data n :: m'] * rep' m' (next n))) **);
+                ll ::= next n;;
+                Free h;;
+                {{Return (Some (data n))}})); solve [ t | hdestruct m; t].
+Defined.
 
 (* With computing the elements in the linked list,
    and add and remove after elements, we have 
    a random access list. *)
-Conjecture getElements : forall (ll: LinkedList) (m: [list A]) ,
+Definition getElements' (hd : option ptr) (m: [list A]) :
+ STsep (m ~~ rep' m hd)
+       (fun res:list A => m ~~ [res = m] * rep' m hd).
+ refine ((fix getElements'' (hd : option ptr) (m: [list A]) {struct m} :
+            STsep (m ~~ rep' m hd)
+                  (fun res:list A => m ~~ [res = m] * rep' m hd) :=
+            IfNull hd As p Then
+              {{Return nil}}
+            Else 
+              n <- p !! (fun n : Node => m ~~ Exists m' :@ list A, [m = (data n) :: m'] * rep' m' (next n)); 
+              rest <- getElements'' (next n) _ <@> (p --> n); _)); 
+
+try solve [ t | hdestruct m; t ]. 
+  (** How do I get the ghost list corresponding to the tail in order to pass it to the call? **)
+    
+             
+              
+t. hdestruct 
+
+
+
+              rest <- getElements'' (next n) _; _) hd _); try solve [ t | hdestruct m t | hdestruct m0; t ]. 
+
+
+ subst. 
+
+
+              {{Return ((data n) :: rest)}}) hd _); try solve [ t | hdestruct m; t | hdestruct m0; t ].
+
+   t.
+
+
+
+Definition getElements : forall (ll: LinkedList) (m: [list A]) ,
  STsep (m ~~ rep m ll)
        (fun elts: list A => m ~~ rep m ll * [elts = m]).
+ intros ll m.
+ 
 
 Conjecture insertAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
  STsep (a ~~ c ~~ rep (a ++ b :: c) ll)
@@ -147,3 +228,10 @@ Conjecture removeAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
        (fun _:unit => a ~~ c ~~ rep (a ++ b :: c) ll ).
 
 (* The ultimate goal is an effectful iterator *)
+(**
+Definition iterCallback (a : A) (I : hprop) := STsep (I) (fun _:unit => I).
+
+Definition iterate : forall (this : LinkedList) (f : A -> STsep) (ls : [list A]),
+  STsep (ls ~~ rep ls this)
+        (
+**)
