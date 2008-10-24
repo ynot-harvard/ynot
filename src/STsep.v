@@ -219,9 +219,6 @@ Notation "x <- c1 ; c2" := (SepBind _ (SepStrengthen _ c1 _) _ (fun x => c2))
 Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
   (right associativity, at level 84) : stsep_scope.
 Notation "!!!" := (SepContra _) : stsep_scope.
-Notation "'Fix' f ( x : dom ) : ran 'Pre' pre 'Post' post := e" :=
-  (SepFix (dom := dom) ran pre post (fun f x => e))
-  (at level 85) : stsep_scope.
 Notation "'New' x" := (SepNew x) (at level 75) : stsep_scope.
 Notation "'FreeT' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
 Infix "!!" := SepRead (no associativity, at level 75) : stsep_scope.
@@ -250,7 +247,7 @@ Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
 Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
-Notation "'Fix'" := SepFix.
-Notation "'Fix2'" := SepFix2.
+Notation "'Fix'" := SepFix : stsepi_scope.
+Notation "'Fix2'" := SepFix2 : stsepi_scope.
 
 Delimit Scope stsepi_scope with stsepi.
