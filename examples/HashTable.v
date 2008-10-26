@@ -127,11 +127,10 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
   (* We allocate an array and then initialize it with empty F.fmap_t's *)
   Definition new : T.new. s.
-    Ltac r:= unfold init_pre, init_post, rep; sep sub_simpl.
     refine (  t <- new_array HA.table_size 
             ; @init_table t HA.table_size _
               <@> [array_length t = HA.table_size] 
-           ;; {{Return t}}); unfold  init_pre, init_post, rep; r.
+           ;; {{Return t}}); unfold  init_pre, init_post, rep; sep sub_simpl.
   Defined.
 
   Definition free_pre (f:array)(l:[alist_t])(n:nat) := l ~~ {@ wf_bucket f l i | i <- (HA.table_size - n) + n}.
