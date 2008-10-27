@@ -29,6 +29,15 @@ Fixpoint rep' (m : list A) (p : option ptr) {struct m} : hprop :=
                  end
   end.
 
+(**
+Fixpoint rep' (m: list A) (p: option ptr) {struct m} : hprop :=
+ match m with
+  | nil => [p = None]
+  | a :: b => Exists p' :@ ptr, [p = Some p'] * 
+              Exists tl :@ option ptr, p' --> node a tl * rep' b tl
+ end.
+**)
+
 Definition rep (m: list A) (ll: LinkedList) : hprop :=
   Exists n :@ option ptr, ll --> n * rep' m n.
 
@@ -72,6 +81,7 @@ Definition free (ll: LinkedList) :
     t.
 Qed.
 
+(**
 Definition freeAll' (hd : option ptr) (m : [list A]) : 
   STsep (m ~~ rep' m hd)
         (fun _:unit => __).
@@ -97,6 +107,7 @@ Definition freeAll (ll : LinkedList) :
         (fun _:unit => __).
   intros.
   refine (match 
+**)
 
 Definition insertFront (ll : LinkedList) (m : [list A]) (a : A) : 
   STsep (m ~~ rep m ll)
@@ -166,6 +177,7 @@ Qed.
 
 Hint Resolve app_cons_not_nil.
 
+(**
 Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
   STsep (a ~~ c ~~ rep' (a ++ b :: c) ll)
         (fun _:unit => a ~~ c ~~ rep' (a ++ b :: d :: c) ll).
@@ -178,7 +190,7 @@ Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
         {{Return tt}}
       Else {{_}}) ll a). t. simpl. subst. t. remember (x ++ b :: x0) as H. induction (H). 
   pose app_cons_not_nil.  unfold not in n. apply n in HeqH. destruct HeqH.
-
+**)
   
   
 
