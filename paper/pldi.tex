@@ -2,6 +2,9 @@
 %\usepackage[square, comma, sort&compress]{natbib}
 
 \usepackage{amsmath}
+\usepackage{color}
+
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
 
 \begin{document}
 
@@ -76,6 +79,124 @@ keyword1, keyword2
   Some of this would happen above too.
  \subsection{comparison to Jahob}
  \subsection{comparison to Smallfoot}
+We conclude our comparison with alternative approaches by comparing
+our system to Smallfoot~\cite{small1,small2}. The focus of Smallfoot
+is on compltely automatic reasoning, and it's almost complete nature
+makes many correct programs go through with only the function level
+annotations, a goal, but not yet a complete reality in Ynot. In
+addition to the focus on automatic proofs, Smallfoot includes simple
+concurrency primitives, $||$ and $\mathsf{with}\,r\,\mathsf{when}(B)
+C$ with which they are able to implement a producer-consumer
+model. Based on these points, we will draw a comparison in two parts:
+the size of annotations and proof obligations and the expressivity of
+the logic.
+
+On the size of proof obligations, the Smallfoot system comes out
+ahead, requiring no user-constructed proofs. The drawback to this is
+that only inductive data of the following types are allowed: singly
+linked lists, doubly linked lists, trees and xor lists. This
+restriction is necessary to Smallfoot in order to make the proofs
+decidable.
+
+The annotations in the example programs are small mainly because they
+use these. While the predicates are hard-coded in Smallfoot,
+predicates can be coded directly by the user in Ynot. The style of
+Ynot representations are to express data by mapping a ``ghost''
+representation into a heap representation. This approach allows
+stronger dependent types in the contracts for functions, requireing
+the accompanying proof to be a proof of partial correctness rather
+than simply of resource constraints. For example, consider the
+function to test whether a list is empty in Smallfoot and in Ynot.
+\begin{verbatim}
+is_empty(r;l) [l |-> t * list(t)] {
+  local p;
+  p = l->p;
+  if (p == NULL) { r = 1; } 
+  else { r = 0; }
+} [l|-> t * list(t)]
+\end{verbatim}
+
+The following function also has the same type:
+\begin{verbatim}
+is_empty(r;l) [l |-> t * list(t)] {
+  r = 1;
+} [l|-> t * list(t)]
+\end{verbatim}
+In Ynot, the \verb|is_empty| function can be defined as follows:
+\begin{verbatim}
+Definition is_empty A (ll : LinkedList)
+  (m : [list A]) :
+  STsep (m ~~ rep m ll) 
+    (fun res:bool => m ~~ match res with
+                            | nil => [res = true]
+                            | _   => [res = false]
+                          end).
+  intros;
+  refine (hd <- !ll;
+          IfNull hd Then {{Return true}}
+          Else {{Return false}}); sep simpl.
+Qed.          
+\end{verbatim}
+The type guarantees that the function is implemented correctly with
+respect to the underlying list.
+
+\todo{This is analagous to the implementation of llseg presented in
+  the smallfoot paper.}
+For example, the following fixpoint expresses the recursive definition
+of a linked list segement.  \todo{What is the best way to encode a
+  linked list segment?}
+\begin{verbatim}
+Fixpoint llseg A (hd tl : option ptr) 
+  (m : list A) {struct m} :=
+  match m with 
+    | nil => [hd = tl]
+    | a :: b => 
+      match hd with 
+        | None => [False]
+        | Some p => [hd <> tl] * 
+            Exists nxt :@ option ptr, 
+              hd --> node a nxt * llseg nxt tl b
+      end
+  end.
+\end{verbatim}
+
+
+
+
+Comparison points
+\begin{itemize}
+\item The use of Coq allows quantifiers in formula. (makes inference
+  more difficult but allows more expressive types)
+\item Ynot is capble of arbitrary inductive predicates
+\item Ynot does not support concurrency which is a strength of
+  smallfoot (race detection)
+\item Smallfoot is very fast
+\item A lot of the ``parallel examples'' don't actually use
+  synchronization. These would be pretty trivial to implement in Ynot
+  with a function:
+\begin{verbatim}
+SepParallel (r1 r2 : Type) (P_i Q_i : hprop)
+  (P_e : r1 -> hprop) (Q_e : r2 -> hprop) :
+     STsep (P_i) (P_e) -> STsep (Q_i) (Q_e)
+  -> STsep (P_i * Q_i) (fun r:(r1 * r2) => 
+               (P_e (fst r)) * (Q_e (snd r)))
+\end{verbatim}
+the more interesting aspect of the parallelism comes from the locking
+mechanism, which could be encoded in Ynot but only after a little bit
+of hacking. (smallfoot uses resource invariants to control this)
+\end{itemize}
+
+Smallfoot examples:
+\begin{itemize}
+\item circular list
+\item doubly linked list
+\item merge sort
+\item ``memory manager'' (basically just a stack)
+\item queue
+\item tree
+\item xor linked list segment
+\item xdeq --- uses parallelism (reading and writing buffer)
+\end{itemize}
 
 \section{Other related work}
 \section{Summary and conclusions}

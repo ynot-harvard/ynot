@@ -72,6 +72,32 @@ Definition free (ll: LinkedList) :
     t.
 Qed.
 
+Definition freeAll' (hd : option ptr) (m : [list A]) : 
+  STsep (m ~~ rep' m hd)
+        (fun _:unit => __).
+  intros.
+  refine (Fix2
+    (fun hd m => m ~~ rep' m hd)
+    (fun _ _ _ => __)
+    (fun self hd m =>
+      IfNull hd Then
+        {{Return tt}}
+      Else
+        Assert (m ~~ Exists nde :@ Node, [head m = Some (data nde)] * 
+          hd --> nde * rep' (tail m) (next nde));;
+        n <- !hd;
+        self (next n) (m ~~~ tail m);;
+        Free hd;;
+        {{Return tt}}) hd m). t. hdestruct m0; t. hdestruct m0; t. t. t. t. t.
+  
+        
+
+Definition freeAll (ll : LinkedList) : 
+  STsep (Exists m :@ list A, rep m ll)
+        (fun _:unit => __).
+  intros.
+  refine (match 
+
 Definition insertFront (ll : LinkedList) (m : [list A]) (a : A) : 
   STsep (m ~~ rep m ll)
         (fun _:unit => m ~~ rep (a::m) ll ).
@@ -138,9 +164,28 @@ Definition getElements (ll: LinkedList) (m: [list A]) :
   t.
 Qed.
 
+Hint Resolve app_cons_not_nil.
+
+Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
+  STsep (a ~~ c ~~ rep' (a ++ b :: c) ll)
+        (fun _:unit => a ~~ c ~~ rep' (a ++ b :: d :: c) ll).
+  intros.
+  refine (Fix2
+    (fun hd a => a ~~ c ~~ rep' (a ++ b :: c) hd)
+    (fun hd a _ => a ~~ c ~~ rep' (a ++ b :: d :: c) hd)
+    (fun self hd a =>
+      IfNull hd Then
+        {{Return tt}}
+      Else {{_}}) ll a). t. simpl. subst. t. remember (x ++ b :: x0) as H. induction (H). 
+  pose app_cons_not_nil.  unfold not in n. apply n in HeqH. destruct HeqH.
+
+  
+  
+
 Conjecture insertAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
- STsep (a ~~ c ~~ rep (a ++ b :: c) ll)
-       (fun _:unit => a ~~ c ~~ rep (a ++ b :: d :: c) ll).
+  STsep (a ~~ c ~~ rep (a ++ b :: c) ll)
+        (fun _:unit => a ~~ c ~~ rep (a ++ b :: d :: c) ll).
+ 
 
 (* This is a slightly different style of remove than above. *)
 Conjecture removeAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
