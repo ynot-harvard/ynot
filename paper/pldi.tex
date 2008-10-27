@@ -78,6 +78,18 @@ keyword1, keyword2
  \subsection{comparison to old Ynot ADT implementations}
   Some of this would happen above too.
  \subsection{comparison to Jahob}
+
+The Jahob system~\cite{jahob} allows the specification and verification of recursive, linked data structures in the Java language.  
+Verified programs are correct modulo termination.
+
+Jahob specifications are written in classical higher order logic.  The abstract state of an object is defined by the programmer using the language of set theory (including cardinality) and relations (including transitive closure).  
+Methods may be annotated by hoare style pre and post conditions, with a modifies clause for framing.  
+Unlike ynot, however, separation connectives are not used to describe the heap.
+
+Jahob programs are translated into an extended guarded command language; from here, Jahob generates verification conditions which are discharged using a combination of theorem provers -- if one prover does not succeed on an obligation, another is tried.
+Jahob supports a number of 1st order and SMT provers, and also the MONA prover for the monadic fragment of 2nd order logic and Isabelle and Coq. 
+Like ynot, programmer annotations are used to guide the proving process.
+
  \subsection{comparison to Smallfoot}
 We conclude our comparison with alternative approaches by comparing
 our system to Smallfoot~\cite{small1,small2}. The focus of Smallfoot
