@@ -111,6 +111,77 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
       STsep (l ~~ rep x l)
         (fun (_:unit) => l ~~ rep x (remove k l)).
 
+(*
+  Definition hprop_forall T (p : T -> hprop) : hprop := fun h => forall v, p v h.
+  Notation "'Forall' v :@ T , p" := (hprop_forall (fun v : T => p)) (at level 90, T at next level) : hprop_scope.
+
+  Definition hprop_himp (P Q : hprop) : hprop := fun h => P h -> Q h.
+  Notation "P ===> Q" := (hprop_himp P Q) (at level 85, T at next level) : hprop_scope.
+*)
+
+(*
+  (c:forall k v b l, insert destFM k v l),
+
+  (* fold *)
+  Fixpoint fold_pre (B C:Type) 
+    (P:alist_l->B->C->hprop)
+    (Q:alist_l->B->C->B->C->hprop) (b:B) (c:C)
+    (l:alist_t) {struct l}:=
+    P 
+  match l with 
+    | nil => P 
+    | (k,,v)::ls => P k v b c * [forall b' c', Q k v b c b' c' ==> fold_pre P Q b' c' ls]
+  end.
+
+
+  Fixpoint fold_pre (B C:Type) 
+    (P:forall k, A.value_t k->B->C->hprop)
+    (Q:forall k, A.value_t k->B->C->B->C->hprop) (b:B) (c:C)
+    (l:alist_t) {struct l}:=
+  match l with 
+    | nil => ??
+    | (k,,v)::ls => P k v b c * [forall b' c', Q k v b c b' c' ==> fold_pre P Q b' c' ls]
+  end.
+
+  Fixpoint fold_pre (B C:Type) 
+    (P:forall k, A.value_t k->B->C->hprop)
+    (Q:forall k, A.value_t k->B->C->B->C->hprop) (b:B) (c:C)
+    (l:alist_t) {struct l}:=
+  match l with 
+    | nil => ??
+    | (k,,v)::ls => P k v b c * [forall b' c', Q k v b c b' c' ==> fold_pre P Q b' c' ls]
+  end.
+
+  (* how to write this in seperation logic? *)
+  (* this actually uses the reverse list as fold_pre, but since we are
+     working upto permutation (see fold), this is ok *)
+
+  Fixpoint fold_post (B C:Type)
+    (Q:forall k, A.value_t k->B->C->B->C->hprop) (b:B) (c:C) (bans:B) (cans:C) 
+    (l:alist_t) {struct l}:=
+  match l with 
+    | nil => ?? * [b=bans] * [c=cans]
+    | (k,,v)::ls => Exists b' :@ B, Q k v ls b b' 
+  end.
+
+
+  Definition fold := forall (x:fmap_t)(B:Type) (P:forall k, A.value_t k->B->hprop)
+                                               (Q:forall k, A.value_t k->B->B->hprop) (b:B) 
+                                               (c:forall k v b, STsep (P k v b) (Q k v b)) (l:[alist_t]),
+    STsep (l ~~ rep x l * Forall l' :@ {l':alist_t | Permutation l l'}, fold_pre B P Q (` l') b)
+    (fun (b':B) => (l ~~ rep x l * Exists l' :@ {l':alist_t | Permutation l l'}, fold_post B P Q (` l') b b')).
+
+
+  Fixpoint fold_post (B:Type) 
+    (Q:forall k, A.value_t k->B->B->hprop) (b:B) 
+    (l:alist_t) {struct l}:=
+  match l with 
+    | nil => ??
+    | (k,,v)::ls => P k v b & (Forall b' :@ B, Q k v b b' ===> fold_pre P Q b' ls)
+  end.
+  
+*)
+
   Ltac unfm_t := unfold new, free, insert, lookup, remove.
 
 End FINITE_MAP_T.

@@ -62,6 +62,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
     (* Some notation for unpacking pointer arithmetic *)
     (* NOTE: this is not being pulled in from Array, because notations don't survive sections *)
+    (* delete this? *)
     Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
 
 
@@ -112,6 +113,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
   Definition init_table(f:array)(n:nat) : init_table_spec f n.
   intro.
+Ltac r := simpl; sep sub_simpl.
   refine(
     fix init(n:nat) : init_table_spec f n :=
           match n as n' return init_table_spec f n' with
@@ -122,30 +124,43 @@ Module HashTable(HA : HASH_ASSOCIATION)
                   ; upd_array f (HA.table_size - S i) m
                       <@> (init_pre f i * F.AT.rep m nil_al)
                  ;; {{init i _ <@> wf_bucket f nil_al (HA.table_size - S i)}}
-         end) ; unfold init_pre, init_post, wf_bucket ; sep sub_simpl.
+         end) ; unfold init_pre, init_post, wf_bucket; [| | | | r | | | r |]; r.
+Defined.
+
+apply himp_assoc_prem1.
+eapply himp_unpack_prem_eq. eassumption
+search_prem ltac:(eapply himp_unpack_prem_eq; [eassumption |]).
+(*    match goal with 
+      [x:[_]|-_] => match goal with 
+                      [H: x = [?y]%inhabited |-_ ] => apply himp_unpack_prem_eq with (x:=y); [assumption |]
+                    end
+    end *)
+    || (apply himp_ex_prem; do 2 intro).
+
+ inhabiter.
+ r.
+  sep sub_simpl.
+
+
+
   Defined.
 
   (* We allocate an array and then initialize it with empty F.fmap_t's *)
   Definition new : T.new. s.
+Ltac r :=  unfold  init_pre, init_post, rep; sep sub_simpl.
     refine (  t <- new_array HA.table_size 
-            ; @init_table t HA.table_size _
-              <@> [array_length t = HA.table_size] 
+            ; Assert ([array_length t = HA.table_size] * {@hprop_unpack (array_plus t i)
+             (fun p : ptr => Exists A :@ Set, (Exists v :@ A, p --> v)) | i <-
+               (HA.table_size - HA.table_size) + HA.table_size})
+           ;; @init_table t HA.table_size _
+              <@> _ (* [array_length t = HA.table_size] *)
            ;; {{Return t}}); unfold  init_pre, init_post, rep; sep sub_simpl.
   Defined.
+(* cleanup new *)
 
   Definition free_pre (f:array)(l:[alist_t])(n:nat) := l ~~ {@ wf_bucket f l i | i <- (HA.table_size - n) + n}.
   Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in ptsto_any p | i <- (HA.table_size - n) + n}.
   Definition free_spec (f:array)(l:[alist_t])(n:nat) := (n <= HA.table_size) -> STsep (free_pre f l n) (free_post f n).
-
-  (* this definition and notation is useful enough that it probably ought to 
-   * go in Separation.v or somewhere else... *)
-
-  Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] := 
-    match inh with
-    | inhabits v => inhabits (f v)
-    end.
-  Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
-    (at level 91, right associativity) : hprop_scope.
 
   (* the following runs through the array and calls F.free on each of the buckets. *)
   Definition free_table(f:array)(l:[alist_t])(n:nat) : free_spec f l n.
@@ -154,7 +169,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
           match n as n' return free_spec f l n' 
           with
           | 0 => fun H => {{Return tt}}
-          | S i => fun H => let j := HA.table_size - (S i) in
+          | S i => fun H => let j := HA.table_size - S i in
                               let p := array_plus f j in 
               fm <- sub_array f j 
                        (fun fm => l ~~ F.AT.rep fm (filter_hash j l) * 
@@ -163,19 +178,16 @@ Module HashTable(HA : HASH_ASSOCIATION)
                 <@> ((p ~~ p --> fm) * free_pre f l i)
            ;; {{free_tab i _ <@> (p ~~ ptsto_any p )}}
           end); unfold free_pre, free_post, wf_bucket, ptsto_any; clear free_tab;
- try solve[
-(* the first goal *)
-simpl; apply himp_comm_conc; apply himp_empty_conc; apply himp_refl];
-(* the other ones *)
-sep sub_simpl; try subst j; try (rewrite H0; sep sub_simpl).
+  sep ltac:(subst; sub_simpl; unfold_local; try (rewrite H0)).
 Defined.
+(* automate the above better; don't need H0 *)
 
   (* Run through the array, call F.free on all of the maps, and then call array_free *)
   Definition free : T.free. s.
   refine (@free_table x l HA.table_size _ 
-              <@> [array_length x = HA.table_size] 
+              <@> [array_length x = HA.table_size]
       ;; free_array x)
-    ; unfold free_pre, free_post, rep; sep sub_simpl.
+    ; unfold free_pre, free_post, rep; sep ltac:(subst; sub_simpl).
   Defined.
 
   (* an attempt to keep the sep tactic from unfolding things -- it's a bit too
@@ -188,6 +200,7 @@ Defined.
     search_conc ltac:(try match goal with
                           | [ |- _ ==> (hprop_ex ?f) * _ ] => fold (myExists f)
                           end).
+  
   Definition myeq := eq.
   Ltac unhide := 
     match goal with
@@ -210,42 +223,15 @@ Defined.
     | _ => simpl ; auto
     end).
 
-
-  Lemma sp_index_hyp(P:nat->hprop)(Q R:hprop)(start len i:nat) : 
-    i < len -> 
-    iter_sep P start i * P (start + i) * iter_sep P (1 + start + i) (len - i - 1) * Q ==> R 
-    ->
-    iter_sep P start len * Q ==> R.
-  Proof.
-    intros. eapply hprop_mp. eapply himp_split. apply (split_index_sep P start H). 
-    sep auto. auto. 
-  Qed.
-
-  Lemma sp_index_conc(P:nat->hprop)(Q R:hprop)(start len i:nat) : 
-    i < len -> 
-    R ==> iter_sep P start i * P (start + i) * iter_sep P (1 + start + i) (len - i - 1) * Q -> 
-    R ==> iter_sep P start len * Q.
-  Proof.
-    intros. eapply hprop_mp_conc. eapply himp_split. apply (join_index_sep P start H).
-    sep auto. auto.
-  Qed.
-
   Lemma look_filter_hash(k:A.key_t)(l:alist_t) : 
    lookup k (filter_hash (hash k) l) = lookup k l.
   Proof.
     induction l; mysimplr; rewrite IHl; auto.
   Qed.
 
-  Ltac sp_index := 
-    repeat progress
-    match goal with
-      | [ |- iter_sep ?P ?s ?len * ?Q ==> ?R ] => 
-        eapply (sp_index_hyp P)
-      | [ |- ?R ==> iter_sep ?P ?s ?len * ?Q] => 
-        eapply (sp_index_conc P) 
-      | [ k: A.key_t |- _ < HA.table_size ] => apply (hash_below k)
-      | _ => eauto
-    end.
+  Hint Resolve hash_below.
+(*   Ltac dest   | [ k: A.key_t |- _ < HA.table_size ] => apply (hash_below k)
+      | _ => eauto *)
 
   Definition lookup : T.lookup. s;
     refine (fm <- sub_array x (hash k)   (* extract the right bucket *)
@@ -261,7 +247,12 @@ Defined.
                  iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1))}})
     ; unfold rep, wf_bucket ; intros; sep auto.
 
-  search_prem sp_index. sep auto. unhide. sep auto.
+split_index; auto. unhide. unfold myeq in *. subst. sep auto. unhide. sep auto. unfold myeq in *. subst.
+
+unhide. sep auto. unhide. sep auto. sep auto.
+
+  search_prem split_index'. info auto. sep auto. unhide. sep auto.
+
   unhide. sep auto.
   rewrite look_filter_hash. sep auto.  fold_ex_conc. sp_index. sep auto.
   Defined. (* this proof could be simpler/more automated. eliminateing fold_ex_conc should be easy *)

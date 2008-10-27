@@ -4,7 +4,7 @@
 (*******************************************************************)
 
 Require Import Ynot.
-Require Import FiniteMap.
+Require Import Examples.FiniteMap.
 Set Implicit Arguments.
 
 Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
@@ -25,7 +25,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
   Open Local Scope stsepi_scope.
 
   Ltac s := T.unfm_t; intros.
-  Ltac t := unfold rep; sep auto.
+  Ltac t := unfold rep; sep ltac:(subst; auto).
 
   Definition new : T.new. s;
     refine ({{New nil_al}})

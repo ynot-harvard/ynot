@@ -78,6 +78,14 @@ Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right as
 Definition ptsto_any(p:ptr) : hprop := Exists A :@ Set, Exists v :@ A, p --> v.
 Notation "p '-->?'" := (ptsto_any p) (at level 38, no associativity) : hprop_scope.
 
+(* iterating, separating conjunction -- should go in a separate file *)
+Fixpoint iter_sep(P:nat->hprop)(start len:nat) {struct len} : hprop :=
+  match len with
+  | 0 => __
+  | S m => (P start) * (iter_sep P (1 + start) m)
+  end.
+Notation "{@ P | i <- s + l }" := (iter_sep (fun i => P) s l) (i ident, s at next level) : hprop_scope.
+
 Definition hprop_imp (p1 p2 : hprop) : Prop := forall h, p1 h -> p2 h.
 Infix "==>" := hprop_imp (right associativity, at level 85).
 

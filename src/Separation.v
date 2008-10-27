@@ -161,11 +161,12 @@ Theorem himp_unpack_prem : forall T (x : T) p1 p2 p,
   generalize (pack_injective H1); intro; subst; firstorder.
 Qed.
 
-Theorem himp_unpack_conc : forall T (x : T) p1 p2 p,
-  p ==> p1 x * p2
-  -> p ==> hprop_unpack [x] p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; firstorder.
-  generalize (H _ H0).
+Theorem himp_unpack_conc : forall T x (y:[T]) p1 p2 p,
+  y = [x]%inhabited
+  -> p ==> p1 x * p2
+  -> p ==> hprop_unpack y p1 * p2.
+  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
+  generalize (H0 _ H1).
   firstorder.
 Qed.
 
@@ -246,7 +247,15 @@ Ltac premer := apply himp_empty_prem
     || (apply himp_inj_prem; intro)
       || apply himp_unpack_prem.
 
-Ltac simpler := repeat progress (intuition; subst; simpl in * ).
+Ltac simpler := repeat progress (intuition; 
+(*  repeat match goal with
+           | [ x : _ |- _ ] =>
+             match goal with
+               | [ _ : x = [_]%inhabited |- _ ] => fail 1
+               | _ => subst x
+             end
+         end; *)subst;
+ simpl in * ).
 
 Ltac deExist P :=
   let F := fresh "F" in
@@ -339,9 +348,19 @@ Ltac inhabiter :=
                | [ _ : x = [_]%inhabited |- _ ] => fail 1
                | _ => apply (unpack (h := x)); do 2 intro
              end
+           | [|- context [hprop_unpack ?x _]] => 
+             match goal with
+               | [ _ : x = [_]%inhabited |- _ ] => fail 1
+               | _ => apply (unpack (h := x)); do 2 intro
+             end
          end;
 
-  repeat search_prem ltac:((eapply himp_unpack_prem_eq; [eassumption |])
+  repeat search_prem ltac:(eapply himp_unpack_prem_eq; [eassumption |]
+(*    match goal with 
+      [x:[_]|-_] => match goal with 
+                      [H: x = [?y]%inhabited |-_ ] => apply himp_unpack_prem_eq with (x:=y); [assumption |]
+                    end
+    end *)
     || (apply himp_ex_prem; do 2 intro)).
 
 Ltac specFinder :=
@@ -453,7 +472,7 @@ Ltac sep tac :=
     let concer := apply himp_empty_conc
       || apply himp_ex_conc_trivial
         || (apply himp_ex_conc; econstructor)
-          || apply himp_unpack_conc
+          || (eapply himp_unpack_conc; [eassumption || reflexivity |])
             || (apply himp_inj_conc; [s; fail | idtac]) in
               (intros; equater || specFinder; tac;
                 repeat match goal with
