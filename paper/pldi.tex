@@ -76,7 +76,40 @@ keyword1, keyword2
 
 \section{Comparison}
  \subsection{comparison to old Ynot ADT implementations}
-  Some of this would happen above too.
+
+ The original formulation of Ynot lead to large, unwieldy proofs.
+ Reasoning about separation logic connectives was done at the heap
+ level; a larger fraction of all of our proof scripts simply massaged
+ subeaps into appropriate forms.  We had some tactics that implemented
+ basic operations, such as the split, join, and flattening of
+ sub-heaps, but the proof writer was forced to stitch them together to
+ force the heaps into the correct form.
+
+ The focus of our re-implementation of the Ynot system has been proof
+ automation.  Throught the use of the sep tactic, we have virtually
+ eliminated the need to reason about heaps; reasoning is done at the
+ level of seperation logic.  Much of this reasoning has in turn been
+ automated by a set of tactics such as \texttt{sep auto}. These
+ tactics reduce the need to reason about the connectives of separation
+ logic and their properties, allowing the proof writer to focus on the
+ domain specific parts of the proof.  For proofs that only have simple
+ domain specific parts, \texttt{sep auto} is often able to prove them
+ on its own.
+
+ The new model uses ``ghost variables'' to simplify specifying
+ properties. It does so in a way that guarantees that they are
+ computationally irrelevant, and so can always be eliminated when a
+ program is extracted.  This in turn allows the new model to use unary
+ post-conditions, which greatly simplifies specifications and enables
+ the greater automation.  The old model used binary post-conditions to
+ obviate the need for ghost variables.  Binary post-conditions where
+ generally harder to reason about, since the connection between pre-
+ and post-conditions always needed to be re-established.  In the new
+ style, the connection is built in to the specification.
+
+ In the new Ynot, proofs are an order of magnitude shorter then they
+ where in the old Ynot. (provide numbers here)
+
  \subsection{comparison to Jahob}
 
 The Jahob system~\cite{jahob} allows the specification and verification of recursive, linked data structures in the Java language.  
@@ -212,7 +245,7 @@ Smallfoot examples:
 
 \section{Other related work}
 \section{Summary and conclusions}
-Check that bibliography is working~\cite{1159812}.
+Check that bibliography is working~\cite{htt}.
 
 %\bibliographystyle{plainnat}
 \bibliographystyle{plain}
