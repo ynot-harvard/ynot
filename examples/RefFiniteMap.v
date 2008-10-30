@@ -25,25 +25,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
   Open Local Scope stsepi_scope.
 
   Ltac s := T.unfm_t; intros.
-
-Ltac sep' tac :=
-  let s := repeat progress (simpler; tac; try search_prem premer) in
-    let concer := apply himp_empty_conc
-      || apply himp_ex_conc_trivial
-        || (apply himp_ex_conc; econstructor)
-          || (eapply himp_unpack_conc; [eassumption || reflexivity |])
-            || (apply himp_inj_conc; [s; fail | idtac]) in
-              (intros; equater || specFinder; tac;
-                repeat match goal with
-                         | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
-                       end;
-                intros; s;
-                  repeat ((
-                    search_prem ltac:(idtac;
-                      search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
-                  s);
-                  try finisher).
-  Ltac t := unfold rep; sep' ltac:(subst; eauto).
+  Ltac t := unfold rep; sep ltac:(subst; eauto).
 
   Definition new : T.new. s;
     refine ({{New nil_al}})
