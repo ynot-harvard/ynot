@@ -86,28 +86,43 @@ Module HashTable(HA : HASH_ASSOCIATION)
     Ltac sub_simpl :=
       repeat (progress ((repeat 
         match goal with
+          | [H:?e = ?e |- _] => clear H
           | [|- context [?x - ?x]] => rewrite <- minus_n_n
           | [|- context [S (HA.table_size - S ?x)]] => rewrite sub_succ; [idtac | solve[auto]]
-          | [H:[_]%inhabited = [_]%inhabited |- _] => generalize (pack_injective H); clear H; intro H 
+(*          | [H:[_]%inhabited = [_]%inhabited |- _] => generalize (pack_injective H); clear H; intro H 
           | [H1:?x = [?y1]%inhabited, H2:?x = [?y2]%inhabited |- _]
             => match y1 with
                  | y2 => fail 1
                  | _ => rewrite H1 in H2
-               end
+               end *)
           | [H:array_length ?x = _ |- context [array_length ?x]] => rewrite H
           | [ |- context[if eq_nat_dec ?e1 ?e2 then _ else _] ] => 
             destruct (eq_nat_dec e1 e2) ; try congruence ; try solve [assert False; intuition]; subst
-          | [|- context [match A.key_eq_dec ?k1 ?k2 with 
+(*          | [|- context [match A.key_eq_dec ?k1 ?k2 with 
                            | left _ => _ 
                            | right _ => _ end]] =>
           destruct (A.key_eq_dec k1 k2) ; try congruence ; try solve [assert False; intuition]; subst
           | [|- context [match F.AT.A.key_eq_dec ?k1 ?k2 with 
                            | left _ => _ 
-                           | right _ => _ end]] =>
-          destruct (F.AT.A.key_eq_dec k1 k2) ; try congruence ; try solve [assert False; intuition]; subst
-            |[H: sigT _ |- _] => destruct H
-        end); simpl; auto)).
-    End AT.
+                           | right _ => _ end]] => 
+          destruct (F.AT.A.key_eq_dec k1 k2) ; try congruence ; try solve [assert False; intuition]; subst *)
+             |[H: sigT _ |- _] => destruct H
+        end); AL.simpler)).
+
+
+    Lemma filter_hash_perm i l l' : Permutation l l' -> Permutation (filter_hash i l) (filter_hash i l').
+    Proof. induction 1; sub_simpl; eauto. Qed.
+
+    Lemma filter_hash_lookup k l : lookup k (filter_hash (hash k) l) = lookup k l.
+    Proof. induction l; auto; simpl. destruct a. destruct (eq_nat_dec (hash x) (hash k)); simpl; repeat sub_simpl. Qed.
+
+    Lemma filter_hash_lookup_none x i l :  lookup x l = None -> lookup x (filter_hash i l) = None.
+    Proof. induction l; sub_simpl. Qed.
+    Lemma filter_hash_distinct i l : distinct l -> distinct (filter_hash i l).
+    Proof. Hint Resolve filter_hash_lookup_none. induction l; sub_simpl; intuition. Qed.
+    Hint Resolve filter_hash_perm filter_hash_distinct filter_hash_lookup.
+
+  End AT.
 
   Module T:=FINITE_MAP_T(HA)(AT).
 
@@ -132,6 +147,33 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Definition free_pre (f:array)(l:[alist_t])(n:nat) := l ~~ {@ wf_bucket f l i | i <- (HA.table_size - n) + n}.
   Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in ptsto_any p | i <- (HA.table_size - n) + n}.
   Definition free_spec (f:array)(l:[alist_t])(n:nat) := (n <= HA.table_size) -> STsep (free_pre f l n) (free_post f n).
+
+
+  Lemma add_fact F P Q R : 
+    (P ==> [F] * ??) ->
+    (F -> (P * Q ==> R)) ->
+    (P * Q ==> R).
+  Proof.
+    repeat intro. apply H0; auto. 
+    destruct H1 as [? [? [? [Px ?]]]].
+    destruct (H _ Px) as [? [? [? [[? ?] ?]]]]; trivial.
+  Qed.
+
+  (* This should be generalized for all finite maps. *)
+  (* This should also be generalized for all such props *)
+  Lemma add_dis (v:F.AT.fmap_t) (l:F.AL.alist_t) P Q : 
+    (distinct l -> (F.AT.rep v l * P ==> Q)) ->
+    (F.AT.rep v l * P ==> Q).
+  Proof. intros. apply (add_fact (@F.distinct _ _ ) H). Qed.
+
+    Ltac add_dis :=
+      repeat(search_prem ltac:(idtac; (match goal with
+                                         [|- F.AT.rep ?v ?l * ?P ==> ?Q] => 
+                                         match goal with
+                                           | [H:distinct l |- _] => fail 1
+                                           | _ => apply add_dis; intros
+                                         end
+                                       end))). 
 
   Ltac unf := unfold init_pre, init_post, free_pre, free_post, rep, wf_bucket, ptsto_any.
   Ltac t := unf; simpl; sep ltac:(subst; sub_simpl; unfold_local).
@@ -161,6 +203,73 @@ Definition new : T.new. s.
               <@> _ (* [array_length t = HA.table_size] *)
            ;; {{Return t}})
     ; t. Defined.
+
+Lemma iter_imp_f(P1 P2:nat->hprop)(len start:nat) Q R : 
+  (forall i, i >= start -> i < len + start -> P1 i ==> P2 i) -> 
+  Q ==> R -> 
+  iter_sep P1 start len * Q ==> iter_sep P2 start len * R.
+Proof.
+ Hint Resolve iter_imp. intros. apply himp_split; auto. 
+Qed.
+
+Ltac iter_imp := 
+  search_conc 
+  ltac:(idtac; match goal with
+          [|- ?Q1 ==> iter_sep ?P ?s ?len * ?R1] => 
+          search_prem
+          ltac:(idtac; match goal with
+                  [|- iter_sep ?P1 s len * ?Q2 ==> ?R2] => apply iter_imp_f
+                end)
+        end).
+
+  Hint Resolve hash_below.
+
+  Lemma perm : T.perm.
+  Proof. Hint Resolve F.perm. s; t; iter_imp; t; add_dis; t. Qed.
+
+  Lemma himp_trans P Q F1 R : P ==> Q -> Q * F1 ==> R -> P * F1 ==> R.
+  Proof. firstorder. Qed.
+
+  Ltac trans_imp := 
+  search_prem ltac:(idtac; 
+    match goal with
+      [H:?P ==> ?Q |- ?P * ?F1 ==> ?R] => apply (@himp_trans P Q F1 R H)
+    end).
+
+  Lemma distinct_from_parts (s len:nat) P Q  : {@ Q i * P | i <- s + len} ==> {@ Q i * P | i <- s + len} * P.
+
+  Lemma distinct_from_parts l :{@ [distinct (filter_hash i l)] | i <- (0) + HA.table_size} ==> [distinct l].
+
+  Proof. induction l; t.
+split_index; t.
+    assert (A1:{@[distinct
+        (if eq_nat_dec (hash x) i
+         then (x,, v) :: filter_hash i l
+         else filter_hash i l)] * ?? | i <- (0) + hash x} ==> 
+    {@[distinct
+        (filter_hash i l)] * ?? | i <- (0) + hash x}). iter_imp; t.
+    assert(A2:{@[distinct
+        (if eq_nat_dec (hash x) i
+         then (x,, v) :: filter_hash i l
+         else filter_hash i l)] * ?? | i <- (S (hash x)) +
+   HA.table_size - hash x - 1} ==> 
+    {@[distinct
+        (filter_hash i l)] * ?? | i <- (S (hash x)) +
+   HA.table_size - hash x - 1}). iter_imp; t.
+   repeat trans_imp; clear A1 A2.
+   
+
+
+   split.
+   
+   
+
+    sub_simpl. iter_imp.
+    
+  Lemma distinct : T.distinct.
+  Proof. s. t.
+
+
 
   (* the following runs through the array and calls F.free on each of the buckets. *)
   Definition free_table(f:array)(l:[alist_t])(n:nat) : free_spec f l n.
@@ -220,9 +329,8 @@ Definition new : T.new. s.
 
   Lemma look_filter_hash(k:A.key_t)(l:alist_t) : 
    lookup k (filter_hash (hash k) l) = lookup k l.
-  Proof. induction l; sub_simpl. Qed.
-
-  Hint Resolve hash_below look_filter_hash.
+  Proof. induction l; sub_simpl. Qed. 
+  Hint Resolve look_filter_hash.
 
   Definition its := iter_sep.
   Lemma its_re : its = iter_sep. reflexivity. Qed.
@@ -274,25 +382,6 @@ Defined.
     | [|- context [filter_hash ?i (remove ?k _)]] => rewrite <- (@remove_filter_neq k i); [idtac|solve[auto]||omega]
     | [|- context [remove ?k (filter_hash (hash ?k) ?l)]] => rewrite remove_filter_eq
   end.
-
-Lemma iter_imp_f(P1 P2:nat->hprop)(len start:nat) Q R : 
-  (forall i, i >= start -> i < len + start -> P1 i ==> P2 i) -> 
-  Q ==> R -> 
-  iter_sep P1 start len * Q ==> iter_sep P2 start len * R.
-Proof.
- Hint Resolve iter_imp. intros. apply himp_split; auto. 
-Qed.
-
-Ltac iter_imp := 
-  search_conc 
-  ltac:(idtac; match goal with
-          [|- ?Q1 ==> iter_sep ?P ?s ?len * ?R1] => 
-          search_prem
-          ltac:(idtac; match goal with
-                  [|- iter_sep ?P1 s len * ?Q2 ==> ?R2] => apply iter_imp_f
-                end)
-        end).
-
 
   Definition insert : T.insert. s;
   refine (fm <- sub_array x (hash k) (* find the right bucket *)
