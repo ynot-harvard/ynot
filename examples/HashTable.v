@@ -236,16 +236,40 @@ Ltac iter_imp :=
       [H:?P ==> ?Q |- ?P * ?F1 ==> ?R] => apply (@himp_trans P Q F1 R H)
     end).
 
-  Lemma distinct_from_parts (s len:nat) P Q  : {@ Q i * P | i <- s + len} ==> {@ Q i * P | i <- s + len} * P.
+  Lemma iter_sep_inj (len s:nat) P Q  : len > 0 -> {@ Q i * [P] | i <- s + len} ==> {@ Q i | i <- s + len} * [P].
+  Proof. induction len; t. assert False; intuition. iter_imp; t. Qed.
+
+  Lemma iter_sep_star_conc (len s:nat) P Q : {@ P i * Q i  | i <- s + len} ==> {@ P i | i <- s + len} * {@ Q i | i <- s + len} .
+  Proof. induction len; t. apply himp_comm_conc. apply IHlen. Qed.
+
+  Lemma iter_sep_star_prem (len s:nat) P Q : {@ P i | i <- s + len} * {@ Q i | i <- s + len} ==> {@ P i * Q i  | i <- s + len}.
+  Proof. induction len; t. apply himp_comm_prem. apply IHlen. Qed.
+
+  Lemma star_any_any : ?? * ?? ==> ??.
+  Proof. firstorder. Qed.
+
+  Lemma iter_sep_all_any (len s:nat) :  {@ ?? | i <- s + len} ==> ??.
+  Proof. induction len. t. intros. simpl. pose (IHlen (S s)). trans_imp. apply star_any_any. Qed.
+
+  Lemma iter_sep_any (len s:nat) P  : {@ P i * ??  | i <- s + len} ==> {@ P i | i <- s + len} * ??.
+  Proof. intros. apply himp_empty_prem'.
+  apply (@himp_trans _ _ __ ({@P i | i <- (s) + len} * ??) ((iter_sep_star_conc len s P (fun _ => ??)))). sep auto.
+  Qed.
+
+  Lemma iter_sep_empty (len s:nat)  : {@ __  | i <- s + len} ==> __.
+  Proof. induction len; t. Qed.
 
   Lemma distinct_from_parts l :{@ [distinct (filter_hash i l)] | i <- (0) + HA.table_size} ==> [distinct l].
-
-  Proof. induction l; t.
-split_index; t.
+  Proof. intros. induction l. t.
+    assert (A0:iter_sep (fun _ : nat => [True]) 0 HA.table_size ==> iter_sep (fun _ : nat => __) 0 HA.table_size).
+    iter_imp; t. trans_imp. t. apply iter_sep_empty.
+    split_index. eauto.
+    simpl. sub_simpl.
+    t.
     assert (A1:{@[distinct
         (if eq_nat_dec (hash x) i
          then (x,, v) :: filter_hash i l
-         else filter_hash i l)] * ?? | i <- (0) + hash x} ==> 
+         else filter_hash i l)] | i <- (0) + hash x} ==> 
     {@[distinct
         (filter_hash i l)] * ?? | i <- (0) + hash x}). iter_imp; t.
     assert(A2:{@[distinct
