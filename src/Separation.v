@@ -247,15 +247,17 @@ Ltac premer := apply himp_empty_prem
     || (apply himp_inj_prem; intro)
       || apply himp_unpack_prem.
 
-Ltac simpler := repeat progress (intuition; 
-(*  repeat match goal with
-           | [ x : _ |- _ ] =>
-             match goal with
-               | [ _ : x = [_]%inhabited |- _ ] => fail 1
-               | _ => subst x
-             end
-         end; *)subst;
- simpl in * ).
+Ltac subst_inh := repeat
+  match goal with
+    | [H:[_]%inhabited = [_]%inhabited |- _] => generalize (pack_injective H); clear H; intro H
+    | [H1:?x = [?y1]%inhabited, H2:?x = [?y2]%inhabited |- _]
+      => match y1 with
+           | y2 => fail 1
+           | _ => rewrite H1 in H2
+         end
+  end.
+
+Ltac simpler := repeat progress (intuition; subst_inh; subst; simpl in * ).
 
 Ltac deExist P :=
   let F := fresh "F" in
@@ -479,8 +481,8 @@ Ltac sep tac :=
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
                 intros; s;
-                  repeat ((search_conc concer
-                    || search_prem ltac:(idtac;
-                      search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))));
+                  repeat ((
+                    search_prem ltac:(idtac;
+                      search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
                   s);
                   try finisher).
