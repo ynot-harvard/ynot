@@ -1,4 +1,4 @@
-MODULES    := Counter Stack Queue Array Stream FiniteMap RefFiniteMap HashTable FiniteMap2 LinkedList
+MODULES    := Counter Stack Queue Array Stream FiniteMap RefFiniteMap HashTable LinkedList
 # Parse Parse2 
 VS         := $(MODULES:%=%.v)
 

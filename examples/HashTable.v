@@ -133,7 +133,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
   Module A := HA.
   Module AL := F.AL.
-  Import AT FAL.
+  Import AT AL.
   Ltac s := T.unfm_t; intros.
 
   (* The following is used to initialize an array with empty F.fmap_t's *)
@@ -338,34 +338,7 @@ Ltac iter_imp :=
   (* an attempt to keep the sep tactic from unfolding things -- it's a bit too
    * eager to instantiate existentials in the conclusion of himp's, leading to
    * unrecoverable failure.  *)
-  Definition myExists(A:Set)(F:A -> hprop) := 
-    Exists x :@ A, F x.
-
-  Ltac fold_ex_conc := 
-    search_conc ltac:(try match goal with
-                          | [ |- _ ==> (hprop_ex ?f) * _ ] => fold (myExists f)
-                          end).
   
-  Definition myeq := eq.
-  Ltac unhide := 
-    match goal with
-    | [ |- context[let p := ?e in p ~~ _]] => simpl ; unhide
-    | [ |- context[hprop_unpack ?e _] ] => 
-      let H := fresh "eqq" in let x := fresh "x" in 
-        assert (H:exists x, myeq e x); [exists e; reflexivity|destruct H as [x H]; rewrite H]
-    end.
-
-  Ltac gen_eq e x H := 
-    assert (H:exists x, e = x); [exists e; reflexivity|destruct H as [x H]].
-
-  Ltac gen_eqs := 
-    match goal with
-    | [ |- context[let p := ?e in p ~~ _]] => simpl ; gen_eqs
-    | [ |- context[hprop_unpack ?e _] ] => 
-      let H := fresh "eqq" in let x := fresh "x" in 
-        gen_eq e x H
-    end.
-
   Lemma look_filter_hash(k:A.key_t)(l:alist_t) : 
    lookup k (filter_hash (hash k) l) = lookup k l.
   Proof. induction l; sub_simpl. Qed.
@@ -455,8 +428,8 @@ Defined.
              (let p := array_plus x (hash k) in p ~~ p --> fm) * 
              (l ~~ (iter_sep (wf_bucket x l) 0 (hash k) * 
                 iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1)))}}) ; 
-unf; repeat (simpl; init_split; sep ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
-repeat (iter_imp; sep ltac:(sub_simpl; try remove_filter_eq)).
-  Defined.
+  unf; repeat (simpl; init_split; sep ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
+  repeat (iter_imp; sep ltac:(sub_simpl; try remove_filter_eq)).
+Defined.
 
 End HashTable.
