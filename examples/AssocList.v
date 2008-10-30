@@ -120,4 +120,20 @@ refine (Fix2
       )); try solve [ t | hdestruct m; t ]. 
 Defined.
 
+Definition get (k: K) (ll: AssocList) (m: [list (prod K V)]) :
+  STsep (m ~~ rep m ll)
+        (fun r:option V => m ~~ rep m ll * [r = lookup k m]).
+intros; refine (hd <- !ll;
+    Assert (ll --> hd * (m ~~ rep' m hd));;
+    {{get'' k hd m <@> _}});
+  t. 
+
+
+(*
+*** Local Variables: ***
+*** coq-prog-name: "coqtop" ***
+*** coq-prog-args: ("-emacs-U" "-R" "/home/ryan/ynot/src/" "Ynot" ) ***
+*** End: ***
+ *) 
+
 End ASSOC_LIST.
