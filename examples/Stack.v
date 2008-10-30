@@ -86,9 +86,7 @@ Module Stack : STACK.
           nd <- !hd;
           Free hd;;
           s ::= next nd;;
-          {{Return (Some (data nd))}}).
-t. t. t. 
-
+          {{Return (Some (data nd))}});
       solve [ t | hdestruct ls; t].
     Qed.
   End Stack.
