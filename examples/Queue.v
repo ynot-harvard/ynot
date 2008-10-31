@@ -49,17 +49,6 @@ Module Queue : QUEUE.
       back : ptr
     }.
 
-    (*Definition rep' ls fr ba :=
-      match ls with
-        | nil => [fr = None] * [ba = None]
-        | _ :: _ =>
-          match fr, ba with
-            | Some fr, Some ba => Exists ls' :@ list T, Exists x :@ T,
-              [ls = ls' ++ x :: nil] * listRep ls' fr ba * ba --> Node x None
-            | _, _ => [False]
-          end
-      end.*)
-
     Definition rep' ls fr ba :=
       match fr, ba with
         | None, None => [ls = nil]
@@ -74,33 +63,32 @@ Module Queue : QUEUE.
     Ltac simplr := repeat (try congruence;
       match goal with
         | [ x : option ptr |- _ ] => destruct x
-        | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intro; subst
-        | [ H : next _ = _ |- _ ] => rewrite H
+        | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intros; subst
         | [ H : nil = ?ls ++ _ :: nil |- _ ] => destruct ls; discriminate
           
-        | [ |- __ ==> match ?O with
+        (*| [ |- __ ==> match ?O with
                         | Some _ => [False]
                         | None => [nil = nil]
-                      end ] => equate O (@None ptr)
+                      end ] => equate O (@None ptr)*)
 
-        | [ |- _ ==> match ?O with
+        (*| [ |- _ ==> match ?O with
                        | Some _ => _
                        | None => match ?O' with
                                    | Some _ => _
                                    | None => [nil = nil]
                                  end
-                     end ] => equate O (@None ptr); equate O' (@None ptr)
+                     end ] => equate O (@None ptr); equate O' (@None ptr)*)
       end);
-    try match goal with
+    (*try match goal with
           | [ ls' : list T |- _ ] =>
             match goal with
               | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
             end
-        end;
+        end;*)
     eauto.
 
     Lemma rep'_nil : __ ==> rep' nil None None.
-      simpl; sep fail idtac.
+      sep fail idtac.
     Qed.
 
     Hint Resolve rep'_nil.
@@ -110,22 +98,72 @@ Module Queue : QUEUE.
       unfold rep; sep fail simplr.
     Qed.
 
-    (*Lemma rep'_None2 : forall ls1 o1,
-      rep' ls1 o1 None ==> [ls1 = nil] * [o1 = None].
-      unfold rep'; simpl; destruct o1; sep fail idtac.
-    Qed.*)
+    Lemma app_nil_middle : forall (x1 x2 : T),
+      x1 :: x2 :: nil = x1 :: nil ++ x2 :: nil.
+      reflexivity.
+    Qed.
+
+    Lemma app_nil_middle' : forall (x1 x2 x3 : T) ls,
+      x1 :: x2 :: ls ++ x3 :: nil = x1 :: (x2 :: ls) ++ x3 :: nil.
+      reflexivity.
+    Qed.
+
+    Lemma list_cases : forall ls : list T,
+      ls = nil
+      \/ (exists x, ls = x :: nil)
+      \/ (exists x1, exists ls', exists x2, ls = x1 :: ls' ++ x2 :: nil).
+      Hint Immediate app_nil_middle app_nil_middle'.
+
+      induction ls; simpl; firstorder; subst; eauto 6.
+    Qed.
+
+    Lemma rep'_Some1 : forall ls fr ba,
+      rep' ls (Some fr) ba
+      ==> Exists nd :@ node, fr --> nd
+      * Exists ls' :@ list T, [ls = data nd :: ls']
+      * match next nd with
+          | None => [ls' = nil]
+          | Some fr' => rep' ls' (Some fr') ba
+        end.
+      destruct ba; simpl; [ | sep fail idtac ].
+
+      generalize (list_cases ls); intuition; subst.
+
+      inhabiter.
+      search_prem ltac:(apply himp_inj_prem); intro.
+      destruct v; discriminate.
+
+      destruct H; subst.
+      sep fail idtac.
+      destruct v; simpl in *.
+
+      injection H1; clear H1; intro; subst.
+      instantiate (3 := Node v0 None); simpl.
+      instantiate (1 := nil).
+      sep fail idtac.
+
+      destruct v; discriminate.
+
+      destruct H as [x1 [ls' [x2 H]]]; subst.
+      inhabiter.
+      search_prem ltac:(apply himp_inj_prem); intro.
+
+      rewrite app_comm_cons in H1.
+      generalize (app_inj_tail _ _ _ _ H1); clear H1; intuition; subst; simpl.
+      sep fail idtac.
+    Qed.
 
     Lemma rep'_Some2 : forall ls o1 ba,
       rep' ls o1 (Some ba) ==> Exists ls' :@ list T, Exists x :@ T, Exists fr :@ ptr,
         [ls = ls' ++ x :: nil] * [o1 = Some fr] * listRep ls' fr ba * ba --> Node x None.
-      unfold rep'; simpl; destruct o1; sep fail idtac.
+      unfold rep'; sep fail simplr.
     Qed.
 
     Ltac simp_prem :=
-      simpl_IfNull;
-      simpl_prem ltac:(apply rep_nil || apply rep'_Some2).
+      idtac;
+      simpl_prem ltac:(apply rep_nil || apply rep'_Some1 || apply rep'_Some2).
 
-    Ltac t := unfold rep; sep simp_prem simplr.
+    Ltac t := unfold rep; simpl_IfNull; sep simp_prem simplr.
     
     Open Scope stsepi_scope.
 
@@ -169,13 +207,6 @@ Module Queue : QUEUE.
         {{Return tt}}); t.
     Qed.
 
-    Lemma add_empty : forall p,
-      p ==> p * __.
-      t.
-    Qed.
-
-    Hint Immediate add_empty.
-
     Definition dequeue : forall q ls,
       STsep (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
                                                 | None => [ls = nil] * rep q ls
@@ -190,16 +221,6 @@ Module Queue : QUEUE.
         IfNull fr Then
           {{Return None}}
         Else
-          Assert (ls ~~ front q --> Some fr
-            * Exists nd :@ node, fr --> nd
-              * Exists ba :@ ptr, back q --> Some ba
-                * Exists ls' :@ list T, [ls = data nd :: ls']
-                * match next nd with
-                    | None => [ls' = nil]
-                    | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                  end);;
-
           nd <- !fr;
           Free fr;;
           front q ::= next nd;;
@@ -208,8 +229,7 @@ Module Queue : QUEUE.
             back q ::= None;;
             {{Return (Some (data nd))}}
           Else    
-            {{Return (Some (data nd))}});
-      solve [ t | hdestruct ls; t ].
+            {{Return (Some (data nd))}}); t.
     Qed.
   End Queue.
 
