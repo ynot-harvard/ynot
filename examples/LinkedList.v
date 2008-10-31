@@ -11,6 +11,9 @@ Section LINKED_LIST.
 
 Variable A: Set.
 
+(******************************************************************************)
+(* Representation                                                             *)
+(******************************************************************************)
 Record Node : Set := node {
   data: A;
   next: option ptr
@@ -44,6 +47,9 @@ Definition tail (ls : list A) :=
     | _ :: ls' => ls'
   end.
 
+(******************************************************************************)
+(* Tactics and Lemmas                                                         *)
+(******************************************************************************)
 Ltac simplr := repeat (try discriminate;
   match goal with
     | [ H : head ?x = Some _ |- _ ] =>
@@ -57,11 +63,38 @@ Ltac simplr := repeat (try discriminate;
            end ==> _] => destruct v
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
     | [ H : next _ = _ |- _ ] => rewrite -> H
+    | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
   end).
 
-Ltac t := unfold rep; unfold rep'; sep fail simplr.
+Ltac t := unfold rep; unfold rep'; sep simplr.
 Ltac f := fold rep'; fold rep.
 
+Lemma eta_node : forall fn, fn = node (data fn) (next fn).
+  destruct fn; reflexivity.
+Qed.
+
+Hint Resolve eta_node.
+
+Lemma ll_concat : forall nde a b c hd, Some (data nde) = head a ->
+  rep' (next nde) (tail a ++ b :: c) * hd --> nde ==> rep' (Some hd) (a ++ b :: c).
+  induction a; t.
+Qed.
+
+Hint Resolve ll_concat.
+Lemma cons_nil : forall l2 x0 x, rep' l2 x0 * rep' None x ==> rep' l2 (x ++ x0).
+  destruct x; t.
+Qed.
+Lemma node_next : forall nde p,  next nde = p -> nde = node (data nde) p.
+  destruct nde; simpl; congruence.
+Qed.
+
+Hint Resolve cons_nil.
+Hint Resolve node_next.
+
+
+(******************************************************************************)
+(* Implementation                                                             *)
+(******************************************************************************)
 Definition new : STsep __ (fun r => rep r nil).
   refine {{ New None }};
     t.
@@ -104,12 +137,6 @@ Definition removeFront (ll: LinkedList) (m: [list A]) :
   solve [ t | hdestruct m; t ].
 Qed.
 
-Lemma eta_node : forall fn, fn = node (data fn) (next fn).
-  destruct fn; reflexivity.
-Qed.
-
-Hint Resolve eta_node.
-
 Definition getElements' (hd : option ptr) (m: [list A]) :
   STsep (m ~~ rep' hd m)
         (fun res:list A => m ~~ [res = m] * rep' hd m).
@@ -138,16 +165,6 @@ Definition getElements (ll: LinkedList) (m: [list A]) :
     {{getElements' hd m <@> _}});
   t.
 Qed.
-
-Lemma cons_nil : forall l2 x0 x, rep' l2 x0 * rep' None x ==> rep' l2 (x ++ x0).
-  destruct x; t.
-Qed.
-Lemma node_something : forall nde p,  next nde = p -> nde = node (data nde) p.
-  destruct nde; simpl; congruence.
-Qed.
-
-Hint Resolve cons_nil.
-Hint Resolve node_something.
 
 Definition append' : forall (l1 : ptr) (l2 : option ptr) (m1 m2 : [list A]),
   STsep (m1 ~~ m2 ~~ rep' (Some l1) m1 * rep' l2 m2)
@@ -181,31 +198,151 @@ Definition append : forall (l1 l2 : LinkedList) (m1 m2 : [list A]),
       {{append' hd1 hd2 m1 m2 <@> (l1 --> Some hd1 * l2 --> None)}}); t.
 Qed.
 
-(*
-Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
-  STsep (a ~~ c ~~ rep' ll (a ++ b :: c))
-        (fun _:unit => a ~~ c ~~ rep' ll (a ++ b :: d :: c)).
+Definition SepPose : forall (H : hprop) (P : hprop) (pf : __ ==> P),
+  STsep H (fun _:unit => H * P).
+  intros.
+  refine ({{Return tt}}); sep simpl.
+Qed.
+
+Notation "'Pose' P" := (SepAssert (_ * P)) (at level 75) : stsepi_scope.
+
+(** This isn't the correct type for the function. It is possible for the equality check to succeed
+ ** before the end of a. What we need is an index into the list or a proof that b is not in a.
+ **)
+
+
+Definition insertAfter' : forall (ll: option ptr) (eq : forall q r : A, {q = r} + {q <> r}) 
+  (b d: A) (a' c: [list A]),
+  STsep (a' ~~ c ~~ rep' ll (a' ++ b :: c) * [~In b a'])
+        (fun _:unit => a' ~~ c ~~ rep' ll (a' ++ b :: d :: c) * [~In b a']). 
+  intros;
+  refine (Fix2
+    (fun hd a => a ~~ c ~~ rep' hd (a ++ b :: c) * [~In b a])
+    (fun hd a _ => a ~~ c ~~ rep' hd (a ++ b :: d :: c) * [~In b a])
+    (fun self hd a => 
+      IfNull hd Then
+        {{!!!}}
+      Else
+        Assert (a ~~ c ~~ [~In b a] *
+                  match a with 
+                    | nil    => Exists nde :@ Node, hd --> nde * [b = data nde] * rep' (next nde) c
+                    | v :: r => Exists nde :@ Node, hd --> nde * [v = data nde] * rep' (next nde) (r ++ b :: c)
+                  end);;
+        nde <- hd !! (fun nde:Node => a ~~ c ~~ [~In b a] *
+                        match a with
+                          | nil    => [b = data nde] * rep' (next nde) c
+                          | v :: r => [v = data nde] * rep' (next nde) (r ++ b :: c)
+                        end);
+        if eq (data nde) b then
+          Assert (a ~~ c ~~ hd --> nde * [~In b a] * [a = nil] * [b = data nde] * rep' (next nde) c);;
+          n <- New (node d (next nde));
+          hd ::= (node (data nde) (Some n));;
+          {{Return tt}}
+        else
+          Assert (a ~~ c ~~ hd --> nde * [a <> nil] * [Some (data nde) = head a] * [~In b a] * rep' (next nde) (tail a ++ b :: c));;
+          {{self (next nde) (a ~~~ tail a) <@> (a ~~ hd --> nde * [Some (data nde) = head a] * [a <> nil])}}) ll a');
+  solve [ t | hdestruct a; t ].
+Qed.
+
+Definition insertAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} + {q <> r})
+  (a c: [list A]) (b d: A),
+  STsep (a ~~ c ~~ rep ll (a ++ b :: c) * [~In b a])
+        (fun _:unit => a ~~ c ~~ rep ll (a ++ b :: d :: c) * [~In b a]).
+  intros;
+  refine (hd <- !ll; {{insertAfter' hd eq b d a c <@> (ll --> hd)}});
+    t.
+Qed.
+
+Definition insertAt' : forall (hd' : option ptr) (m' : [list A]) (pos' : nat) (v : A),
+  STsep (m' ~~ rep' hd' m' * [pos' <= length m'])
+        (fun _:unit => m' ~~ Exists a :@ list A, Exists b :@ list A, [m' = a ++ b] * [length a = pos'] * rep' hd' (a ++ v :: b)). 
+  intros.
+  refine (Fix3
+    (fun hd m pos =>   m ~~ rep' hd m * [pos <= length m])
+    (fun hd m pos (_:unit) => m ~~ Exists a :@ list A, Exists b :@ list A, [m = a ++ b] * [length a = pos] * rep' hd (a ++ v :: b))
+    (fun self hd a => 
+      IfNull hd Then
+        _
+      Else
+        _) hd' m' pos').
+        Assert (a ~~ c ~~ [~In b a] *
+                  match a with 
+                    | nil    => Exists nde :@ Node, hd --> nde * [b = data nde] * rep' (next nde) c
+                    | v :: r => Exists nde :@ Node, hd --> nde * [v = data nde] * rep' (next nde) (r ++ b :: c)
+                  end);;
+        nde <- hd !! (fun nde:Node => a ~~ c ~~ [~In b a] *
+                        match a with
+                          | nil    => [b = data nde] * rep' (next nde) c
+                          | v :: r => [v = data nde] * rep' (next nde) (r ++ b :: c)
+                        end);
+        if eq (data nde) b then
+          Assert (a ~~ c ~~ hd --> nde * [~In b a] * [a = nil] * [b = data nde] * rep' (next nde) c);;
+          n <- New (node d (next nde));
+          hd ::= (node (data nde) (Some n));;
+          {{Return tt}}
+        else
+          Assert (a ~~ c ~~ hd --> nde * [a <> nil] * [Some (data nde) = head a] * [~In b a] * rep' (next nde) (tail a ++ b :: c));;
+          {{self (next nde) (a ~~~ tail a) <@> (a
+
+Definition insertAt : forall (ll : LinkedList) (m : [list A]) (pos : nat) (v : A),
+  STsep (m ~~ rep ll m * [pos <= length m])
+        (fun _:unit => m ~~ Exists a :@ list A, Exists b :@ list A, [m = a ++ b] * [length a = pos] * rep ll (a ++ v :: b)). 
+  intros.
+
+
+
+Definition filter : forall (ll : LinkedList) (m : [list A]) (I : hprop) (pred : A -> bool),
+  STsep (m ~~ rep ll m)
+        (fun _:unit => m ~~ 
+
+Definition removeAfter' : forall (hd': option ptr) (eq : forall q r : A, {q = r} + {q <> r})
+  (a' c: [list A]) (b d: A),
+  STsep (a' ~~ c ~~ rep' hd' (a' ++ b :: d :: c) * [~In b a'])
+        (fun _:unit => a' ~~ c ~~ rep' hd' (a' ++ b :: c) * [~In b a']).
   intros.
   refine (Fix2
-    (fun hd a => a ~~ c ~~ rep' hd (a ++ b :: c))
-    (fun hd a _ => a ~~ c ~~ rep' hd (a ++ b :: d :: c))
-    (fun self hd a =>
+    (fun hd a => a ~~ c ~~ rep' hd (a ++ b :: d :: c) * [~In b a])
+    (fun hd a _ => a ~~ c ~~ rep' hd (a ++ b :: c) * [~In b a])
+    (fun self hd a => 
       IfNull hd Then
-        {{Return 0}}
+        {{!!!}}
       Else
-        Assert (m ~~ Exists nde :@ Node, [head m = Some (data nde)] * 
-          hd --> nde * rep' (tail m) (next nde));;
-        fn <- !hd;
-        Assert ((m ~~ [head m = Some (data fn)] * hd --> fn)
-          * (m' :~~ (m ~~~ tail m) in rep' m' (next fn)));;
-        rest <- self (next fn) (m ~~~ tail m) <@> _;
-        {{Return (1 + rest)}}));
-  solve [ t | hdestruct m; t ].
-Qed.
-        {{Return tt}}
-      Else {{_}}) ll a). t. simpl. subst. t. remember (x ++ b :: x0) as H. induction (H). 
-  pose app_cons_not_nil.  unfold not in n. apply n in HeqH. destruct HeqH.
+        Assert (a ~~ c ~~ [~In b a] *
+                  match a with 
+                    | nil    => Exists nde :@ Node, hd --> nde * [b = data nde] * rep' (next nde) (d :: c)
+                    | v :: r => Exists nde :@ Node, hd --> nde * [v = data nde] * rep' (next nde) (r ++ b :: d :: c)
+                  end);;
+        nde <- hd !! (fun nde:Node => a ~~ c ~~ [~In b a] *
+                        match a with
+                          | nil    => [b = data nde] * rep' (next nde) (d :: c)
+                          | v :: r => [v = data nde] * rep' (next nde) (r ++ b :: d :: c)
+                        end);
+        if eq (data nde) b then
+          Assert (a ~~ c ~~ hd --> nde * [~In b a] * [a = nil] * [b = data nde] * rep' (next nde) (d :: c));;
+          
+          hd ::= (node (data nde) (next nde));;
+          {{Return tt}}
+        else
+          Assert (a ~~ c ~~ hd --> nde * [a <> nil] * [Some (data nde) = head a] * [~In b a] * rep' (next nde) (tail a ++ b :: c));;
+          {{self (next nde) (a ~~~ tail a) <@> (a ~~ hd --> nde * [Some (data nde) = head a] * [a <> nil])}}) hd' a').
+  hdestruct a; t.
+  t.
+  hdestruct a; t.
+  t.
+  hdestruct a; t.
+  t.
+  hdestruct a. t.f.
 
+
+
+Definition removeAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} + {q <> r})
+  (a c: [list A]) (b d: A),
+  STsep (a ~~ c ~~ rep ll (a ++ b :: d :: c) * [~In b a])
+        (fun _:unit => a ~~ c ~~ rep ll (a ++ b :: c) * [~In b a]).
+  intros;
+  refine (hd <- !ll; {{removeAfter' hd eq a c b d <@> (ll --> hd)}}); t.
+Qed.
+  
 
 
   
@@ -223,9 +360,7 @@ Definition length (ll: LinkedList) (m: [list A]) :
   t.
 Qed.
 
-Conjecture insertAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
-  STsep (a ~~ c ~~ rep (a ++ b :: c) ll)
-        (fun _:unit => a ~~ c ~~ rep (a ++ b :: d :: c) ll).
+
  
 
 (* This is a slightly different style of remove than above. *)
@@ -242,9 +377,8 @@ Definition foreach : forall (this : LinkedList) (f : A -> STsep) (ls : [list A])
         (
 **)
 
-End LINKED_LIST.
+End LINKED_LIST. 
 
-(*
 Definition SepWhile : forall I P
   (test : STsep (I) (fun r:{P} + {~P} => I)) 
   (body : STsep ([P] * I) (fun _:unit => I)),
@@ -312,4 +446,3 @@ Definition freeAll (ll : LinkedList) :
   refine (match 
 **)
 
-*)
