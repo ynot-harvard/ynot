@@ -87,12 +87,6 @@ Module Queue : QUEUE.
         end;*)
     eauto.
 
-    Lemma rep'_nil : __ ==> rep' nil None None.
-      sep fail idtac.
-    Qed.
-
-    Hint Resolve rep'_nil.
-
     Lemma rep_nil : forall q,
       rep q nil ==> front q --> (@None ptr) * back q --> (@None ptr).
       unfold rep; sep fail simplr.
@@ -172,6 +166,12 @@ Module Queue : QUEUE.
         ba <- New (@None ptr);
         {{Return (Queue fr ba)}}); t.
     Qed.
+
+    Lemma rep'_nil : __ ==> rep' nil None None.
+      sep fail idtac.
+    Qed.
+
+    Hint Resolve rep'_nil.
 
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __).
       intros; refine (Free (front q);;
