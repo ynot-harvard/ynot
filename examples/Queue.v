@@ -49,6 +49,17 @@ Module Queue : QUEUE.
       back : ptr
     }.
 
+    (*Definition rep' ls fr ba :=
+      match ls with
+        | nil => [fr = None] * [ba = None]
+        | _ :: _ =>
+          match fr, ba with
+            | Some fr, Some ba => Exists ls' :@ list T, Exists x :@ T,
+              [ls = ls' ++ x :: nil] * listRep ls' fr ba * ba --> Node x None
+            | _, _ => [False]
+          end
+      end.*)
+
     Definition rep' ls fr ba :=
       match fr, ba with
         | None, None => [ls = nil]
@@ -85,23 +96,47 @@ Module Queue : QUEUE.
             match goal with
               | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
             end
-        end.
+        end;
+    eauto.
 
-    Ltac t := unfold rep, rep'; sep simplr.
+    Lemma rep'_nil : __ ==> rep' nil None None.
+      simpl; sep fail idtac.
+    Qed.
+
+    Hint Resolve rep'_nil.
+
+    Lemma rep_nil : forall q,
+      rep q nil ==> front q --> (@None ptr) * back q --> (@None ptr).
+      unfold rep; sep fail simplr.
+    Qed.
+
+    (*Lemma rep'_None2 : forall ls1 o1,
+      rep' ls1 o1 None ==> [ls1 = nil] * [o1 = None].
+      unfold rep'; simpl; destruct o1; sep fail idtac.
+    Qed.*)
+
+    Lemma rep'_Some2 : forall ls o1 ba,
+      rep' ls o1 (Some ba) ==> Exists ls' :@ list T, Exists x :@ T, Exists fr :@ ptr,
+        [ls = ls' ++ x :: nil] * [o1 = Some fr] * listRep ls' fr ba * ba --> Node x None.
+      unfold rep'; simpl; destruct o1; sep fail idtac.
+    Qed.
+
+    Ltac simp_prem :=
+      simpl_IfNull;
+      simpl_prem ltac:(apply rep_nil || apply rep'_Some2).
+
+    Ltac t := unfold rep; sep simp_prem simplr.
     
     Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
-        
         ba <- New (@None ptr);
-          
         {{Return (Queue fr ba)}}); t.
     Qed.
 
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __).
       intros; refine (Free (front q);;
-        
         {{Free (back q)}}); t.
     Qed.
 
@@ -129,12 +164,6 @@ Module Queue : QUEUE.
       IfNull ba Then
         {{front q ::= Some nd}}
       Else    
-        Assert (ls ~~ nd --> Node x None * back q --> Some nd
-          * Exists ban :@ node, ba --> ban
-            * Exists fr :@ ptr, front q --> Some fr
-              * Exists ls' :@ list T, [ls = ls' ++ data ban :: nil]
-                * listRep ls' fr ba * [next ban = None]);;
-
         ban <- !ba;
         ba ::= Node (data ban) (Some nd);;
         {{Return tt}}); t.

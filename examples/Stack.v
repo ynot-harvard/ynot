@@ -61,10 +61,7 @@ Module Stack : STACK.
     Qed.
 
     Ltac simp_prem :=
-      repeat match goal with
-               | [ H : ?p = None |- _ ] => rewrite H; mark_existential p
-               | [ H : ?p = Some _ |- _ ] => rewrite H; mark_existential p
-             end;
+      simpl_IfNull;
       simpl_prem ltac:(apply listRep_None || apply listRep_Some).
 
     Ltac t := unfold rep; sep simp_prem simplr.

@@ -241,14 +241,23 @@ Ltac search_conc tac :=
          | [ |- _ ==> _ ] => progress (tac || (apply himp_empty_conc'; tac))
        end.
 
-Theorem himp_frame' : forall p1 p2 q p1',
+Theorem himp_frame_prem : forall p1 p2 q p1',
   p1 ==> p1'
   -> p1' * p2 ==> q
   -> p1 * p2 ==> q.
   unfold hprop_imp, hprop_sep; firstorder.
 Qed.
 
-Ltac simpl_prem t := search_prem ltac:(eapply himp_frame'; [ t | ]).
+Ltac simpl_prem t := search_prem ltac:(eapply himp_frame_prem; [ t | ]).
+
+Theorem himp_frame_conc : forall p q1 q2 q1',
+  q1' ==> q1
+  -> p ==> q1' * q2
+  -> p ==> q1 * q2.
+  unfold hprop_imp, hprop_sep; firstorder.
+Qed.
+
+Ltac simpl_conc t := search_conc ltac:(eapply himp_frame_conc; [ t | ]).
 
 Ltac finisher := apply himp_refl
   || apply himp_any_conc.
@@ -341,6 +350,7 @@ Theorem himp_unpack_prem_alone : forall T h (x : T) p1 p,
 Qed.
 
 Ltac findContents ptr P :=
+  let P := eval simpl in P in
   match P with
     | (ptr --> ?V)%hprop => constr:(V, __)%hprop
     | (?P1 * ?P2)%hprop =>
@@ -369,11 +379,6 @@ Ltac inhabiter :=
          end;
 
   repeat search_prem ltac:(eapply himp_unpack_prem_eq; [eassumption |]
-(*    match goal with 
-      [x:[_]|-_] => match goal with 
-                      [H: x = [?y]%inhabited |-_ ] => apply himp_unpack_prem_eq with (x:=y); [assumption |]
-                    end
-    end *)
     || (apply himp_ex_prem; do 2 intro)).
 
 Ltac specFinder stac :=
