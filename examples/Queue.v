@@ -65,26 +65,7 @@ Module Queue : QUEUE.
         | [ x : option ptr |- _ ] => destruct x
         | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intros; subst
         | [ H : nil = ?ls ++ _ :: nil |- _ ] => destruct ls; discriminate
-          
-        (*| [ |- __ ==> match ?O with
-                        | Some _ => [False]
-                        | None => [nil = nil]
-                      end ] => equate O (@None ptr)*)
-
-        (*| [ |- _ ==> match ?O with
-                       | Some _ => _
-                       | None => match ?O' with
-                                   | Some _ => _
-                                   | None => [nil = nil]
-                                 end
-                     end ] => equate O (@None ptr); equate O' (@None ptr)*)
       end);
-    (*try match goal with
-          | [ ls' : list T |- _ ] =>
-            match goal with
-              | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
-            end
-        end;*)
     eauto.
 
     Lemma rep_nil : forall q,
@@ -111,6 +92,14 @@ Module Queue : QUEUE.
       induction ls; simpl; firstorder; subst; eauto 6.
     Qed.
 
+    Lemma app_inj_tail' : forall (x1 : T) ls' x2 v v0,
+      x1 :: ls' ++ x2 :: nil = v ++ v0 :: nil
+      -> x1 :: ls' = v /\ x2 = v0.
+      intros; apply app_inj_tail; assumption.
+    Qed.
+
+    Implicit Arguments app_inj_tail' [x1 ls' x2 v v0].
+
     Lemma rep'_Some1 : forall ls fr ba,
       rep' ls (Some fr) ba
       ==> Exists nd :@ node, fr --> nd
@@ -119,32 +108,27 @@ Module Queue : QUEUE.
           | None => [ls' = nil]
           | Some fr' => rep' ls' (Some fr') ba
         end.
-      destruct ba; simpl; [ | sep fail idtac ].
+      Ltac list_simplr := repeat (simplr ||
+        match goal with
+          | [ ls' : list T |- _ ] =>
+            match goal with
+              | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
+            end
 
-      generalize (list_cases ls); intuition; subst.
+          | [ |- context[[nil = _ ++ _ :: _]] ] =>
+            inhabiter; search_prem ltac:(apply himp_inj_prem); intro
+          | [ |- context[[_ :: _ ++ _ :: _ = _ ++ _ :: _]] ] =>
+            inhabiter; search_prem ltac:(apply himp_inj_prem); intro
 
-      inhabiter.
-      search_prem ltac:(apply himp_inj_prem); intro.
-      destruct v; discriminate.
+          | [ H : _ |- _ ] => generalize (app_inj_tail' H); clear H; intuition; subst; simpl
+        end).
 
-      destruct H; subst.
-      sep fail idtac.
-      destruct v; simpl in *.
-
-      injection H1; clear H1; intro; subst.
-      instantiate (3 := Node v0 None); simpl.
-      instantiate (1 := nil).
-      sep fail idtac.
-
-      destruct v; discriminate.
-
-      destruct H as [x1 [ls' [x2 H]]]; subst.
-      inhabiter.
-      search_prem ltac:(apply himp_inj_prem); intro.
-
-      rewrite app_comm_cons in H1.
-      generalize (app_inj_tail _ _ _ _ H1); clear H1; intuition; subst; simpl.
-      sep fail idtac.
+      destruct ba; simpl; [ | sep fail idtac ];
+        generalize (list_cases ls); intuition; subst;
+          repeat match goal with
+                   | [ H : ex _ |- _ ] => destruct H
+                 end;
+          sep fail list_simplr.
     Qed.
 
     Lemma rep'_Some2 : forall ls o1 ba,
@@ -168,7 +152,7 @@ Module Queue : QUEUE.
     Qed.
 
     Lemma rep'_nil : __ ==> rep' nil None None.
-      sep fail idtac.
+      t.
     Qed.
 
     Hint Resolve rep'_nil.
