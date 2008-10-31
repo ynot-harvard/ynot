@@ -11,9 +11,9 @@ Section LINKED_LIST.
 
 Variable A: Set.
 
-(*************************************************************************************)
-(* Representation                                                                    *)
-(*************************************************************************************)
+(******************************************************************************)
+(* Representation                                                             *)
+(******************************************************************************)
 Record Node : Set := node {
   data: A;
   next: option ptr
@@ -47,9 +47,9 @@ Definition tail (ls : list A) :=
     | _ :: ls' => ls'
   end.
 
-(*************************************************************************************)
-(* Tactics and Lemmas                                                                *)
-(*************************************************************************************)
+(******************************************************************************)
+(* Tactics and Lemmas                                                         *)
+(******************************************************************************)
 Ltac simplr := repeat (try discriminate;
   match goal with
     | [ H : head ?x = Some _ |- _ ] =>
@@ -92,9 +92,9 @@ Hint Resolve cons_nil.
 Hint Resolve node_next.
 
 
-(*************************************************************************************)
-(* Implementation                                                                    *)
-(*************************************************************************************)
+(******************************************************************************)
+(* Implementation                                                             *)
+(******************************************************************************)
 Definition new : STsep __ (fun r => rep r nil).
   refine {{ New None }};
     t.
@@ -252,6 +252,48 @@ Definition insertAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} +
   refine (hd <- !ll; {{insertAfter' hd eq b d a c <@> (ll --> hd)}});
     t.
 Qed.
+
+Definition insertAt' : forall (hd' : option ptr) (m' : [list A]) (pos' : nat) (v : A),
+  STsep (m' ~~ rep' hd' m' * [pos' <= length m'])
+        (fun _:unit => m' ~~ Exists a :@ list A, Exists b :@ list A, [m' = a ++ b] * [length a = pos'] * rep' hd' (a ++ v :: b)). 
+  intros.
+  refine (Fix3
+    (fun hd m pos =>   m ~~ rep' hd m * [pos <= length m])
+    (fun hd m pos (_:unit) => m ~~ Exists a :@ list A, Exists b :@ list A, [m = a ++ b] * [length a = pos] * rep' hd (a ++ v :: b))
+    (fun self hd a => 
+      IfNull hd Then
+        _
+      Else
+        _) hd' m' pos').
+        Assert (a ~~ c ~~ [~In b a] *
+                  match a with 
+                    | nil    => Exists nde :@ Node, hd --> nde * [b = data nde] * rep' (next nde) c
+                    | v :: r => Exists nde :@ Node, hd --> nde * [v = data nde] * rep' (next nde) (r ++ b :: c)
+                  end);;
+        nde <- hd !! (fun nde:Node => a ~~ c ~~ [~In b a] *
+                        match a with
+                          | nil    => [b = data nde] * rep' (next nde) c
+                          | v :: r => [v = data nde] * rep' (next nde) (r ++ b :: c)
+                        end);
+        if eq (data nde) b then
+          Assert (a ~~ c ~~ hd --> nde * [~In b a] * [a = nil] * [b = data nde] * rep' (next nde) c);;
+          n <- New (node d (next nde));
+          hd ::= (node (data nde) (Some n));;
+          {{Return tt}}
+        else
+          Assert (a ~~ c ~~ hd --> nde * [a <> nil] * [Some (data nde) = head a] * [~In b a] * rep' (next nde) (tail a ++ b :: c));;
+          {{self (next nde) (a ~~~ tail a) <@> (a
+
+Definition insertAt : forall (ll : LinkedList) (m : [list A]) (pos : nat) (v : A),
+  STsep (m ~~ rep ll m * [pos <= length m])
+        (fun _:unit => m ~~ Exists a :@ list A, Exists b :@ list A, [m = a ++ b] * [length a = pos] * rep ll (a ++ v :: b)). 
+  intros.
+
+
+
+Definition filter : forall (ll : LinkedList) (m : [list A]) (I : hprop) (pred : A -> bool),
+  STsep (m ~~ rep ll m)
+        (fun _:unit => m ~~ 
 
 Definition removeAfter' : forall (hd': option ptr) (eq : forall q r : A, {q = r} + {q <> r})
   (a' c: [list A]) (b d: A),

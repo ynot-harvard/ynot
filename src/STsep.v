@@ -200,12 +200,34 @@ Section Sep.
                             | (a,b) => F self' a b
                           end}})) (v1,v2)); destruct args; red; intuition. 
   Qed.
+  Definition SepFix3 : forall (dom1 dom2 dom3 : Type) 
+    (ran : dom1 -> dom2 -> dom3 -> Type)
+    (pre : dom1 -> dom2 -> dom3 -> hprop) 
+    (post : forall v1 v2 v3, ran v1 v2 v3 -> hprop)
+    (F : (forall (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3))
+      -> (forall (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3)))
+    (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3).
+    intros.
+    refine ((SepFix2 (dom1 := dom1 * dom2) (dom2 := dom3) 
+                     (fun i1 i2 => ran (fst i1) (snd i1) i2)
+                     (fun i1 i2 => pre (fst i1) (snd i1) i2)
+                     (fun i1 i2 o => post (fst i1) (snd i1) i2 o)
+                     (fun self args1 args3 =>
+                       let self' := fun a b c => self (a,b) c in
+                         {{match args1,args3
+                             return STsep (pre (fst args1) (snd args1) args3)
+                                          (post (fst args1) (snd args1) args3)
+                             with
+                             | (a,b),c => F self' a b c
+                           end}})) (v1,v2) v3); destruct args1; red; intuition. 
+  Qed.
 End Sep.
 
 Implicit Arguments SepFree [T].
 Implicit Arguments SepStrengthen [pre T post].
 Implicit Arguments SepFix [dom ran].
 Implicit Arguments SepFix2 [dom1 dom2 ran].
+Implicit Arguments SepFix3 [dom1 dom2 dom3 ran].
 
 Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
 
@@ -249,5 +271,6 @@ Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : sts
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
 Notation "'Fix'" := SepFix : stsepi_scope.
 Notation "'Fix2'" := SepFix2 : stsepi_scope.
+Notation "'Fix3'" := SepFix3 : stsepi_scope.
 
 Delimit Scope stsepi_scope with stsepi.
