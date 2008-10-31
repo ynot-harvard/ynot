@@ -126,6 +126,8 @@ Lemma isExistential_any : forall T (x : T), isExistential x.
   constructor.
 Qed.
 
+Ltac mark_existential e := generalize (isExistential_any e); intro.
+
 Theorem himp_ex_prem : forall T (p1 : T -> _) p2 p,
   (forall v, isExistential v -> p1 v * p2 ==> p)
   -> hprop_ex p1 * p2 ==> p.
@@ -238,6 +240,15 @@ Ltac search_conc tac :=
          | [ |- _ ==> _ * ?p ] => apply himp_comm_conc; search p
          | [ |- _ ==> _ ] => progress (tac || (apply himp_empty_conc'; tac))
        end.
+
+Theorem himp_frame' : forall p1 p2 q p1',
+  p1 ==> p1'
+  -> p1' * p2 ==> q
+  -> p1 * p2 ==> q.
+  unfold hprop_imp, hprop_sep; firstorder.
+Qed.
+
+Ltac simpl_prem t := search_prem ltac:(eapply himp_frame'; [ t | ]).
 
 Ltac finisher := apply himp_refl
   || apply himp_any_conc.
@@ -365,8 +376,8 @@ Ltac inhabiter :=
     end *)
     || (apply himp_ex_prem; do 2 intro)).
 
-Ltac specFinder :=
-  inhabiter;
+Ltac specFinder stac :=
+  inhabiter; repeat (stac; inhabiter);
     
   try match goal with
         | [ |- ?P ==> Exists v :@ ?T, (?ptr --> v * ?Q v)%hprop ] =>
@@ -469,14 +480,14 @@ Ltac unfold_local :=
            | [ x : _ |- _ ] => unfold x in *; clear x
          end.
 
-Ltac sep tac :=
+Ltac sep stac tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
     let concer := apply himp_empty_conc
       || apply himp_ex_conc_trivial
         || (apply himp_ex_conc; econstructor)
           || (eapply himp_unpack_conc; [eassumption || reflexivity |])
             || (apply himp_inj_conc; [s; fail | idtac]) in
-              (intros; equater || specFinder; tac;
+              (intros; equater || specFinder stac; tac;
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;

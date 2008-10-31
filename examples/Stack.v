@@ -49,7 +49,25 @@ Module Stack : STACK.
 
     Ltac simplr := try discriminate.
 
-    Ltac t := unfold rep; sep simplr.
+    Theorem listRep_None : forall ls,
+      listRep ls None ==> [ls = nil].
+      destruct ls; sep fail idtac.
+    Qed.
+
+    Theorem listRep_Some : forall ls hd,
+      listRep ls (Some hd) ==> Exists h :@ T, Exists t :@ list T, Exists p :@ option ptr,
+        [ls = h :: t] * hd --> Node h p * listRep t p.
+      destruct ls; sep fail ltac:(try discriminate).
+    Qed.
+
+    Ltac simp_prem :=
+      repeat match goal with
+               | [ H : ?p = None |- _ ] => rewrite H; mark_existential p
+               | [ H : ?p = Some _ |- _ ] => rewrite H; mark_existential p
+             end;
+      simpl_prem ltac:(apply listRep_None || apply listRep_Some).
+
+    Ltac t := unfold rep; sep simp_prem simplr.
     
     Open Scope stsepi_scope.
 
@@ -78,16 +96,10 @@ Module Stack : STACK.
         IfNull hd Then
           {{Return None}}
         Else
-          Assert (ls ~~ s --> Some hd
-            * Exists nd :@ node, hd --> nd
-              * Exists ls' :@ list T, [ls = data nd :: ls']
-                * listRep ls' (next nd));;
-
           nd <- !hd;
           Free hd;;
           s ::= next nd;;
-          {{Return (Some (data nd))}});
-      solve [ t | hdestruct ls; t].
+          {{Return (Some (data nd))}}); t.
     Qed.
   End Stack.
 
