@@ -59,7 +59,7 @@ Ltac simplr := repeat (try discriminate;
     | [ H : next _ = _ |- _ ] => rewrite -> H
   end).
 
-Ltac t := unfold rep; unfold rep'; sep simplr.
+Ltac t := unfold rep; unfold rep'; sep fail simplr.
 Ltac f := fold rep'; fold rep.
 
 Definition new : STsep __ (fun r => rep r nil).
@@ -181,6 +181,7 @@ Definition append : forall (l1 l2 : LinkedList) (m1 m2 : [list A]),
       {{append' hd1 hd2 m1 m2 <@> (l1 --> Some hd1 * l2 --> None)}}); t.
 Qed.
 
+(*
 Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
   STsep (a ~~ c ~~ rep' ll (a ++ b :: c))
         (fun _:unit => a ~~ c ~~ rep' ll (a ++ b :: d :: c)).
@@ -243,6 +244,7 @@ Definition foreach : forall (this : LinkedList) (f : A -> STsep) (ls : [list A])
 
 End LINKED_LIST.
 
+(*
 Definition SepWhile : forall I P
   (test : STsep (I) (fun r:{P} + {~P} => I)) 
   (body : STsep ([P] * I) (fun _:unit => I)),
@@ -310,3 +312,4 @@ Definition freeAll (ll : LinkedList) :
   refine (match 
 **)
 
+*)

@@ -176,7 +176,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
                                        end))). 
 
   Ltac unf := unfold init_pre, init_post, free_pre, free_post, rep, wf_bucket, ptsto_any.
-  Ltac t := unf; simpl; sep ltac:(subst; sub_simpl; unfold_local).
+  Ltac t := unf; simpl; sep fail ltac:(subst; sub_simpl; unfold_local).
 
   Definition init_table(f:array)(n:nat) : init_table_spec f n.
   intro.
@@ -256,7 +256,7 @@ Ltac iter_imp :=
 
   Lemma iter_sep_any (len s:nat) P  : {@ P i * ??  | i <- s + len} ==> {@ P i | i <- s + len} * ??.
   Proof. intros. apply himp_empty_prem'.
-  apply (@himp_trans _ _ __ ({@P i | i <- (s) + len} * ??) ((iter_sep_star_conc len s P (fun _ => ??)))). sep auto.
+  apply (@himp_trans _ _ __ ({@P i | i <- (s) + len} * ??) ((iter_sep_star_conc len s P (fun _ => ??)))). sep fail auto.
   Qed.
 
   Lemma iter_sep_empty (len s:nat)  : {@ __  | i <- s + len} ==> __.
@@ -291,7 +291,7 @@ Ltac iter_imp :=
       (filter_hash i l)]  | i <- (S (hash x)) +
     HA.table_size - hash x - 1}). iter_imp; t.
     repeat trans_imp; clear A1 A2.
-    apply inj_and_conc. rewrite filter_hash_lookup. sep auto.
+    apply inj_and_conc. rewrite filter_hash_lookup. sep fail auto.
     apply himp_empty_conc'. apply himp_split; apply iter_sep_inj_empty.
     eapply himp_trans_simpl; [idtac|apply IHl].
     apply himp_empty_conc'. eapply sp_index_conc; t.
@@ -300,7 +300,7 @@ Ltac iter_imp :=
   Lemma distinct_from_parts_any l :{@ [distinct (filter_hash i l)] * ?? | i <- (0) + HA.table_size} ==> [distinct l] * ??.
   Proof. intros.
     eapply himp_trans_simpl.
-    apply iter_sep_any. sep auto.
+    apply iter_sep_any. sep fail auto.
     apply distinct_from_parts.
   Qed.
 
@@ -371,7 +371,7 @@ Ltac iter_imp :=
                  (let p := array_plus x (hash k) in p ~~ p --> fm) *
                  iter_sep (wf_bucket x l) 0 (hash k) * 
                  iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1))}});
-   unf; repeat (simpl; init_split; sep ltac:(subst; try split_index_; sub_simpl; unfold_local); t).
+   unf; repeat (simpl; init_split; sep fail ltac:(subst; try split_index_; sub_simpl; unfold_local); t).
 Defined.
 
   Lemma remove_remove_eq (k:A.key_t)(l:alist_t) : 
@@ -410,8 +410,8 @@ Defined.
              (l ~~ (iter_sep (wf_bucket x l) 0 (hash k) * 
                 iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1)))
         }}); 
-unf; repeat (simpl; init_split; sep ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
-repeat (iter_imp;  unfold F.AT.AL.insert; sep ltac:(sub_simpl; try remove_filter_eq)).
+unf; repeat (simpl; init_split; sep fail ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
+repeat (iter_imp;  unfold F.AT.AL.insert; sep fail ltac:(sub_simpl; try remove_filter_eq)).
 Defined.
 
   Definition remove : T.remove. s;
@@ -428,8 +428,8 @@ Defined.
              (let p := array_plus x (hash k) in p ~~ p --> fm) * 
              (l ~~ (iter_sep (wf_bucket x l) 0 (hash k) * 
                 iter_sep (wf_bucket x l) (S (hash k)) (HA.table_size - (hash k) - 1)))}}) ; 
-  unf; repeat (simpl; init_split; sep ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
-  repeat (iter_imp; sep ltac:(sub_simpl; try remove_filter_eq)).
+  unf; repeat (simpl; init_split; sep fail ltac:(subst; try split_index_; sub_simpl; unfold_local); t); unfold its.
+  repeat (iter_imp; sep fail ltac:(sub_simpl; try remove_filter_eq)).
 Defined.
 
 End HashTable.

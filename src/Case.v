@@ -30,4 +30,3 @@ Ltac simpl_IfNull :=
            | [ H : ?p = None |- _ ] => rewrite H; mark_existential p
            | [ H : ?p = Some _ |- _ ] => rewrite H; mark_existential p
          end.
-
