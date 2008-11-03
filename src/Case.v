@@ -1,3 +1,5 @@
+Require Import Separation.
+
 Section ocase.
   Variables A B : Type.
 
@@ -21,6 +23,13 @@ Notation "'IfNull' x 'Then' e1 'Else' e2" :=
 Notation "'IfNull' e 'As' x 'Then' e1 'Else' e2" :=
   (ocase e (fun _ => e1) (fun x _ => e2))
   (no associativity, at level 90).
+
+Ltac simpl_IfNull :=
+  repeat match goal with
+           | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intro H; try (rewrite H in *; clear H)
+           | [ H : ?p = None |- _ ] => rewrite H; mark_existential p
+           | [ H : ?p = Some _ |- _ ] => rewrite H; mark_existential p
+         end.
 
 Section sbcase.
   Variables P Q:Prop.

@@ -20,13 +20,13 @@ Lemma split_sep(P:nat->hprop)(len i:nat)(H:i <= len)(start:nat) :
   ((iter_sep P start len) ==> (iter_sep P start i) * (iter_sep P (start + i) (len - i))).
 Proof.
   induction len ; intros. 
-  assert (i = 0) ; [ omega | subst ; sep auto].
+  assert (i = 0) ; [ omega | subst ; sep fail auto].
   induction i ; simpl ; intros ; assert (start + 0 = start) ; try omega. 
-  rewrite H0 ; sep auto.
+  rewrite H0 ; sep fail auto.
   assert (start + S i = ((S start) + i)) ; try omega ; 
-  rewrite H1 ; clear H0; sep ltac:(try subst; auto).
+  rewrite H1 ; clear H0; sep fail ltac:(try subst; auto).
  replace (S (start + i)) with (S start + i) by omega.
-  sep auto.
+  sep fail auto.
 Qed.
 
 (* join two adjacent separating conjunctions *)
@@ -34,12 +34,12 @@ Lemma join_sep(P:nat->hprop)(len i:nat)(H:i <= len)(start:nat) :
   (iter_sep P start i) * (iter_sep P (start + i) (len - i)) ==> iter_sep P start len.
 Proof.
   induction len ; intros. 
-  assert (i = 0) ; [omega | sep auto].
+  assert (i = 0) ; [omega | sep fail auto].
   induction i ; simpl ; intros ; assert (start + 0 = start) ; try omega. 
-  rewrite H0 ; sep auto.
-  assert (start + S i = ((S start) + i)) ; try omega ; rewrite H1 ; sep auto.
+  rewrite H0 ; sep fail auto.
+  assert (start + S i = ((S start) + i)) ; try omega ; rewrite H1 ; sep fail auto.
 (*  replace (S (start + i)) with (S start + i) by omega.
-  sep auto. *)
+  sep fail auto. *)
 Qed.
 
 (* split out a particular index, leaving the front and rear *)
@@ -49,9 +49,9 @@ Lemma split_index_sep(P:nat->hprop)(start len i:nat) :
   (iter_sep P start i) * (P (start + i)) * (iter_sep P (1 + start + i) (len - i - 1)).
 Proof.
   intros. assert (i <= len). omega. assert (1 <= len - i). omega.
-  eapply hprop_mp. apply (split_sep P H0 start). sep auto. 
+  eapply hprop_mp. apply (split_sep P H0 start). sep fail auto. 
   eapply hprop_mp. apply (split_sep P H1 (start + i)).
-  assert (S (start + i) = start + i + 1). omega. rewrite H2. sep auto. 
+  assert (S (start + i) = start + i + 1). omega. rewrite H2. sep fail auto. 
 Qed.
 
 (* opposite of above *)
@@ -61,9 +61,9 @@ Lemma join_index_sep(P:nat->hprop)(start len i:nat) :
   (iter_sep P start len).
 Proof.
   intros. eapply hprop_mp_conc. assert (i <= len). omega. 
-  apply (join_sep P H0 start). sep auto. assert (1 <= len - i). omega.
+  apply (join_sep P H0 start). sep fail auto. assert (1 <= len - i). omega.
   eapply hprop_mp_conc. apply (join_sep P H0 (start + i)).
-  assert (S (start + i) = start + i + 1). omega. rewrite H1. sep auto. 
+  assert (S (start + i) = start + i + 1). omega. rewrite H1. sep fail auto. 
 Qed.
 
 (* simplify proof for iterating separating conjunction implication *)
@@ -71,7 +71,7 @@ Lemma iter_imp(P1 P2:nat->hprop)(len start:nat) :
   (forall i, i >= start -> i < len + start -> P1 i ==> P2 i) -> 
   iter_sep P1 start len ==> iter_sep P2 start len.
 Proof.
-  induction len. sep auto. sep auto. eapply himp_split. apply H. auto. omega.
+  induction len. sep fail auto. sep fail auto. eapply himp_split. apply H. auto. omega.
   apply (IHlen (S start)). intros. apply H. omega. omega.
 Qed.
 
@@ -82,7 +82,7 @@ Lemma sp_index_hyp(P:nat->hprop)(Q R:hprop)(start len i:nat) :
   iter_sep P start len * Q ==> R.
 Proof.
   intros. eapply hprop_mp. eapply himp_split. apply (split_index_sep P start H). 
-  sep auto. auto. 
+  sep fail auto. auto. 
 Qed.
 
 Lemma sp_index_conc(P:nat->hprop)(Q R:hprop)(start len i:nat) : 
@@ -91,7 +91,7 @@ Lemma sp_index_conc(P:nat->hprop)(Q R:hprop)(start len i:nat) :
   R ==> iter_sep P start len * Q.
 Proof.
   intros. eapply hprop_mp_conc. eapply himp_split. apply (join_index_sep P start H).
-  sep auto. auto.
+  sep fail auto. auto.
 Qed.
 
 (* extra tactics *)
