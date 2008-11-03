@@ -1,5 +1,4 @@
 MODULES    := Counter Stack Queue Array Stream FiniteMap RefFiniteMap HashTable
-# Parse Parse2 
 VS         := $(MODULES:%=%.v)
 
 .PHONY: coq clean

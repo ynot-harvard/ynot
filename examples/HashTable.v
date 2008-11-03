@@ -157,26 +157,25 @@ Module HashTable(HA : HASH_ASSOCIATION)
   intro.
   refine(
     fix init(n:nat) : init_table_spec f n :=
-          match n as n' return init_table_spec f n' with
-         | 0 => fun _ => {{Return tt}}
-         | S i => fun _ => (* ANNOTE *)
-                    m <- F.new 
-                      <@> init_pre f (S i)
-                  ; upd_array f (HA.table_size - S i) m
-                      <@> (init_pre f i * F.AT.rep m nil_al)
-                 ;; {{init i _ <@> wf_bucket f nil_al (HA.table_size - S i)}}
-         end); [| | | | t | | | t |]; t. Defined.
+          IfZero n
+          Then fun _ => {{Return tt}}
+          Else fun _ => m <- F.new 
+                      <@> init_pre f (S n)
+                  ; upd_array f (HA.table_size - S n) m
+                      <@> (init_pre f n * F.AT.rep m nil_al)
+                 ;; {{init n _ <@> wf_bucket f nil_al (HA.table_size - S n)}})
+  ; [| | | | t | | | t |]; t. Defined.
 
   (* We allocate an array and then initialize it with empty F.fmap_t's *)
-Definition new : T.new. s.
-    refine (  t <- new_array HA.table_size 
-            ; Assert ([array_length t = HA.table_size] * {@hprop_unpack (array_plus t i)
-             (fun p : ptr => Exists A :@ Set, (Exists v :@ A, p --> v)) | i <-
+  Definition new : T.new. s.
+  refine (  t <- new_array HA.table_size 
+          ; Assert ([array_length t = HA.table_size] * {@hprop_unpack (array_plus t i)
+            (fun p : ptr => Exists A :@ Set, (Exists v :@ A, p --> v)) | i <-
                (HA.table_size - HA.table_size) + HA.table_size})
-           ;; @init_table t HA.table_size _
+         ;; @init_table t HA.table_size _
               <@> _ (* [array_length t = HA.table_size] *)
-           ;; {{Return t}})
-    ; t. Defined.
+         ;; {{Return t}})
+  ; t. Defined.
 
 Lemma iter_imp_f(P1 P2:nat->hprop)(len start:nat) Q R : 
   (forall i, i >= start -> i < len + start -> P1 i ==> P2 i) -> 

@@ -80,3 +80,27 @@ Notation "'IfSO' x 'Then' e1 'Else' e2" :=
 Notation "'IfSO' e 'As' x 'Then' e1 'Else' e2" :=
   (socase e (fun x _ => e1) (fun x _ => e2))
   (no associativity, at level 90).
+
+Section natcase.
+  Variables B : Type.
+
+  Variable disc : nat.
+
+  Variable ZCase : disc = O -> B.
+  Variable SCase : forall v, disc = S v -> B.
+
+  Definition natcase :=
+    match disc as disc' return (disc = disc' -> B) with
+      | O => ZCase
+      | S v => @SCase v 
+    end (refl_equal _).
+End natcase.
+
+Implicit Arguments natcase [B].
+
+Notation "'IfZero' x 'Then' e1 'Else' e2" :=
+  (natcase x (fun _ => e1) (fun x _ => e2))
+  (no associativity, at level 90).
+Notation "'IfZero' e 'As' x 'Then' e1 'Else' e2" :=
+  (natcase e (fun _ => e1) (fun x _ => e2))
+  (no associativity, at level 90).
