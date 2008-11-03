@@ -18,7 +18,7 @@
 
 %\titlebanner{DRAFT}
 
-\title{Title}
+\title{Effective Interactive Proofs for Imperative Programs}
 
 
 \authorinfo{Double blind}
@@ -38,46 +38,38 @@ term1, term2
 \keywords
 keyword1, keyword2
 
-\section{Introduction}
+\section{Introduction (GREG)}
+\begin{itemize}
+\item Want to verify imperative programs
+\item Higher-order functions
+\item modularity
+\item {\it mom and apple pie}
+\end{itemize}
+
   Ynot is the right design from a modularity, re-use perspective.  Much of the success hinges on the use of a higher-order dependently-typed language (Coq) and the ability to smoothly integrate modeling (inductive definitions), domain-specific abstractions (e.g., STsep) and uniform abstraction (Pi). If Ynot is to succeed, need drastic improvements in automation.
-  \subsection{Summary of pain from ICFP paper}
-  \subsection{Contributions}
-    Dramatic reduction in cost of writing/maintaining Ynot code:
-    \begin{itemize}
-    \item new formulation of HTT in Coq (specifically STsep)
-    \item general higher-order tactic for discharging STsep VCs (sep)
-    \item how how domain-specific predicates (e.g., listseg, itersep, etc.) can be integrated to keep verification burden relatively low.
-    \item careful proving ``style'' avoids sensitivities that make proof
-       maintenance difficult.
-    \item comparison against previous work and work of others.
- \end{itemize}
 
-\section{Overview of HTT and previous version of Ynot}
-   Condensed version of ICFP paper.
 
-\section{Ynot in practice}
-  Demonstrate problems with binary post-conditions (including need for precision), size of old proofs, difficulty in maintaining them.
+\section{Overview (GREG)}
+\begin{itemize}
+\item Features of Ynot
+\item problem with the proofs
+\end{itemize}
 
-\section{New version of Ynot}
- Perhaps use association list as running example?
-  \subsection{Re-formulate STsep to use only unary heap predicates}
-     key advantage: can use traditional separation-logic reasoning.  Things to include:
-     \begin{enumerate}
-     \item list some of the key theorems
-     \item argue that these will be strung together below with Ltac support
-     \item here's where we have to fudge the issue of ``ghost'' values and the need to add an injectivity axiom.
-     \item another price is that code needs more annotations (but we attempt to minimize)
-     \item comment by ryan: do unary postconditions means updates can't 
-be strong?      
- \end{enumerate}
-   \subsection{new tactic library - sep}
-     Explain structure of sep, sketch how it's coded, and what it can do.
 
-\section{Imperative ADTs in Ynot 2.0}
-    Focus on extensibility -- e.g., adding itersep to support arrays, adding listseg to support linked lists, etc. and showing how these get used in ADTs like the queue, hash-table, etc.
+\section{Method (ADAM)}
+\subsection{Unary Post-conditions}
+More standard separation logic
 
-\section{Comparison}
- \subsection{comparison to old Ynot ADT implementations}
+enables automatic reasoning
+
+\subsection{Proof Automation}
+higher order tactic for understanding separation logic
+
+domain extensions {\tt llseg}, {\tt array}, (hprop)
+
+Three parts: Model, Lemmas, hints and tactics
+
+\subsection{Comparison to Previous Ynot (AVI)}
 
  The original formulation of Ynot lead to large, unwieldy proofs.
  Reasoning about separation logic connectives was done at the heap
@@ -111,8 +103,25 @@ be strong?
 
  In the new Ynot, proofs are an order of magnitude shorter then they
  where in the old Ynot. (provide numbers here)
+\section{Evaluation}
+\begin{figure*}
+\begin{center}
+\begin{tabular}{r | r | r | r | r | r | r | r}
+ & lines of code & total  non-code & annotations & lemmas & proofs & aux. def & tactics\\\hline
+{\tt LL-ref} & AVI\\
+{\tt LL-Jahob} & RYAN\\
+{\tt LL-Smallfoot} & GREGORY\\
+{\tt Hashtable} & AVI\\
+{\tt Binary Heap} & RYAN\\
+{\tt BST} & ??\\
+{\tt Stack} & ADAM\\
+{\tt Queue} & ADAM\\
+\end{tabular}
+\end{center}
+\end{figure*}
 
- \subsection{comparison to Jahob}
+\section{Related Work}
+\subsection{Jahob (RYAN)}
 
 The Jahob system~\cite{jahob} allows the specification and verification 
 of recursive, linked data structures in a fragment of Java.  Like ynot, 
@@ -359,7 +368,7 @@ classes of formulae, formula approximation techiques must be used to integrate t
 a system using higher order logic. Jahob supports a number of 1st order and SMT provers, and also the 
 MONA prover for the monadic fragment of 2nd order logic and Isabelle and Coq. 
 
- \subsection{comparison to Smallfoot}
+ \subsection{Smallfoot (GREGORY)}
 We conclude our comparison with alternative approaches by comparing
 our system to Smallfoot~\cite{small1,small2}. The focus of Smallfoot
 is on compltely automatic reasoning, and it's almost complete nature
@@ -480,7 +489,13 @@ Smallfoot examples:
 \end{itemize}
 
 \section{Other related work}
-\section{Summary and conclusions}
+
+
+\section{Conclusions \& Future Work}
+Irrelevance, concurrency, IO/effects
+
+automation/annotations (loop invariant inference)
+
 Check that bibliography is working~\cite{htt}.
 
 %\bibliographystyle{plainnat}
