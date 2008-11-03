@@ -183,44 +183,47 @@ Section Sep.
 
   Implicit Arguments SepStrengthen [pre T post].
   Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
-  Definition SepFix2 : forall (dom1 dom2 : Type) (ran : dom1 -> dom2 -> Type)
-    (pre : dom1 -> dom2 -> hprop) (post : forall v1 v2, ran v1 v2 -> hprop)
-    (F : (forall (v1 : dom1) (v2 : dom2), STsep (pre v1 v2) (post v1 v2))
-      -> (forall (v1 : dom1) (v2 : dom2), STsep (pre v1 v2) (post v1 v2)))
-    (v1 : dom1) (v2 : dom2) , STsep (pre v1 v2) (post v1 v2).
-    intros.
-    refine ((SepFix (dom := dom1 * dom2) (fun i => ran (fst i) (snd i))
-                    (fun i => pre (fst i) (snd i))
-                    (fun i o => post (fst i) (snd i) o)
-                    (fun self args =>
-                      let self' := fun a b => self (a,b) in
-                        {{match args 
-                            return STsep (pre (fst args) (snd args))
-                                         (post (fst args) (snd args)) with
-                            | (a,b) => F self' a b
-                          end}})) (v1,v2)); destruct args; red; intuition. 
-  Qed.
-  Definition SepFix3 : forall (dom1 dom2 dom3 : Type) 
-    (ran : dom1 -> dom2 -> dom3 -> Type)
-    (pre : dom1 -> dom2 -> dom3 -> hprop) 
+
+
+  (* We can define easily derive Fix on multiple parameters, using currying *)
+  Notation Local "'curry' f" := (fun a => f (projT1 a) (projT2 a)) (no associativity, at level 75).
+
+  Definition SepFix2 : forall (dom1 : Type) (dom2: forall (d1:dom1), Type) (ran : forall (d1 : dom1) (d2:dom2 d1), Type)
+    (pre : forall (d1: dom1) (d2:dom2 d1), hprop) (post : forall v1 v2, ran v1 v2 -> hprop)
+    (F : (forall v1 v2, STsep (pre v1 v2) (post v1 v2))
+      -> (forall v1 v2, STsep (pre v1 v2) (post v1 v2))) v1 v2,
+    STsep (pre v1 v2) (post v1 v2).
+    Proof. intros;
+    refine (@SepFix (sigT dom2)%type 
+      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2)); auto.
+    Qed.
+
+  Definition SepFix3 : forall (dom1 : Type) (dom2: forall (d1:dom1), Type) 
+    (dom3: forall (d1:dom1) (d2:dom2 d1), Type)
+    (ran : forall (d1 : dom1) (d2:dom2 d1) (d3:dom3 d1 d2), Type)
+    (pre : forall (d1: dom1) (d2:dom2 d1) (d3:dom3 d1 d2), hprop) 
     (post : forall v1 v2 v3, ran v1 v2 v3 -> hprop)
-    (F : (forall (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3))
-      -> (forall (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3)))
-    (v1 : dom1) (v2 : dom2) (v3 : dom3), STsep (pre v1 v2 v3) (post v1 v2 v3).
-    intros.
-    refine ((SepFix2 (dom1 := dom1 * dom2) (dom2 := dom3) 
-                     (fun i1 i2 => ran (fst i1) (snd i1) i2)
-                     (fun i1 i2 => pre (fst i1) (snd i1) i2)
-                     (fun i1 i2 o => post (fst i1) (snd i1) i2 o)
-                     (fun self args1 args3 =>
-                       let self' := fun a b c => self (a,b) c in
-                         {{match args1,args3
-                             return STsep (pre (fst args1) (snd args1) args3)
-                                          (post (fst args1) (snd args1) args3)
-                             with
-                             | (a,b),c => F self' a b c
-                           end}})) (v1,v2) v3); destruct args1; red; intuition. 
-  Qed.
+    (F : (forall v1 v2 v3, STsep (pre v1 v2 v3) (post v1 v2 v3))
+      -> (forall v1 v2 v3, STsep (pre v1 v2 v3) (post v1 v2 v3)))
+    v1 v2 v3, STsep (pre v1 v2 v3) (post v1 v2 v3).
+    Proof. intros;
+    refine (@SepFix2 (sigT dom2)%type (curry dom3)
+      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2) v3); auto.
+    Qed.
+
+  Definition SepFix4 : forall (dom1 : Type) (dom2: forall (d1:dom1), Type) 
+    (dom3: forall (d1:dom1) (d2:dom2 d1), Type) (dom4: forall (d1:dom1) (d2:dom2 d1) (d3:dom3 d1 d2), Type)
+    (ran : forall (d1 : dom1) (d2:dom2 d1) (d3:dom3 d1 d2) (d4:dom4 d1 d2 d3), Type)
+    (pre : forall (d1: dom1) (d2:dom2 d1) (d3:dom3 d1 d2) (d4:dom4 d1 d2 d3), hprop) 
+    (post : forall v1 v2 v3 v4, ran v1 v2 v3 v4 -> hprop)
+    (F : (forall v1 v2 v3 v4, STsep (pre v1 v2 v3 v4) (post v1 v2 v3 v4))
+      -> (forall v1 v2 v3 v4, STsep (pre v1 v2 v3 v4) (post v1 v2 v3 v4)))
+    v1 v2 v3 v4, STsep (pre v1 v2 v3 v4) (post v1 v2 v3 v4).
+    Proof. intros;
+    refine (@SepFix3 (sigT dom2)%type (curry dom3) (curry dom4)
+      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2) v3 v4); auto.
+    Qed.
+
 End Sep.
 
 Implicit Arguments SepFree [T].
@@ -272,5 +275,6 @@ Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
 Notation "'Fix'" := SepFix : stsepi_scope.
 Notation "'Fix2'" := SepFix2 : stsepi_scope.
 Notation "'Fix3'" := SepFix3 : stsepi_scope.
+Notation "'Fix4'" := SepFix4 : stsepi_scope.
 
 Delimit Scope stsepi_scope with stsepi.

@@ -15,6 +15,7 @@ Module Type ASSOCIATION.
   Variable key_t : Set.
   Variable value_t : key_t -> Set.  (* note that value types depend on the keys *)
   Variable key_eq_dec : forall (k1 k2:key_t), {k1 = k2} + {k1 <> k2}.
+  Notation "k1 =! k2" := (key_eq_dec k1 k2) (at level 70, right associativity).
 End ASSOCIATION.
 
 (*********************************************)
@@ -22,9 +23,18 @@ End ASSOCIATION.
 (*********************************************)
 Module AssocList(A : ASSOCIATION).
 Require Export List.
-
+  Import A.
   Notation "( x ,, y )" := (@existT _ _ x y) : core_scope.
   Notation "` x" := (projT1 x) (at level 10): core_scope.
+
+  Require Import Eqdep_dec.
+  Module DecKey : DecidableType with Definition U:=A.key_t with Definition eq_dec:=A.key_eq_dec. 
+    Definition U := A.key_t.
+    Definition eq_dec := A.key_eq_dec.
+  End DecKey.
+  Module DecKeyFacts := DecidableEqDep(DecKey).
+
+  Definition key_eq_irr : (forall (k:A.key_t)(p:k = k), p = refl_equal k) := DecKeyFacts.UIP_refl.
 
   (* because of the dependency of values on keys, we don't just use normal lists *)
   Definition alist_t := list (sigT A.value_t).
@@ -33,7 +43,7 @@ Require Export List.
   Fixpoint remove(k:A.key_t)(l:alist_t) {struct l} : alist_t := 
     match l with
     | nil => nil
-    | (k',, v')::l' => if A.key_eq_dec k k' then remove k l'
+    | (k',, v')::l' => if k =! k' then remove k l'
                           else (k',, v')::(remove k l')
     end.
 
@@ -47,7 +57,7 @@ Require Export List.
     match l with
     | nil => None
     | (k',, v'):: l' => 
-      match A.key_eq_dec k' k with
+      match k' =! k with
       | left k_eq_k' => Some (coerce k_eq_k' v')
       | right k_neq_k' => lookup k l'
       end
@@ -62,21 +72,40 @@ Require Export List.
     Ltac simpler :=
       repeat (progress ((repeat 
         match goal with
-        | [|- context [match A.key_eq_dec ?k1 ?k2 with 
+        | [H:?e = ?e |- _] => clear H
+        | [H:?k = ?k |- _ ] =>
+          match goal with
+            [|- context [H]] =>  rewrite (key_eq_irr H); simpl
+          end
+        | [|- context [match ?k1 =! ?k2 with 
                          | left _ => _ 
                          | right _ => _ end]] =>
-        case_eq (A.key_eq_dec k1 k2) ; intros; try congruence ; try solve [assert False; intuition]; try subst 
-        | [H:context [match A.key_eq_dec ?k1 ?k2 with 
+        case_eq (k1 =! k2) ; intros; try congruence ; try solve [assert False; intuition]; try subst 
+        | [H:context [match ?k1 =! ?k2 with 
                          | left _ => _ 
                          | right _ => _ end] |- _] =>
-        destruct (A.key_eq_dec k1 k2) ; try congruence ; try solve [assert False; intuition]; try subst
+        destruct (k1 =! k2) ; try congruence ; try solve [assert False; intuition]; try subst
         |[H: sigT _ |- _] => destruct H
+        | [H: _ = _ |- context [coerce ?pf _]] => equate pf H || equate pf (sym_eq H)
+        | [H: _ = _ |- _ ] =>
+          match goal with
+            [|- context [H]] => let H2 := (fresh "H") in 
+              progress (generalize H; rewrite H; intro H2; rewrite (key_eq_irr H2); clear H2; simpl)
+          end
+        | [H: ?a = ?b |- _] => subst b || subst a
       end); simpl in *; auto)).
 
+  (* interactions of lookup and the other operations *)
   Lemma lookup_remove_eq k l : lookup k (remove k l) = None.
   Proof. induction l; simpler. Qed.
 
   Lemma lookup_remove_neq k k' l : k <> k' -> lookup k (remove k' l) = lookup k l.
+  Proof. induction l; simpler. Qed.
+
+  Lemma lookup_insert_eq k v l : lookup k (insert v l) = Some v.
+  Proof. induction l; simpler. Qed.
+
+  Lemma lookup_insert_neq k k' (v:value_t k') l : k <> k' -> lookup k (insert v l) = lookup k l.
   Proof. induction l; simpler. Qed.
 
   Lemma lookup_none_remove k l : lookup k l = None -> remove k l = l.
@@ -85,6 +114,7 @@ Require Export List.
   Lemma lookup_none_perm k l l' : Permutation l l' -> lookup k l = None -> lookup k l' = None.
   Proof. induction 1; simpler. Qed.
 
+  (* interactions of distinct and ther other operations *)
   Lemma distinct_remove k l : distinct l -> distinct (remove k l).
   Proof. induction l; simpler; intuition. rewrite lookup_remove_neq; auto. Qed.
 
@@ -137,7 +167,7 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
   Module A := AT.A.
   Module AL := AT.AL.
 
-  Import AT AL.
+  Import A AT AL.
 
   Open Local Scope hprop_scope.
 
@@ -157,7 +187,7 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
    * see the use in the hash-table below.
    *)
   Definition insert :=
-    forall (x:fmap_t)(k:A.key_t)(v:A.value_t k)(l:[alist_t]),
+    forall (x:fmap_t)(k:key_t)(v:value_t k)(l:[alist_t]),
       STsep (l ~~ rep x l)
         (fun (_:unit) => l ~~ rep x (insert v l)).
 
@@ -165,20 +195,20 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
    * and a key k, and returns the value v associatied with k in l if any, while
    * the map continues to represent l. *)
   Definition lookup :=
-    forall (x:fmap_t)(k:A.key_t)(l:[alist_t]), 
+    forall (x:fmap_t)(k:key_t)(l:[alist_t]), 
       STsep (l ~~ rep x l) 
-            (fun (ans:option (A.value_t k)) =>
+            (fun (ans:option (value_t k)) =>
                l ~~ [ans = lookup k l] * rep x l).
 
   Definition remove :=
-    forall (x:fmap_t)(k:A.key_t)(l:[alist_t]),
+    forall (x:fmap_t)(k:key_t)(l:[alist_t]),
       STsep (l ~~ rep x l)
         (fun (_:unit) => l ~~ rep x (remove k l)).
 
 (*
   Fixpoint fold_pre (B:Type) (P0:B->hprop)
-    (P:forall k, A.value_t k->B->hprop)
-    (Q:forall k, A.value_t k->B->B->hprop) (b:B)
+    (P:forall k, value_t k->B->hprop)
+    (Q:forall k, value_t k->B->B->hprop) (b:B)
     (l:alist_t) {struct l}:=
   match l with 
     | nil => P0 b
@@ -186,7 +216,7 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
   end.
 
   Fixpoint fold_post (B:Type) (Q0:B->hprop)
-    (Q:forall k, A.value_t k->B->B->hprop) (b:B) (ans:B)
+    (Q:forall k, value_t k->B->B->hprop) (b:B) (ans:B)
     (l:alist_t) {struct l}:=
   match l with 
     | nil => Q0 b * [b=ans]
@@ -196,8 +226,8 @@ Module FINITE_MAP_T(Assoc:ASSOCIATION)(AT:FINITE_MAP_AT with Module A:=Assoc).
   Definition hprop_forall T (p : T -> hprop) : hprop := fun h => forall v, p v h.
   Notation "'Forall' v :@ T , p" := (hprop_forall (fun v : T => p)) (at level 90, T at next level) : hprop_scope.
 
-  Definition fold := forall (x:fmap_t)(B:Type) (P0:B->hprop) (P:forall k, A.value_t k->B->hprop) (Q0:B->hprop)
-                                               (Q:forall k, A.value_t k->B->B->hprop) (b:B)
+  Definition fold := forall (x:fmap_t)(B:Type) (P0:B->hprop) (P:forall k, value_t k->B->hprop) (Q0:B->hprop)
+                                               (Q:forall k, value_t k->B->B->hprop) (b:B)
                                                (c:forall k v b, STsep (P k v b) (Q k v b)) (l:[alist_t]),
     STsep (l ~~ rep x l * Forall l' :@ {l':alist_t | Permutation l l'}, fold_pre P0 P Q b (proj1_sig l'))
     (fun (b':B) => (l ~~ rep x l * Exists l' :@ {l':alist_t | Permutation l l'}, fold_post Q0 Q b b' (proj1_sig l'))).
@@ -227,7 +257,7 @@ Module Type FINITE_MAP.
   Parameter insert : T.insert.
   Parameter remove : T.remove.
   Parameter lookup : T.lookup.
-(*  Parameter fold : T.fold. *)
+(*  Parameter fold : T.fold.  *)
   Axiom distinct : T.distinct.
   Axiom perm : T.perm.
 
@@ -281,7 +311,7 @@ Ltac perm_simpl :=
       | _ => destruct x2; [elim (Permutation_nil_cons H) |]
     end
 end.
-
+(*
 Ltac simpler2 :=
   repeat (progress ((repeat 
     match goal with
@@ -291,12 +321,13 @@ Ltac simpler2 :=
              | y2 => fail 1
              | _ => rewrite H1 in H2
            end
-      | [|- context [match A.key_eq_dec ?k1 ?k2 with 
+      | [|- context [match key_eq_dec ?k1 ?k2 with 
                            | left _ => _ 
                        | right _ => _ end]] =>
-      case_eq (A.key_eq_dec k1 k2) ; intros; try congruence ; try solve [assert False; intuition]; try subst
+      case_eq (key_eq_dec k1 k2) ; intros; try congruence ; try solve [assert False; intuition]; try subst
         |[H: sigT _ |- _] => destruct H
     end); simpl; auto)).
+*)
 
 Definition add (source ddest:fmap_t) (sourceM destM:[alist_t]) :
   STsep (sourceM ~~ destM ~~ rep source sourceM * rep ddest destM)
@@ -305,7 +336,7 @@ intros.
 refine (zz <- (fold source _ _ _ _ destM (fun k v b => {{(insert ddest (k:=k) v b)}}
                                          ;; {{Return (b ~~~ AL.insert v b)}}) sourceM)
 ; {{Return tt}}); sep simpl_inh.
-assert (((fun (_:A.key_t) _ (x:[alist_t]) => (x ~~ rep ddest x)) k v [x]%inhabited) ==> rep ddest x); [idtac|eassumption].
+assert (((fun (_:key_t) _ (x:[alist_t]) => (x ~~ rep ddest x)) k v [x]%inhabited) ==> rep ddest x); [idtac|eassumption].
 sep simpl_inh.
 assert (rep ddest (AL.insert v x0) ==> 
    (fun _ _ l1 l2 => l2 ~~ rep ddest l2) k v [x0]%inhabited [AL.insert v x0]%inhabited); [idtac|eassumption].
@@ -322,12 +353,12 @@ instantiate (1 := v). sep auto.
 instantiate (1 := v). sep auto.
 destruct v0. simpl.
 clear H2.
-revert x0 x2 p.
-induction x1; sep simpl_inh.
-
-perm_simpl. simpl. sep auto.
-assert((fun x => x ~~ rep ddest x) [x0]%inhabited ==> rep ddest x0); [sep simpl_inh|eassumption].
-perm_simpl. simpler. sep auto. sep auto. 
-pose (IHx1 x5 x2).
-
+revert x2 x1 p.
+induction x2; sep simpl_inh.
+perm_simpl. simpl.
+assert((fun x => x ~~ rep ddest x) [x]%inhabited ==> rep ddest x); [sep simpl_inh|eassumption].
+perm_simpl. simpler. sep auto. sep auto.
+pose (IHx2 ((_,,v)::x1)).
+change (rep ddest (Tadd ((_,,v0)::x1) x0) h).
+apply IHx1.
 *)
