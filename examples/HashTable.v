@@ -307,10 +307,7 @@ Ltac iter_imp :=
       ;; free_array x)
   ; t. Defined.
 
-  (* an attempt to keep the sep tactic from unfolding things -- it's a bit too
-   * eager to instantiate existentials in the conclusion of himp's, leading to
-   * unrecoverable failure.  *)
-  
+ 
   Definition its := iter_sep.
   Lemma its_re : its = iter_sep. reflexivity. Qed.
 
