@@ -47,15 +47,19 @@ Fixpoint llseg (s : LinkedList) (e : LinkedList) (m : list A) {struct m} : hprop
                            end
   end.
 
+Definition llist (s : LinkedList) (m : list A) : hprop :=
+  llseg s None m.
+
 Ltac simplr := repeat (try discriminate;
   match goal with
     | [ H : next _ = _ |- _ ] => rewrite -> H
     | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
     | [ |- context[ptr_eq' ?X ?Y] ] => destruct (ptr_eq' X Y)
+    | [ |- context[llseg None None ?L] ] => destruct L
   end).
 
-Ltac t := unfold llseg; sep simplr.
-Ltac f := fold llseg.
+Ltac t := unfold llist; unfold llseg; sep simplr.
+Ltac f := fold llseg; fold llist.
 
 Definition empty : STsep __ (fun r:LinkedList => llseg r r nil).
   refine ({{Return None}});
@@ -111,3 +115,39 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]),
           {{Return res}}) p' ls');
   solve [ t | hdestruct ls; t ].
 Qed.
+
+Definition append : forall (p' : LinkedList) (q : LinkedList)
+  (lsp' lsq : [list A]), 
+  STsep (lsp' ~~ lsq ~~ llist p' lsp' * llist q lsq)
+        (fun r:LinkedList => lsp' ~~ lsq ~~ llist r (lsp' ++ lsq)).
+  intros.
+  refine (Fix2 
+    (fun p lsp   => lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+    (fun p lsp r => lsp ~~ lsq ~~ llist r (lsp ++ lsq))
+    (fun self p lsp =>
+      IfNull p Then 
+        {{Return q}}
+      Else
+        Assert (lsp ~~ lsq ~~ Exists nde :@ Node, p --> nde * [head lsp = Some (data nde)] * llist (next nde) (tail lsp) * llist q lsq);;
+        nde <- !p;
+        IfNull next nde As p' Then
+          p ::= node (data nde) q;;
+          {{Return (Some p)}}
+        Else
+          _
+    ) p' lsp').
+  t.
+  hdestruct lsp; t.
+  hdestruct lsp; t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  f. hdestruct lsp. t. f.t. f.
+
+  Lemma seg_none_none : forall (l : list A), llseg None None l ==> [l = nil].
+    destruct l; t.
+  Qed.
+  destruct lsp; t.
