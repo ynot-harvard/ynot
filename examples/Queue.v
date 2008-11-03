@@ -180,15 +180,15 @@ Module Queue : QUEUE.
 
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
-      nd <- New (Node x None);
-      back q ::= Some nd;;
+        nd <- New (Node x None);
+        back q ::= Some nd;;
 
-      IfNull ba Then
-        {{front q ::= Some nd}}
-      Else    
-        ban <- !ba;
-        ba ::= Node (data ban) (Some nd);;
-        {{Return tt}}); t.
+        IfNull ba Then
+          {{front q ::= Some nd}}
+        Else    
+          ban <- !ba;
+          ba ::= Node (data ban) (Some nd);;
+          {{Return tt}}); t.
     Qed.
 
     Definition dequeue : forall q ls,
