@@ -55,7 +55,7 @@ Ltac simplr := repeat (try discriminate;
     | [ H : next _ = _ |- _ ] => rewrite -> H
     | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
     | [ |- context[ptr_eq' ?X ?Y] ] => destruct (ptr_eq' X Y)
-    | [ |- context[llseg None None ?L] ] => destruct L
+(**    | [ |- context[?X None None ?L] ] => destruct L **)
   end).
 
 Ltac t := unfold llist; unfold llseg; sep simplr.
@@ -116,6 +116,31 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]),
   solve [ t | hdestruct ls; t ].
 Qed.
 
+Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
+  match ls with 
+    | nil    => a :: ls
+    | f :: r => match idx with
+                  | 0 => a :: f :: r
+                  | S idx' => f :: insertAt_model r a idx'
+                end
+  end.
+
+Definition insertAt : forall (p' : LinkedList) (a : A) (idx' : nat) (ls' : [list A]),
+  STsep (ls' ~~ llist p' ls')
+        (fun r:LinkedList => ls' ~~ llist r (insertAt_model ls' a idx')).
+  intros.
+  refine (Fix3
+    (fun p ls idx => ls ~~ llist p ls)
+    (fun p ls idx (r:LinkedList) => ls ~~ llist r (insertAt_model ls a idx))
+    (fun self p ls idx =>
+      IfNull p Then
+        
+      Else
+        _
+      ) p' ls' idx').
+  t.
+  
+
 Definition append : forall (p' : LinkedList) (q : LinkedList)
   (lsp' lsq : [list A]), 
   STsep (lsp' ~~ lsq ~~ llist p' lsp' * llist q lsq)
@@ -145,9 +170,5 @@ Definition append : forall (p' : LinkedList) (q : LinkedList)
   t.
   t.
   t.
-  f. hdestruct lsp. t. f.t. f.
-
-  Lemma seg_none_none : forall (l : list A), llseg None None l ==> [l = nil].
-    destruct l; t.
-  Qed.
-  destruct lsp; t.
+  hdestruct lsp; t. f. destruct lsp. t. t.
+  
