@@ -41,7 +41,7 @@ Parameter STFree : forall p,
 Parameter STRead : forall T (p : ptr),
   ST (fun h => exists v : T, h#p = Some (Dyn v)) (fun h (v : T) h' => h' = h /\ h#p = Some (Dyn v)).
 
-Parameter STWrite : forall T (p : ptr) (v : T),
+Parameter STWrite : forall T T' (p : ptr) (v : T'),
   ST (fun h => exists v : T, h#p = Some (Dyn v)) (fun h (_ : unit) h' => h' = h##p <- Dyn v).
 
 Parameter STStrengthen : forall pre T (post : hpost T) (pre' : hpre),

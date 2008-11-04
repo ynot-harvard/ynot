@@ -9,3 +9,11 @@ syntax: glob
 *.aux
 *.log
 *.pdf
+
+*.make
+*.bbl
+*.blg
+*.d
+*.dvi
+*.fls
+*.ps

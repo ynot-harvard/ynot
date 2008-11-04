@@ -18,14 +18,6 @@ Record Node : Set := node {
   next: option ptr
 }.
 
-(*
-Theorem t : forall p1 p2 (a1 a2: K), (p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2]) .
- intros. unfold hprop_imp. sep auto. repeat (destruct H). destruct H0.
- exists ((x * x0)%heap). exists empty.  sep auto. exists x. exists x0. sep auto. split_prover'. compute.
- split. apply ext_eq. auto. intros. subst.  
-compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. Defined.
-*)
-
 (* ptr to
      (some (ptr to first node of list) | none) *)
 Definition AssocList : Set := ptr.
@@ -68,7 +60,7 @@ Ltac simplr := repeat (try discriminate;
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
     | [ |- context[ if (eqK ?v1 ?v2) then _ else _ ] ] => destruct (eqK v1 v2)
     | [ x : option _ |- _ ] => destruct x 
-(*    | [ H : Some ?a = Some ?b |- _ ] => assert (a = b); congruence *)
+    | [ H : Some ?a = Some ?b |- _ ] => assert (a = b); congruence 
   end).
 
 Ltac t := unfold rep; unfold rep'; try congruence; try subst; sep simplr.
@@ -118,95 +110,52 @@ Hint Resolve eta_node2.
 
 
 Definition sub1 (k: K) (v: V) (hdptr: ptr) m fn :
- STsep               (match m with | nil => [False] 
-                                   | (k0,v0)::tl => match tl with | _ :: _ => [False]
-                                                                  | nil => [fn = node k0 v0 None] * hdptr --> fn * [k <> k0] end  
-                      end)
-       (fun r:option V => match m with | nil => [False]  
-                                   | (k0,v0)::tl => match tl with | _ :: _ => [False]
-                                                                  | nil => [r = None] * [fn = node k0 v0 None] * rep' ((k0, v0)::(k, v)::nil) (Some hdptr) * [k <> k0] end 
-                         end).
-intros. refine ( xx <- New (node k v None) <@> match m with 
-                                                 | nil => [False] 
-                                                 | (k0,v0)::tl => match tl with | _ :: _ => [False]
-                                                                                | nil => [fn = node k0 v0 None] * hdptr --> fn * [k <> k0] end  
-                                               end ;
-
-                       hdptr ::= node (key fn) (value fn) (Some xx) <@> (match m with
-                                                                          | nil => [False]
-                                                                          | (k0,v0)::tl => match tl with | _ :: _ => [False] 
-                                                                                                         | nil => [fn = node k0 v0 None] * 
-                                                                            [k <> k0] * xx --> node k v None end
-                                                                        end) ;; 
-                       {{ Return None <@> match m with
-                                            | nil => [False]
-                                            | (k0,v0)::tl => match tl with | _ :: _ => [False] 
-                                                                           | nil => [fn = node k0 v0 None] *
-                                              [k <> k0] * xx --> node k v None * hdptr --> node k0 v0 (Some xx) end
-                                       end }} ) .
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
+ STsep               ([m =  (key fn, value fn)::nil] * [next fn = None] * hdptr --> fn * [k <> key fn])
+       (fun r:option V => rep' ((key fn, value fn)::(k, v)::nil) (Some hdptr)).
+intros. refine ( xx <- New (node k v None);
+                 hdptr ::= node (key fn) (value fn) (Some xx) ;;
+        {{ Return None }});  solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ]. 
 Defined.
 
-Definition put' (k: K) (v: V) (hdptr: ptr) m  :
-  STsep (match m with | nil => [False] | _ :: _ => rep' m (Some hdptr) end) 
-        (fun r => match m with
-                    | nil => [False]
-                    | (k0,v0)::tl =>  match eqK k k0 with
-                                        | left  _ =>  [r = Some v0] * rep' ((k,v)::tl) (Some hdptr)
-                                        | right _ =>  [r = lookup k tl] * rep' ((k0,v0)::(insert tl k v)) (Some hdptr)
-                                      end
-                  end).
-intros k v. refine ((Fix2 
-    (fun hdptr m => (match m with | nil => [False] | _ :: _ => rep' m (Some hdptr) end))
-    (fun hdptr m r => match m with
-                    | nil => [False]
-                    | (k0,v0)::tl =>  match eqK k k0 with
-                                        | left  _ =>  [r = Some v0] * rep' ((k,v)::tl) (Some hdptr)
-                                        | right _ =>  [r = lookup k tl] * rep' ((k0,v0)::(insert tl k v)) (Some hdptr)
-                                      end
-                  end)
-    (fun F hdptr m => fn <- hdptr !! fun fn =>       (match m with | nil => [False] | (k0,v0)::tl => [k0 = key fn] * [v0 = value fn] * rep' tl (next fn) end) ;    
-         {{ match eqK k (key fn) as eqx return STsep (match m with | nil => [False] | (k0,v0)::tl => [k0 = key fn] * [v0 = value fn] * rep' tl (next fn) * hdptr --> fn end)                                              (fun r => match m with | nil => [False] | (k0,v0)::tl => [k0 = key fn] * [v0 = value fn] *
-                                                               match eqx with 
-                                                                 | left _  => [r = Some v0] * rep' ((k,v)::tl) (Some hdptr)    
-                                                                 | right _ => [r = lookup k tl] * rep' ((k0,v0)::(insert tl k v)) (Some hdptr)
-                                                               end end) with
-                             | left  _ => hdptr ::= node k v (next fn) <@> (match m with | nil => [False] | (k0,v0)::tl => 
-                                                                             [k0 = key fn] * [v0 = value fn] * rep' (tail m) (next fn) end)  ;;
-                                          {{ Return (Some (value fn)) }} 
 
-                             | right _ => {{ match (next fn)  as nfn return STsep ( [next fn = nfn] *  match m with | nil => [False] 
-                                                                                      | (k0,v0)::tl =>[k0 = key fn] * [v0 = value fn] * rep' tl nfn * hdptr --> fn end)
-                                             (fun r =>  match m with | nil => [False] | (k0,v0)::tl => [k0 = key fn] * [v0 = value fn] * 
-                                                                                ([r = lookup k tl] * rep' ((k0,v0)::(insert tl k v)) (Some hdptr)) end) with
-                                              | None => Assert (match m with | nil => [False] | (k0,v0)::tl => [k0 = key fn] * [v0 = value fn] *  
-                                                                                                 rep' tl None * hdptr --> fn * [next fn = None] end) ;;
-                                                        {{ sub1 k v hdptr m fn  }}  
-                                              | Some nxt => False_rect _ ff (* F nxt (tail m) *)   
-                                       end  }}
-           end }} ))).
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
- solve [ t | repeat (destruct m; t) ].
-
-Focus 3. solve [ t | repeat (destruct m; t) ].
-Focus 3. solve [ t | repeat (destruct m; t) ].
-Focus 3. solve [ t | repeat (destruct m; t) ].
-Focus 3. solve [ t | repeat (destruct m; t) ].
-
-Focus 2. destruct m. t. destruct m. simpl. t. t.
-destruct m. t. destruct m. simpl. t. t. rewrite <- H0. t. t.
-Defined.
+Definition put' (k: K) (v: V) (hdptr: ptr) m :
+  STsep (rep' m (Some hdptr))
+        (fun r => [r = lookup k m] * rep' (insert m k v) (Some hdptr)).
+intros k v. 
+refine (Fix2 
+    (fun hdptr m => rep' m (Some hdptr))
+    (fun hdptr m r => [r = lookup k m] * rep' (insert m k v) (Some hdptr))
+    (fun F hdptr m => Assert (Exists fn :@ Node, [head m = Some (key fn, value fn)] * hdptr --> fn * rep' (tail m) (next fn)) ;; 
+                      fn <- !hdptr ;     
+                      Assert (hdptr --> fn * [head m = Some (key fn, value fn)] * rep' (tail m) (next fn)) ;; 
+                      if eqK k (key fn) 
+                      then hdptr ::= node k v (next fn)  ;;
+                           {{ Return Some (value fn) }} 
+                      else IfNull (next fn) As nxt
+                           Then xx <- New (node k v None);
+                                hdptr ::= node (key fn) (value fn) (Some xx) ;; 
+                                {{ Return None }}
+                           Else {{ F nxt (tail m) <@> _ }} )). 
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ].
+ solve [ t | repeat (destruct m; t) | destruct fn; destruct m; t; destruct m; t; t ]. t. f.
+rewrite _0. t. f. destruct m. t. simpl. destruct p. destruct (eqK k k0). t. t. 
+rewrite _0. t. f. destruct m. t. simpl. destruct p. destruct (eqK k k0). t. t.  rewrite <- _0.
+assert (k0 = key fn). congruence. subst k0. assert (v0 = value fn). congruence. subst v0. auto.
+assert (k0 = key fn). congruence. subst k0. assert (v0 = value fn). congruence. subst v0. auto.
+rewrite <- _0. auto. Defined.
 
 Definition put (k: K) (v: V) (p : ptr) (m : list (prod K V))  :
   STsep (rep m p)
@@ -219,7 +168,6 @@ intros; refine(
                    {{ Return None }} 
          | Some hdptr => {{ put' k v hdptr m <@> p --> Some hdptr }}
       end);  try solve [ t | repeat (destruct m; t; try (destruct m; t)) ]. Defined.
-
 
 Definition get'' (k: K) (hd: option ptr) (m: [list (prod K V)]):
  STsep (m ~~ rep' m hd)
