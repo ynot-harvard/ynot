@@ -66,7 +66,7 @@ Ltac simplr := repeat (try discriminate;
     | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
   end).
 
-Ltac t := unfold rep; unfold rep'; sep simplr.
+Ltac t := unfold rep; unfold rep'; sep fail simplr.
 Ltac f := fold rep'; fold rep.
 
 Lemma eta_node : forall fn, fn = node (data fn) (next fn).
@@ -198,14 +198,6 @@ Definition append : forall (l1 l2 : LinkedList) (m1 m2 : [list A]),
       {{append' hd1 hd2 m1 m2 <@> (l1 --> Some hd1 * l2 --> None)}}); t.
 Qed.
 
-Definition SepPose : forall (H : hprop) (P : hprop) (pf : __ ==> P),
-  STsep H (fun _:unit => H * P).
-  intros.
-  refine ({{Return tt}}); sep simpl.
-Qed.
-
-Notation "'Pose' P" := (SepAssert (_ * P)) (at level 75) : stsepi_scope.
-
 (** This isn't the correct type for the function. It is possible for the equality check to succeed
  ** before the end of a. What we need is an index into the list or a proof that b is not in a.
  **)
@@ -253,6 +245,7 @@ Definition insertAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} +
     t.
 Qed.
 
+(**
 Definition insertAt' : forall (hd' : option ptr) (m' : [list A]) (pos' : nat) (v : A),
   STsep (m' ~~ rep' hd' m' * [pos' <= length m'])
         (fun _:unit => m' ~~ Exists a :@ list A, Exists b :@ list A, [m' = a ++ b] * [length a = pos'] * rep' hd' (a ++ v :: b)). 
@@ -290,15 +283,16 @@ Definition insertAt : forall (ll : LinkedList) (m : [list A]) (pos : nat) (v : A
   intros.
 
 
-
 Definition filter : forall (ll : LinkedList) (m : [list A]) (I : hprop) (pred : A -> bool),
   STsep (m ~~ rep ll m)
         (fun _:unit => m ~~ 
+**)
 
-Definition removeAfter' : forall (hd': option ptr) (eq : forall q r : A, {q = r} + {q <> r})
+Conjecture removeAfter' : forall (hd': option ptr) (eq : forall q r : A, {q = r} + {q <> r})
   (a' c: [list A]) (b d: A),
   STsep (a' ~~ c ~~ rep' hd' (a' ++ b :: d :: c) * [~In b a'])
         (fun _:unit => a' ~~ c ~~ rep' hd' (a' ++ b :: c) * [~In b a']).
+(**
   intros.
   refine (Fix2
     (fun hd a => a ~~ c ~~ rep' hd (a ++ b :: d :: c) * [~In b a])
@@ -332,7 +326,7 @@ Definition removeAfter' : forall (hd': option ptr) (eq : forall q r : A, {q = r}
   hdestruct a; t.
   t.
   hdestruct a. t.f.
-
+**)
 
 
 Definition removeAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} + {q <> r})
@@ -343,10 +337,7 @@ Definition removeAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} +
   refine (hd <- !ll; {{removeAfter' hd eq a c b d <@> (ll --> hd)}}); t.
 Qed.
   
-
-
-  
-Definition length' (hd : option ptr) (m: [list A]) :
+Conjecture length' (hd : option ptr) (m: [list A]) :
   STsep (m ~~ rep' hd m)
         (fun res:nat => m ~~ [res = length m] * rep' hd m).
 
@@ -370,6 +361,7 @@ Conjecture removeAfter : forall (ll: LinkedList) (a c: [list A]) (b d: A) ,
 
 (* The ultimate goal is an effectful iterator *)
 
+(**
 Definition iterCallback (a : A) (I : hprop) := STsep (I) (fun _:unit => I).
 
 Definition foreach : forall (this : LinkedList) (f : A -> STsep) (ls : [list A]),
@@ -395,6 +387,16 @@ Definition SepWhile : forall I P
                   {{Return tt}}) tt);
   solve [ t | destruct continue; t ].
 Qed.
+
+(**
+Definition SepPose : forall (H : hprop) (P : hprop) (pf : __ ==> P),
+  STsep H (fun _:unit => H * P).
+  intros.
+  refine ({{Return tt}}); sep simpl.
+Qed.
+
+Notation "'Pose' P" := (SepAssert (_ * P)) (at level 75) : stsepi_scope.
+**)
 
 (**
 Definition insertAfter' : forall (ll: option ptr) (a c: [list A]) (b d: A),
