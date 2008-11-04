@@ -30,15 +30,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Module A := BT.
   Module AL := AssocList(BT).
   
-  Require Import Eqdep_dec.
-  Module DecKey : DecidableType with Definition U:=BT.key_t with Definition eq_dec:=BT.key_eq_dec. 
-    Definition U := BT.key_t.
-    Definition eq_dec := BT.key_eq_dec.
-  End DecKey.
-  Module DecKeyFacts := DecidableEqDep(DecKey).
-
-  Definition key_eq_irr : (forall (k:A.key_t)(p:k = k), p = refl_equal k) := DecKeyFacts.UIP_refl.
-
   Open Local Scope stsepi_scope.
   Open Local Scope hprop_scope.
 
@@ -82,29 +73,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Ltac unflt := unfold key_lt, A.key_lt in *.
 
   Definition key_lt_trans : forall k1 k2 k3, BT.key_lt k1 k2 -> BT.key_lt k2 k3 -> BT.key_lt k1 k3 := BT.key_lt_trans.
-
-  Ltac uncoerce :=
-    let rev_hyps := repeat 
-      match goal with
-        | [H: _ = _ |- _ ] => 
-          match goal with
-            | [H2: context [H]|- _ ] => revert H2
-          end 
-      end 
-      in let gen_eqs := repeat 
-        match goal with
-          | [H: _ = _ |- _ ] => 
-            match goal with
-              | [|- context [H]] => generalize H
-            end 
-        end 
-        in let refl_eqs := repeat 
-          match goal with
-            [|- forall (x : ?a = ?a), _] => 
-            let H2 := (fresh "H") in 
-              intro H2; rewrite (key_eq_irr H2); clear H2
-          end in
-          rev_hyps; gen_eqs; subst; refl_eqs; simpl.
 
   Ltac simpler := 
     repeat (progress ((repeat (unflt; try discriminate;

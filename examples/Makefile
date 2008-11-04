@@ -1,4 +1,4 @@
-MODULES    := Counter Stack Queue Array Stream FiniteMap RefFiniteMap HashTable BinarySearchTree
+MODULES    := Counter Stack Queue Array Stream AssocListModel FiniteMap RefFiniteMap HashTable BinarySearchTree
 VS         := $(MODULES:%=%.v)
 
 .PHONY: coq clean
