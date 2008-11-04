@@ -83,7 +83,7 @@ Section STRING_INSTREAM.
 
   (* Question: why won't this repeat on all of the sub goals that are produced by 
    * sep auto? *)
-  Ltac str := unfold string_rep ; repeat (progress (sep auto)).
+  Ltac str := unfold string_rep ; repeat (progress (sep fail auto)).
 
   Definition string_peek(s:list ascii)(x:ptr) : peek_t (inhabits s)(string_rep s x).
     unfold peek_t.

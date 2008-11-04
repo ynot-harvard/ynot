@@ -25,7 +25,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
   Open Local Scope stsepi_scope.
 
   Ltac s := T.unfm_t; intros.
-  Ltac t := unfold rep; sep ltac:(subst; eauto).
+  Ltac t := unfold rep; sep fail ltac:(subst; eauto).
 
   Definition new : T.new. s;
     refine ({{New nil_al}})

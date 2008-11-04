@@ -127,10 +127,10 @@ Section Sep.
     ynot 10.
   Qed.
 
-  Definition SepWrite T (p : ptr) (v : T)
+  Definition SepWrite T T' (p : ptr) (v : T')
     : STsep (Exists v' :@ T, p --> v')%hprop (fun _ : unit => p --> v)%hprop.
     t.
-    refine {{{STWrite p v}}}; ynot 5.
+    refine {{{STWrite T p v}}}; ynot 5.
 
     exists (h1 ## p <- Dyn v)%heap; intuition.
     eauto with Ynot.
@@ -247,7 +247,7 @@ Notation "!!!" := (SepContra _) : stsep_scope.
 Notation "'New' x" := (SepNew x) (at level 75) : stsep_scope.
 Notation "'FreeT' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
 Infix "!!" := SepRead (no associativity, at level 75) : stsep_scope.
-Infix "::=" := SepWrite (no associativity, at level 75) : stsep_scope.
+Notation "r ::= v" := (SepWrite _ r v) (no associativity, at level 75) : stsep_scope.
 
 Bind Scope stsep_scope with STsep.
 Delimit Scope stsep_scope with stsep.
@@ -270,7 +270,8 @@ Notation "!!!" := (SepContra _) : stsepi_scope.
 Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
 Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
 Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
-Notation "r ::= v" := (SepWrite r v <@> _) (no associativity, at level 75) : stsepi_scope.
+Notation "r : t ::= v" := (SepWrite t r v <@> _) (no associativity, at level 75) : stsepi_scope.
+Notation "r ::= v" := (SepWrite _ r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.
 Notation "'Fix'" := SepFix : stsepi_scope.
 Notation "'Fix2'" := SepFix2 : stsepi_scope.

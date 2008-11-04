@@ -19,7 +19,7 @@ Module Counter : COUNTER.
   Definition t := ptr.
   Definition rep (p : t) (n : nat) := (p --> n)%hprop.
 
-  Ltac t := unfold rep; sep simpl.
+  Ltac t := unfold rep; sep fail simpl.
 
   Open Scope stsepi_scope.
 

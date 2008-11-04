@@ -63,45 +63,102 @@ Module Queue : QUEUE.
     Ltac simplr := repeat (try congruence;
       match goal with
         | [ x : option ptr |- _ ] => destruct x
-        | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intro; subst
-        | [ H : next _ = _ |- _ ] => rewrite H
+        | [ H : Some _ = Some _ |- _ ] => injection H; clear H; intros; subst
         | [ H : nil = ?ls ++ _ :: nil |- _ ] => destruct ls; discriminate
-          
-        | [ |- __ ==> match ?O with
-                        | Some _ => [False]
-                        | None => [nil = nil]
-                      end ] => equate O (@None ptr)
-
-        | [ |- _ ==> match ?O with
-                       | Some _ => _
-                       | None => match ?O' with
-                                   | Some _ => _
-                                   | None => [nil = nil]
-                                 end
-                     end ] => equate O (@None ptr); equate O' (@None ptr)
       end);
-    try match goal with
+    eauto.
+
+    Lemma rep_nil : forall q,
+      rep q nil ==> front q --> (@None ptr) * back q --> (@None ptr).
+      unfold rep; sep fail simplr.
+    Qed.
+
+    Lemma app_nil_middle : forall (x1 x2 : T),
+      x1 :: x2 :: nil = x1 :: nil ++ x2 :: nil.
+      reflexivity.
+    Qed.
+
+    Lemma app_nil_middle' : forall (x1 x2 x3 : T) ls,
+      x1 :: x2 :: ls ++ x3 :: nil = x1 :: (x2 :: ls) ++ x3 :: nil.
+      reflexivity.
+    Qed.
+
+    Lemma list_cases : forall ls : list T,
+      ls = nil
+      \/ (exists x, ls = x :: nil)
+      \/ (exists x1, exists ls', exists x2, ls = x1 :: ls' ++ x2 :: nil).
+      Hint Immediate app_nil_middle app_nil_middle'.
+
+      induction ls; simpl; firstorder; subst; eauto 6.
+    Qed.
+
+    Lemma app_inj_tail' : forall (x1 : T) ls' x2 v v0,
+      x1 :: ls' ++ x2 :: nil = v ++ v0 :: nil
+      -> x1 :: ls' = v /\ x2 = v0.
+      intros; apply app_inj_tail; assumption.
+    Qed.
+
+    Implicit Arguments app_inj_tail' [x1 ls' x2 v v0].
+
+    Lemma rep'_Some1 : forall ls fr ba,
+      rep' ls (Some fr) ba
+      ==> Exists nd :@ node, fr --> nd
+      * Exists ls' :@ list T, [ls = data nd :: ls']
+      * match next nd with
+          | None => [ls' = nil]
+          | Some fr' => rep' ls' (Some fr') ba
+        end.
+      Ltac list_simplr := repeat (simplr ||
+        match goal with
           | [ ls' : list T |- _ ] =>
             match goal with
               | [ |- context[ ([_ :: _ = ls' ++ _ :: nil] * listRep ls' _ _) ] ] => destruct ls'
             end
-        end.
 
-    Ltac t := unfold rep, rep'; sep simplr.
+          | [ |- context[[nil = _ ++ _ :: _]] ] =>
+            inhabiter; search_prem ltac:(apply himp_inj_prem); intro
+          | [ |- context[[_ :: _ ++ _ :: _ = _ ++ _ :: _]] ] =>
+            inhabiter; search_prem ltac:(apply himp_inj_prem); intro
+
+          | [ H : _ |- _ ] => generalize (app_inj_tail' H); clear H; intuition; subst; simpl
+        end).
+
+      destruct ba; simpl; [ | sep fail idtac ];
+        generalize (list_cases ls); intuition; subst;
+          repeat match goal with
+                   | [ H : ex _ |- _ ] => destruct H
+                 end;
+          sep fail list_simplr.
+    Qed.
+
+    Lemma rep'_Some2 : forall ls o1 ba,
+      rep' ls o1 (Some ba) ==> Exists ls' :@ list T, Exists x :@ T, Exists fr :@ ptr,
+        [ls = ls' ++ x :: nil] * [o1 = Some fr] * listRep ls' fr ba * ba --> Node x None.
+      unfold rep'; sep fail simplr.
+    Qed.
+
+    Ltac simp_prem :=
+      idtac;
+      simpl_prem ltac:(apply rep_nil || apply rep'_Some1 || apply rep'_Some2).
+
+    Ltac t := unfold rep; simpl_IfNull; sep simp_prem simplr.
     
     Open Scope stsepi_scope.
 
     Definition new : STsep __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
-        
         ba <- New (@None ptr);
-          
         {{Return (Queue fr ba)}}); t.
     Qed.
 
+    Lemma rep'_nil : __ ==> rep' nil None None.
+      t.
+    Qed.
+
+    Hint Resolve rep'_nil.
+
     Definition free : forall q, STsep (rep q nil) (fun _ : unit => __).
       intros; refine (Free (front q);;
-        
         {{Free (back q)}}); t.
     Qed.
 
@@ -123,29 +180,16 @@ Module Queue : QUEUE.
 
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
-      nd <- New (Node x None);
-      back q ::= Some nd;;
+        nd <- New (Node x None);
+        back q ::= Some nd;;
 
-      IfNull ba Then
-        {{front q ::= Some nd}}
-      Else    
-        Assert (ls ~~ nd --> Node x None * back q --> Some nd
-          * Exists ban :@ node, ba --> ban
-            * Exists fr :@ ptr, front q --> Some fr
-              * Exists ls' :@ list T, [ls = ls' ++ data ban :: nil]
-                * listRep ls' fr ba * [next ban = None]);;
-
-        ban <- !ba;
-        ba ::= Node (data ban) (Some nd);;
-        {{Return tt}}); t.
+        IfNull ba Then
+          {{front q ::= Some nd}}
+        Else    
+          ban <- !ba;
+          ba ::= Node (data ban) (Some nd);;
+          {{Return tt}}); t.
     Qed.
-
-    Lemma add_empty : forall p,
-      p ==> p * __.
-      t.
-    Qed.
-
-    Hint Immediate add_empty.
 
     Definition dequeue : forall q ls,
       STsep (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
@@ -161,16 +205,6 @@ Module Queue : QUEUE.
         IfNull fr Then
           {{Return None}}
         Else
-          Assert (ls ~~ front q --> Some fr
-            * Exists nd :@ node, fr --> nd
-              * Exists ba :@ ptr, back q --> Some ba
-                * Exists ls' :@ list T, [ls = data nd :: ls']
-                * match next nd with
-                    | None => [ls' = nil]
-                    | Some nnd' => Exists ls'' :@ list T, Exists l :@ T,
-                      [ls' = ls'' ++ l :: nil] * listRep ls'' nnd' ba * ba --> Node l None
-                  end);;
-
           nd <- !fr;
           Free fr;;
           front q ::= next nd;;
@@ -179,8 +213,7 @@ Module Queue : QUEUE.
             back q ::= None;;
             {{Return (Some (data nd))}}
           Else    
-            {{Return (Some (data nd))}});
-      solve [ t | hdestruct ls; t ].
+            {{Return (Some (data nd))}}); t.
     Qed.
   End Queue.
 
