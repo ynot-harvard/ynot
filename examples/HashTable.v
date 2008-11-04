@@ -124,7 +124,6 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in ptsto_any p | i <- (HA.table_size - n) + n}.
   Definition free_spec (f:array)(l:[alist_t])(n:nat) := (n <= HA.table_size) -> STsep (free_pre f l n) (free_post f n).
 
-
   Lemma add_fact F P Q R : 
     (P ==> [F] * ??) ->
     (F -> (P * Q ==> R)) ->
@@ -298,7 +297,8 @@ Ltac iter_imp :=
                 <@> ((p ~~ p --> fm) * free_pre f l i)
            ;; {{free_tab i _ <@> (p ~~ ptsto_any p )}}
           end)
-  ; clear free_tab; t. Defined.
+  ; clear free_tab; t. 
+Defined.
 
   (* Run through the array, call F.free on all of the maps, and then call array_free *)
   Definition free : T.free. s.
