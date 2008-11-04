@@ -83,14 +83,40 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
 
   Definition key_lt_trans : forall k1 k2 k3, BT.key_lt k1 k2 -> BT.key_lt k2 k3 -> BT.key_lt k1 k3 := BT.key_lt_trans.
 
+  Ltac uncoerce :=
+    let rev_hyps := repeat 
+      match goal with
+        | [H: _ = _ |- _ ] => 
+          match goal with
+            | [H2: context [H]|- _ ] => revert H2
+          end 
+      end 
+      in let gen_eqs := repeat 
+        match goal with
+          | [H: _ = _ |- _ ] => 
+            match goal with
+              | [|- context [H]] => generalize H
+            end 
+        end 
+        in let refl_eqs := repeat 
+          match goal with
+            [|- forall (x : ?a = ?a), _] => 
+            let H2 := (fresh "H") in 
+              intro H2; rewrite (key_eq_irr H2); clear H2
+          end in
+          rev_hyps; gen_eqs; subst; refl_eqs; simpl.
+
   Ltac simpler := 
-    repeat (progress ((repeat (unflt;
+    repeat (progress ((repeat (unflt; try discriminate;
       match goal with
         | [H:?e = ?e |- _] => clear H
-        | [H:?k = ?k |- _ ] =>
+        | [H1: ?e, H2: ?e |- _] => clear H2 || clear H1
+        | [H1: ?a = ?b, H2:?b = ?a |- _] => clear H2 || clear H1
+(*        | [H:?k = ?k |- _ ] =>
           match goal with
             [|- context [H]] =>  rewrite (key_eq_irr H); simpl
-          end
+          end *)
+        | [H: Some _ = Some _ |- _] => inversion H; clear H
         | [ |- context[if ?e1 <=! ?e2 then _ else _] ] => 
           destruct (e1 <=! e2) ; try congruence ; try solve [assert False; intuition]; try subst
         | [ |- context[if ?e1 =! ?e2 then _ else _] ] => 
@@ -102,7 +128,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
         | [H1:BT.key_lt ?k1 ?k2, H2:BT.key_lt ?k2 ?k3 |- _] => extend (key_lt_trans H1 H2)
         | [H1:?k1 < ?k2 |- _] => elim (key_lt_imp_ne H1); congruence
         | [H1:BT.key_lt ?k1 ?k2 |- _] => elim (key_lt_imp_ne H1); congruence
-      end)); AL.simpler; intuition)).
+      end)); try uncoerce; AL.simpler; intuition)).
 
   Ltac simplerr := repeat (progress (simpler; autorewrite with BST)).
 
@@ -115,6 +141,18 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Proof. induction l; simpler. Qed.
   Hint Rewrite lookup_filter_gte using solve[simpler] : BST.
   Hint Rewrite lookup_filter_lte using solve[simpler] : BST.
+
+  Lemma filter_lookup_none f k l : lookup k l = None -> lookup k (filter f l) = None.
+  Proof. induction l; simpler. Qed.
+  Hint Resolve filter_lookup_none.
+
+  Lemma filter_perm f l l' : Permutation l l' -> Permutation (filter f l) (filter f l').
+  Proof. induction 1; simpler; eauto. Qed.
+  Hint Resolve filter_perm : BST.
+
+  Lemma filter_distinct f l : distinct l -> distinct (filter f l).
+  Proof. induction l; simpler. Qed.
+  Hint Resolve filter_distinct : BST.
 
   Lemma filter_remove f k l : (filter f (remove k l)) = remove k (filter f l).
   Proof. induction l; simpler. Qed.
@@ -240,9 +278,9 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
     apply (himp_apply h). sep fail auto.
   Qed.
 
-  Ltac unfolder := (apply rep2node_prem). (*; idtac "prem"; print_goal). *)
+  Ltac unfolder := idtac; apply rep2node_prem. (*; idtac "prem"; print_goal). *)
   Ltac impsimpler := search_conc ltac:(apply rep2node_conc).
-  Ltac t := unfold rep; unfold_local; repeat progress (sep unfolder simpler; impsimpler).
+  Ltac t := unfold rep; unfold_local; repeat progress (sep ltac:(idtac; search_prem unfolder) simpler; impsimpler; autorewrite with BST).
 
   Ltac impsimplerv := search_conc ltac:(apply rep2node_conc; idtac "rep2node_conc"; print_goal).
   Ltac tv := unfold rep; unfold_local; repeat progress (sep ltac:(unfolder; idtac "unf"; print_goal) simpler; impsimplerv).
@@ -289,7 +327,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
                 WhenGt {{lookup_loop (node_right n) k l_right
                   <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) *
                     (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}})
-  ; t; autorewrite with BST; t. Qed.
+  ; t. Qed.
 
   Definition lookup : T.lookup := Fix3 _ _ lookup_loop.
 
@@ -314,17 +352,8 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
             WhenEq {{ f ::= Some (Node v (node_left n) (node_right n)) }}
             WhenGt {{insert_loop (node_right n) k v l_right
               <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) *
-              (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}); try solve[t].
-
-    solve[unfold rep; sep unfolder simpler; impsimpler; sep fail idtac;
-    impsimpler; sep fail auto; autorewrite with BST; t].
-
-
-    solve[unfold rep; sep unfolder simpler; impsimpler; sep fail idtac; simpler;
-    autorewrite with BST; t].
-
-    solve[unfold rep; sep unfolder simpler; impsimpler; sep fail idtac; simpler;
-    autorewrite with BST; t].
+              (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}); 
+         t.
   Qed.
 
   Definition insert : T.insert := (Fix4 _ _ _ _ _ _ insert_loop).
