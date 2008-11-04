@@ -205,7 +205,7 @@ Theorem split_read_inj2 : forall h h1 h2 p T (v v1 : T),
   apply Dyn_inj; auto.
 Qed.
 
-Theorem split_write1 : forall h h1 h2 p T (v v' : T),
+Theorem split_write1 : forall h h1 h2 p T T' (v : T) (v' : T'),
   h ~> h1 * h2
   -> h1 # p = Some (Dyn v)
   -> (h ## p <- Dyn v') ~> (h1 ## p <- Dyn v') * h2.
@@ -229,7 +229,7 @@ Theorem split_write1 : forall h h1 h2 p T (v v' : T),
   destruct (eq_nat_dec x p); trivial.
 Qed.
 
-Theorem split_write2 : forall h h1 h2 p T (v v' : T),
+Theorem split_write2 : forall h h1 h2 p T T' (v : T) (v' : T'),
   h ~> h1 * h2
   -> h2 # p = Some (Dyn v)
   -> (h ## p <- Dyn v') ~> h1 * (h2 ## p <- Dyn v').
