@@ -89,7 +89,7 @@ Require Export List.
         | (k,,v)::ls => lookup k ls = None /\ distinct ls
       end.
     
-    Ltac simpler := try uncoerce;
+    Ltac simpler := try discriminate; try uncoerce;
       repeat (progress ((repeat 
         match goal with
         | [H:?e = ?e |- _] => clear H
@@ -127,6 +127,8 @@ Require Export List.
 
   Lemma lookup_insert_neq k k' (v:value_t k') l : k <> k' -> lookup k (insert v l) = lookup k l.
   Proof. induction l; simpler. Qed.
+  Hint Rewrite lookup_remove_eq lookup_insert_eq : AssocListModel.
+  Hint Rewrite lookup_remove_neq lookup_insert_neq using solve[simpler] : AssocListModel.
 
   Lemma lookup_none_remove k l : lookup k l = None -> remove k l = l.
   Proof. induction l; simpler. f_equal; auto. Qed.
@@ -134,7 +136,7 @@ Require Export List.
   Lemma lookup_none_perm k l l' : Permutation l l' -> lookup k l = None -> lookup k l' = None.
   Proof. induction 1; simpler. Qed.
 
-  (* interactions of distinct and ther other operations *)
+  (* interactions of distinct and the other operations *)
   Lemma distinct_remove k l : distinct l -> distinct (remove k l).
   Proof. induction l; simpler; intuition. rewrite lookup_remove_neq; auto. Qed.
 
