@@ -45,6 +45,9 @@ Require Export List.
     end.
 
   Definition insert(k:A.key_t)(v:A.value_t k)(l:alist_t) := (k,, v)::(remove k l).
+  Lemma insert_eq k v l : (k,,v)::(remove k l) = insert v l.
+  Proof. reflexivity. Qed.
+  Hint Rewrite insert_eq : AssocListModel.
 
   Definition coerce(k1 k2:A.key_t)(H:k1 = k2)(v:A.value_t k1) : A.value_t k2.
     intros. rewrite H in v. apply v.
@@ -89,6 +92,8 @@ Require Export List.
         | (k,,v)::ls => lookup k ls = None /\ distinct ls
       end.
     
+    (* just to seed the AssocListModel db *)
+    Hint Rewrite <- app_nil_end : AssocListModel.
     Ltac simpler := try discriminate; try uncoerce;
       repeat (progress ((repeat 
         match goal with
@@ -113,7 +118,7 @@ Require Export List.
               progress (generalize H; rewrite H; intro H2; rewrite (key_eq_irr H2); clear H2; simpl)
           end
         | [H: ?a = ?b |- _] => subst b || subst a
-      end); simpl in *; auto)).
+      end); simpl in *; auto; autorewrite with AssocListModel)).
 
   (* interactions of lookup and the other operations *)
   Lemma lookup_remove_eq k l : lookup k (remove k l) = None.
@@ -138,34 +143,34 @@ Require Export List.
 
   (* interactions of distinct and the other operations *)
   Lemma distinct_remove k l : distinct l -> distinct (remove k l).
-  Proof. induction l; simpler; intuition. rewrite lookup_remove_neq; auto. Qed.
+  Proof. induction l; simpler; intuition. Qed.
 
   Lemma distinct_insert k (v:A.value_t k) l : distinct l -> distinct (insert v l).
-  Proof. induction l; simpler; intuition. rewrite lookup_remove_neq; auto. Qed.
+  Proof. induction l; simpler; intuition. Qed.
+
+  Hint Resolve lookup_none_remove lookup_none_perm distinct_remove distinct_insert. 
 
   Lemma distinct_perm l l' : Permutation l l' -> distinct l -> distinct l'.
-  Proof. Hint Resolve lookup_none_perm. induction 1; simpler; intuition (congruence||eauto). Qed.
+  Proof. induction 1; simpler; intuition (congruence||eauto). Qed.
 
-  Hint Resolve lookup_remove_eq distinct_remove distinct_perm Permutation_sym Permutation_refl.
+  Hint Resolve distinct_remove distinct_perm Permutation_sym Permutation_refl.
 
   Lemma lookup_dis_perm k l l' : Permutation l l' -> distinct l -> lookup k l = lookup k l'.
   Proof. induction 1; simpler; intuition try congruence. rewrite H2. eauto. Qed.
 
   Lemma remove_perm k l l' : Permutation l l' -> Permutation (remove k l) (remove k l').
   Proof.  Hint Constructors Permutation. induction 1; simpler; eauto. Qed.
-  Hint Resolve remove_perm.
+  Hint Resolve lookup_dis_perm remove_perm.
 
   Lemma insert_perm k l l' (v:A.value_t k) : Permutation l l' -> Permutation (insert v l) (insert v l').
   Proof. unfold insert; simpler. Qed.
-  Hint Resolve insert_perm.
 
   Lemma remove_swap k k' l : remove k (remove k' l) = remove k' (remove k l).
   Proof. induction l; simpler. Qed.
-  Hint Resolve remove_swap.
 
   Lemma insert_swap k (v:A.value_t k) k' (v':A.value_t k') l : k <> k' -> 
     Permutation (insert v (insert v' l)) (insert v' (insert v l)).
   Proof. intros. Hint Constructors Permutation. unfold insert; simpler. rewrite remove_swap. auto. Qed.
-  Hint Resolve insert_swap.
+  Hint Resolve remove_swap insert_perm insert_swap.
 
 End AssocList.

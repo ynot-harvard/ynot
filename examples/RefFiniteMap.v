@@ -25,7 +25,7 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
   Open Local Scope stsepi_scope.
 
   Ltac s := T.unfm_t; intros.
-  Ltac t := unfold rep; sep fail ltac:(subst; eauto).
+  Ltac t := unfold rep, insert; sep fail ltac:(subst; auto); autorewrite with AssocListModel; sep fail ltac:(eauto).
 
   Definition new : T.new. s;
     refine ({{New nil_al}})
@@ -37,8 +37,8 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
 
   Definition lookup : T.lookup. s;
     refine (z <- ! x ; 
-            {{Return (lookup k z)}}) ; t. rewrite (lookup_dis_perm k H1); t.
-  Defined.
+            {{Return (lookup k z)}})
+    ; t. Defined.
 
   Definition insert :  T.insert. s;
     refine (z <- ! x ;
