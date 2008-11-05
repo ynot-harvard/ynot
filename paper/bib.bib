@@ -1,3 +1,24 @@
+@preamble{
+"\newcommand{\cconf}[3]{#2, {#1}'#3}" #
+"\newcommand{\icfp}[1]{\cconf{ICFP}{{I}nternational {C}onference on {F}unctional {P}rogramming}{#1}}" #
+"\newcommand{\popl}[1]{\cconf{POPL}{{S}ymposium on {P}rinciples of {P}rogramming {L}anguages}{#1}}" #
+"\newcommand{\ppopp}[1]{\cconf{PPoPP}{{S}ymposium on {P}rinciples and {P}ractice of {P}arallel {P}rogramming}{#1}}" #
+"\newcommand{\lics}[1]{\cconf{LICS}{{S}ymposium on {L}ogic in {C}omputer {S}cience}{#1}}" #
+"\newcommand{\ijcai}[1]{\cconf{IJCAI}{{I}nternational {J}oint {C}onference on {A}rtificial {I}ntelligence}{#1}}" #
+"\newcommand{\esop}[1]{\cconf{ESOP}{{E}uropean {S}ymposium on {P}rogramming}{#1}}" #
+"\newcommand{\ppdp}[1]{\cconf{PPDP}{{I}nternational {C}onference on {P}rinciples and {P}ractice of {D}eclarative {P}rogramming}{#1}}" #
+"\newcommand{\pldi}[1]{\cconf{PLDI}{{C}onference on {P}rogramming {L}anguage {D}esign and {I}mplementation}{#1}}" #
+"\newcommand{\cade}[1]{\cconf{CADE}{{I}nternational {C}onference on {A}utomated {D}eduction}{#1}}" #
+"\newcommand{\pepm}[1]{\cconf{PEPM}{{W}orkshop on {P}artial {E}valuation and {S}emantics-{B}ased {P}rogram {M}anipulation}{#1}}" #
+"\newcommand{\rta}[1]{\cconf{RTA}{{I}nternational {C}onference on {R}ewriting {T}echniques and {A}pplications}{#1}}" #
+"\newcommand{\csl}[1]{\cconf{CSL}{{I}nternational {W}orkshop on {C}omputer {S}cience {L}ogic}{#1}}" #
+"\newcommand{\padl}[1]{\cconf{PADL}{{P}ractical {A}spects of {D}eclarative {L}anguages}{#1}}" #
+"\newcommand{\tphol}[1]{\cconf{TPHOL}{{A}pplications of {H}igher {O}rder {L}ogic {T}heorem {P}roving}{#1}}" #
+"\newcommand{\tlca}[1]{\cconf{TLCA}{{I}nternational {C}onference on {T}yped {L}ambda {C}alculus and {A}pplications}{#1}}" #
+"\newcommand{\vmcai}[1]{\cconf{VMCAI}{{I}nternational {C}onference on {V}erification, {M}odel {C}hecking and {A}bstract {I}nterpretation}{#1}}" #
+"\newcommand{\spac}[1]{\cconf{SPACE}{{W}orkshop on {S}emantics, {P}rogram {A}nalysis and {C}omputing {E}nvironments for {M}emory {M}anagement}{#1}}"
+}
+
 @inproceedings{ynot:icfp,
  author = {Aleksandar Nanevski and Greg Morrisett and Avraham Shinnar and Paul Govereau and Lars Birkedal},
  title = {Ynot: dependent types for imperative programs},
@@ -51,3 +72,10 @@
   year = 	 {2006}
 }
 
+@InProceedings{separation,
+  author = 	 {John C. Reynolds},
+  title = 	 {Separation Logic: A Logic for Shared Mutable Data Structures},
+  booktitle = {\lics{02}},
+  pages = 	 {55--74},
+  year = 	 {2002}
+}
