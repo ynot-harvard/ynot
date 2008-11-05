@@ -1,3 +1,5 @@
+(* Same implementations of get as Jahob.
+   Update in place put.  No remove. *)
 
 Module Type NONDEP_ASSOCIATION.
   Variables K V : Set.
