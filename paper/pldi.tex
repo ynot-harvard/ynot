@@ -191,6 +191,76 @@ For an assertion \cd{P} that mentions the irrelevant variable \cd{x}, the notati
 
 The type of \cd{pop} showcases how we avoid the disjunctive connectives of separation logic.  The function returns an optional \cd{T} value, which will be \cd{None} when the stack is empty and will be \cd{Some x} when \cd{x} is at the top of the stack.  We use a Coq \cd{match} expression to give a different postcondition for each case.
 
+\medskip
+
+We can implement a module satisfying this signature.  With the type \cd{T} as a local variable, we can define the type of nodes of the linked lists that we will use.
+
+\begin{verbatim}
+Record node : Set := Node {
+  data : T;
+  next : option ptr
+}.
+\end{verbatim}
+
+To define the representation invariant, we want a recursive function specifying what it means for a possibly-null pointer to represent a functional list.
+
+\begin{verbatim}
+Fixpoint listRep (ls : list T) (hd : option ptr)
+    {struct ls} : hprop :=
+  match ls with
+    | nil => [hd = None]
+    | h :: t => match hd with
+                  | None => [False]
+                  | Some hd => Exists p :@ option ptr,
+                      hd --> Node h p * listRep t p
+                end
+  end.
+\end{verbatim}
+
+We can represent stacks as untyped pointers to the heads of linked lists built from \cd{Node}s.
+
+\begin{verbatim}
+Definition stack := ptr.
+\end{verbatim}
+
+We achieve type safety through the representation invariant.
+
+\begin{verbatim}
+Definition rep (s : stack) (ls : list T) : hprop :=
+  Exists po :@ option ptr, s --> po * listRep ls po.
+\end{verbatim}
+
+Before we start implementing the ADT methods, we should set up some proof automation machinery.  Systems like Smallfoot~\cite{smallfoot} have hardcoded support for particular heap predicates like acyclic linked list-ness, cyclic linked list-ness, and so on.  These systems perform ad-hoc simplifications on formulas that mention the predicates that they understand.  In contrast, with Ynot, the programmer can define his own new predicates, as we have just done.  Not only that, but he can also prove lemmas that correspond with the simplification rules built into automated tools, and he can plug his lemmas into a general separation logic solver.  All of this is done with no risk that a mistake by the programmer will lead to a faulty verification; every lemma must be proved from first principles.
+
+For the current example, we need two lemmas for ``unfolding'' the definition of \cd{listRep} at points where we know for sure whether or not the pointer argument is null.
+
+\begin{verbatim}
+Theorem listRep_None : forall ls,
+  listRep ls None ==> [ls = nil].
+  destruct ls; sep fail idtac.
+Qed.
+
+Theorem listRep_Some : forall ls hd,
+  listRep ls (Some hd) ==> Exists h :@ T,
+    Exists t :@ list T, Exists p :@ option ptr,
+      [ls = h :: t] * hd --> Node h p * listRep t p.
+  destruct ls; sep fail ltac:(try discriminate).
+Qed.
+\end{verbatim}
+
+The proofs are given in Coq's tactic language.  We ask to do a case analysis on the structure of the list \cd{ls}, applying the parametrized separation logic solver in each case.  We will go into more detail later on the significance of the two arguments to the \cd{sep} procedure.
+
+Now we can plug our two unfolding rules into the separation solver.  We define a local procedure for simplifying separation implications.
+
+\begin{verbatim}
+Ltac simp_prem :=
+  simpl_IfNull;
+  simpl_prem ltac:(apply listRep_None
+                   || apply listRep_Some).
+\end{verbatim}
+
+Our procedure, or \emph{tactic} in Coq parlance, first calls a simplification procedure associated with a syntax extension for checking pointer nullness.  Next, our procedure calls a tactic \cd{simpl\_prem} from the Ynot library, for simplifying premises of implications.  The argument to \cd{simpl\_prem} gives a procedure to attempt on each premise, until no further progress can be made.
+
 
 %% \section{Comparison to Previous Ynot (AVI)}
 
