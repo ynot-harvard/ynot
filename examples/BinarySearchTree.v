@@ -6,12 +6,10 @@ Require Import FiniteMap.
 
 Set Implicit Arguments.
 
-(* The functor demands we pass in a decidable partial order on keys.  In addition,
- * we need proof irrelevance for equality on keys. *)
 Module Type BINARY_TREE_ASSOCIATION.
   Variable key_t : Set.
   Variable key_eq_dec : forall (k1 k2:key_t), {k1=k2} + {k1<>k2}.
-(*  Notation "k1 =! k2" := (key_eq_dec k1 k2) (at level 70, right associativity). *)
+  Notation "k1 =! k2" := (key_eq_dec k1 k2) (at level 70, right associativity).
   Variable key_lt : key_t -> key_t -> Prop.
   Notation "k1 < k2" := (key_lt k1 k2).
   Variable key_lt_imp_ne : forall k1 k2, k1 < k2 -> k1 <> k2.
@@ -20,46 +18,12 @@ Module Type BINARY_TREE_ASSOCIATION.
   Variable value_t : key_t -> Set.
 End BINARY_TREE_ASSOCIATION.
 
-(* The following simple lemmas lead up to something useful below *)
-Ltac print_goal := idtac; 
-  match goal with
-    [|- ?g] => idtac g
-  end. 
-  
-Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A := BT. *)
-  Module A := BT.
-  Module AL := AssocList(BT).
-  
-  Open Local Scope stsepi_scope.
-  Open Local Scope hprop_scope.
+Module BinaryTreeModel(A : BINARY_TREE_ASSOCIATION).
+  Import A.
+  Module AL := AssocList(A).
+  Export AL.
 
-  Module AT <: FINITE_MAP_AT with Module A:=A with Module AL:=AL.
-    Module A := A.
-    Module AL := AL.
-    Import A AL.
-
-    (* functions and definitions used in the sepcification *)
-  Fixpoint filter (p : key_t -> bool) (l : alist_t) {struct l}:= 
-    match l with
-      | nil => nil
-      | (k,,v)::l' => 
-        if (p k) then filter p l' else (k,,v)::(filter p l') 
-    end.
-
-  Definition key_lte_dec k1 k2 : {k1 < k2 \/ k1=k2} + {k2 < k1}
-    := match key_cmp k1 k2 with
-         | inleft (left k1_lt_k2) => left _ (or_introl _ k1_lt_k2)
-         | inleft (right k1_eq_k2) => left _ (or_intror _ k1_eq_k2)
-         | inright k1_gt_k2 => right _ k1_gt_k2
-       end.
-  Notation "k1 <=! k2" := (key_lte_dec k1 k2) (at level 70, right associativity).
-
-  Notation "'filter_lte' k" := 
-    (filter (fun k' => if k' <=! k then true else false)) (no associativity, at level 10).
-
-  Notation "'filter_gte' k" := 
-    (filter (fun k' => if k <=! k' then true else false)) (no associativity, at level 10).
-
+  (* generally useful tactics *)
   Ltac notHyp P :=
   match goal with
     | [ _ : P |- _ ] => fail 1
@@ -69,105 +33,143 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Ltac extend pf :=
     let t := type of pf in
       notHyp t; generalize pf; intro.
+  
+  Definition key_lte_dec k1 k2 : {k1 < k2 \/ k1=k2} + {k2 < k1}
+    := match key_cmp k1 k2 with
+         | inleft (left k1_lt_k2) => left _ (or_introl _ k1_lt_k2)
+         | inleft (right k1_eq_k2) => left _ (or_intror _ k1_eq_k2)
+         | inright k1_gt_k2 => right _ k1_gt_k2
+       end.
+  Notation "k1 <=! k2" := (key_lte_dec k1 k2) (at level 70, right associativity).
 
-  Ltac unflt := unfold key_lt, A.key_lt in *.
+  Notation "'Compare' e 'WhenLt' e1 'WhenEq' e2 'WhenGt' e3" :=
+    ((IfSO e As cm 
+      Then if cm
+           then e1
+           else e2
+      Else e3)) (no associativity, at level 90).
 
-  Definition key_lt_trans : forall k1 k2 k3, BT.key_lt k1 k2 -> BT.key_lt k2 k3 -> BT.key_lt k1 k3 := BT.key_lt_trans.
+  Fixpoint filter (p : key_t -> bool) (l : alist_t) {struct l}:= 
+    match l with
+      | nil => nil
+      | (k,,v)::l' => 
+        if (p k) then filter p l' else (k,,v)::(filter p l') 
+    end.
+
+  Notation "'filter_lte' k" := 
+    (filter (fun k' => if k' <=! k then true else false)) (no associativity, at level 10).
+
+  Notation "'filter_gte' k" := 
+    (filter (fun k' => if k <=! k' then true else false)) (no associativity, at level 10).
 
   Ltac simpler := 
-    repeat (progress ((repeat (unflt; try discriminate;
+    repeat (progress ((repeat (
       match goal with
-        | [H:?e = ?e |- _] => clear H
         | [H1: ?e, H2: ?e |- _] => clear H2 || clear H1
         | [H1: ?a = ?b, H2:?b = ?a |- _] => clear H2 || clear H1
-(*        | [H:?k = ?k |- _ ] =>
-          match goal with
-            [|- context [H]] =>  rewrite (key_eq_irr H); simpl
-          end *)
         | [H: Some _ = Some _ |- _] => inversion H; clear H
         | [ |- context[if ?e1 <=! ?e2 then _ else _] ] => 
           destruct (e1 <=! e2) ; try congruence ; try solve [assert False; intuition]; try subst
         | [ |- context[if ?e1 =! ?e2 then _ else _] ] => 
           destruct (e1 =! e2) ; try congruence ; try solve [assert False; intuition]; try subst
         | [ |- context[if ?e1 then _ else _] ] => 
-          destruct (e1) ; try congruence ; try solve [assert False; intuition]; try subst
-        | [H1:?k1 < ?k2, H2:?k2 < ?k3 |- _] => extend (key_lt_trans H1 H2)
-        | [H1:A.key_lt ?k1 ?k2, H2:?k2 < ?k3 |- _] => extend (key_lt_trans H1 H2)
-        | [H1:BT.key_lt ?k1 ?k2, H2:BT.key_lt ?k2 ?k3 |- _] => extend (key_lt_trans H1 H2)
+          case_eq (e1) ; intros; try congruence ; try solve [assert False; intuition]; try subst
         | [H1:?k1 < ?k2 |- _] => elim (key_lt_imp_ne H1); congruence
-        | [H1:BT.key_lt ?k1 ?k2 |- _] => elim (key_lt_imp_ne H1); congruence
-      end)); try uncoerce; AL.simpler; intuition)).
+        | [H1:?k1 < ?k2, H2:?k2 < ?k3 |- _] => extend (key_lt_trans H1 H2)
+      end)); AL.simpler)).
 
-  Ltac simplerr := repeat (progress (simpler; autorewrite with BST)).
+  Ltac t := repeat (progress (simpler; simpl in *; auto; intuition; autorewrite with AssocListModel)).
+
+  (* maybe I should just use key_cmp directly? *)
+  Lemma key_cmp_direct : forall k k', (if k <=! k' then true else false) = (if key_cmp k k' then true else false).
+    intros. destruct (key_cmp k k'); t. 
+  Qed.
+
+  (* interactions of filter *)
 
   Lemma lookup_filter_gte(k1 k2:key_t)(l:alist_t) : 
     k1 < k2 -> lookup k1 (filter_gte k2 l) = lookup k1 l.
-  Proof. induction l; simpler. Qed.
+  Proof. induction l; t. Qed.
 
   Lemma lookup_filter_lte(k1 k2:key_t)(l:alist_t) : 
     k2 < k1 -> lookup k1 (filter_lte k2 l) = lookup k1 l.
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite lookup_filter_gte using solve[simpler] : BST.
-  Hint Rewrite lookup_filter_lte using solve[simpler] : BST.
+  Proof. induction l; t. Qed.
+  Hint Rewrite lookup_filter_gte using solve[t] : AssocListModel.
+  Hint Rewrite lookup_filter_lte using solve[t] : AssocListModel.
 
   Lemma filter_lookup_none f k l : lookup k l = None -> lookup k (filter f l) = None.
-  Proof. induction l; simpler. Qed.
+  Proof. induction l; t. Qed.
   Hint Resolve filter_lookup_none.
 
   Lemma filter_perm f l l' : Permutation l l' -> Permutation (filter f l) (filter f l').
-  Proof. induction 1; simpler; eauto. Qed.
-  Hint Resolve filter_perm : BST.
+  Proof. induction 1; t; eauto. Qed.
+  Hint Resolve filter_perm : AssocListModel.
 
   Lemma filter_distinct f l : distinct l -> distinct (filter f l).
-  Proof. induction l; simpler. Qed.
-  Hint Resolve filter_distinct : BST.
+  Proof. induction l; t. Qed.
+  Hint Resolve filter_distinct : AssocListModel.
 
   Lemma filter_remove f k l : (filter f (remove k l)) = remove k (filter f l).
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite filter_remove : BST.
+  Proof. induction l; t. Qed.
+  Hint Rewrite filter_remove : AssocListModel.
 
   Lemma filter_nil f : filter f nil_al = nil_al.
   Proof. auto. Qed.
-  Hint Rewrite filter_nil : BST.
+  Hint Rewrite filter_nil : AssocListModel.
 
   Lemma remove_filter_lte_lt k1 k2 l : k1 < k2 -> remove k1 (filter_lte k2 l) = filter_lte k2 l.
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite remove_filter_lte_lt using solve[simpler] : BST.
+  Proof. induction l; t. Qed.
+  Hint Rewrite remove_filter_lte_lt using solve[t] : AssocListModel.
 
   Lemma remove_filter_gte_gt k1 k2 l : k2 < k1 -> remove k1 (filter_gte k2 l) = filter_gte k2 l.
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite remove_filter_gte_gt using solve[simpler] : BST.
+  Proof. induction l; t. Qed.
+  Hint Rewrite remove_filter_gte_gt using solve[t] : AssocListModel.
 
   Lemma remove_filter_lte_eq k1 k2 l : k1 = k2 -> remove k1 (filter_lte k2 l) = filter_lte k2 l.
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite remove_filter_lte_eq using solve[simpler] : BST.
+  Proof. induction l; t. Qed.
+  Hint Rewrite remove_filter_lte_eq using solve[t] : AssocListModel.
 
   Lemma remove_filter_gte_eq k1 k2 l : k1 = k2 -> remove k1 (filter_gte k2 l) = filter_gte k2 l.
-  Proof. induction l; simpler. Qed.
-  Hint Rewrite remove_filter_gte_eq using solve[simpler] : BST.  
+  Proof. induction l; t. Qed.
+  Hint Rewrite remove_filter_gte_eq using solve[t] : AssocListModel.  
 
   Lemma insert_filter_lte_gt k1 k2 (v:value_t k1) l : k2 < k1 -> (filter_lte k2 (insert v l)) = insert v (filter_lte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
-  Hint Rewrite insert_filter_lte_gt using solve[simpler] : BST.
+  Proof. unfold insert; induction l; t. Qed.
+  Hint Rewrite insert_filter_lte_gt using solve[t] : AssocListModel.
 
   Lemma insert_filter_gte_lt k1 k2 (v:value_t k1) l : k1 < k2 -> (filter_gte k2 (insert v l)) = insert v (filter_gte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
-  Hint Rewrite insert_filter_gte_lt using solve[simpler] : BST.
+  Proof. unfold insert; induction l; t. Qed.
+  Hint Rewrite insert_filter_gte_lt using solve[t] : AssocListModel.
 
+(*
   Lemma insert_filter_lte_lt k1 k2 (v:value_t k1) l : k1 < k2 -> (filter_lte k2 (insert v l)) = (filter_lte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
+  Proof. unfold insert; induction l; t. Qed.
 
   Lemma insert_filter_gte_gt k1 k2 (v:value_t k1) l : k2 < k1 -> (filter_gte k2 (insert v l)) = (filter_gte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
+  Proof. unfold insert; induction l; t. Qed.
 
   Lemma insert_filter_lte_eq k1 k2 (v:value_t k1) l : k1 = k2 -> (filter_lte k2 (insert v l)) = (filter_lte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
+  Proof. unfold insert; induction l; t. Qed.
 
   Lemma insert_filter_gte_eq k1 k2 (v:value_t k1) l : k1 = k2 -> (filter_gte k2 (insert v l)) = (filter_gte k2 l).
-  Proof. unfold insert; induction l; simplerr. Qed.
+  Proof. unfold insert; induction l; t. Qed.
+*)    
+  End BinaryTreeModel.
   
+Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A := BT. *)
+  Module A := BT.
+  Module AL := BinaryTreeModel(BT).
+  Import AL.
+  
+  Open Local Scope stsepi_scope.
+  Open Local Scope hprop_scope.
+
+  Module AT <: FINITE_MAP_AT with Module A:=A with Module AL:=AL.
+    Module A := A.
+    Module AL := AL.
+    Import A AL.
+
   (* the imperative model *)
-    
     Definition ref(A:Set) := ptr.
 
     (* A node in the binary tree *)
@@ -186,8 +188,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
    * tree points to Some node with key k and value v, then looking up k in
    * the list should yield v, and the node's left and right sub-trees must  
    * represent the result of filtering out all keys less-than-or-equal/
-   * greater-then-or-equal to k.  I found working with this much easier
-   * than defining trees separately, and relating the tree to a list. *)
+   * greater-then-or-equal to k. *)
   Inductive rep' : fmap_t -> alist_t -> hprop := 
   | Rep_none : forall x, (x --> None(A:=node_t)) ==> rep' x nil_al
   | Rep_some : forall x k (v:value_t k) xleft xright l,
@@ -209,11 +210,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
       [lookup (node_key n) l = Some (node_value n)]
     end.
 
-  End AT.
-
-  Module T:=FINITE_MAP_T(A)(AT).
-  Import A AL AT.
-
   (* Used to eliminate rep' from a premise in an implication *)
   Lemma repinv(x:fmap_t)(l:AL.alist_t)(Q R:hprop) : 
     (x --> None(A:=node_t) * [l = nil_al] * Q ==> R) -> 
@@ -229,12 +225,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
     apply (H2 k v xleft xright). exists h0. eauto. 
   Qed.
 
-  Lemma himp_apply P T : P ==> T -> forall Q, Q ==> P -> Q ==> T.
-  Proof. repeat intro; auto. Qed.
-
-  Lemma himp_trans Q P R :  P ==> Q -> Q ==> R -> P ==> R.
-  Proof. repeat intro; auto. Qed.
-    
   Lemma rep2node_prem(x:fmap_t)(l:AL.alist_t) P Q: 
    (Exists n :@ option node_t, x --> n * node_rep n l * P) ==> Q -> rep' x l * P ==> Q.
   Proof. intros; apply (himp_apply H); apply repinv; sep fail auto. Qed.
@@ -246,12 +236,15 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
     apply (himp_apply h). sep fail auto.
   Qed.
 
-  Ltac unfolder := idtac; apply rep2node_prem. (*; idtac "prem"; print_goal). *)
-  Ltac impsimpler := search_conc ltac:(apply rep2node_conc).
-  Ltac t := unfold rep; unfold_local; repeat progress (sep ltac:(idtac; search_prem unfolder) simpler; impsimpler; autorewrite with BST).
+  End AT.
 
-  Ltac impsimplerv := search_conc ltac:(apply rep2node_conc; idtac "rep2node_conc"; print_goal).
-  Ltac tv := unfold rep; unfold_local; repeat progress (sep ltac:(unfolder; idtac "unf"; print_goal) simpler; impsimplerv).
+  Module T:=FINITE_MAP_T(A)(AT).
+  Import A AT.
+    
+  Ltac unfolder := idtac; apply rep2node_prem.
+  Ltac impsimpler := search_conc ltac:(apply rep2node_conc).
+  Ltac t := unfold rep; unfold_local; repeat progress 
+    (sep ltac:(idtac; search_prem unfolder) AL.simpler; auto; impsimpler; autorewrite with AssocListModel; simpler).
 
   (* The new operation: just allocate a ref and initialize it with None *)
   Definition new : T.new.
@@ -272,13 +265,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
 
   Definition free : T.free := Fix2 _ _ free_loop.
 
-  Notation "'Compare' e 'WhenLt' e1 'WhenEq' e2 'WhenGt' e3" :=
-    ((IfSO e As cm 
-      Then if cm
-           then e1
-           else e2
-      Else e3)) (no associativity, at level 90).
-
   Definition lookup_loop (lookup_loop:T.lookup) : T.lookup.
     intros lookup_loop f k l.
 
@@ -298,9 +284,6 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   ; t. Qed.
 
   Definition lookup : T.lookup := Fix3 _ _ lookup_loop.
-
-  Hint Rewrite lookup_remove_neq using simpler : BST.
-  Hint Rewrite lookup_remove_eq : BST.
 
   Definition insert_loop (insert_loop:T.insert) : T.insert.
     intros insert_loop f k v l.

@@ -211,6 +211,22 @@ Theorem himp_frame_cell : forall n T (v1 v2 : T) q1 q2,
   apply himp_frame; assumption.
 Qed.
 
+Lemma himp_trans P Q R : P ==> Q -> Q ==> R -> P ==> R.
+Proof. firstorder. Qed.
+
+Lemma himp_apply P T : P ==> T -> forall Q, Q ==> P -> Q ==> T.
+Proof. repeat intro; auto. Qed.
+
+Theorem add_fact F P Q R : 
+  (P ==> [F] * ??) ->
+  (F -> (P * Q ==> R)) ->
+  (P * Q ==> R).
+Proof.
+  repeat intro. apply H0; auto. 
+  destruct H1 as [? [? [? [Px ?]]]].
+  destruct (H _ Px) as [? [? [? [[? ?] ?]]]]; trivial.
+Qed.
+
 Ltac search_prem tac :=
   let rec search p :=
     tac
