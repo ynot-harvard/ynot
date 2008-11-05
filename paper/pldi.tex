@@ -1,4 +1,4 @@
-\documentclass[preprint]{sigplanconf}
+\documentclass[preprint,nocopyrightspace]{sigplanconf}
 %\usepackage[square, comma, sort&compress]{natbib}
 
 \usepackage{amsmath}
@@ -27,16 +27,18 @@
 \maketitle
 
 \begin{abstract}
-This is the text of the abstract.
+  We present a redesign and reimplementation of the Ynot system for programming and verification of imperative programs in the Coq proof assistant.  We begin the ``practice'' part of the ``theory''-``practice'' pipeline, showing how the theory of Ynot can be used to craft a practical development environment, where it is possible to do full functional verification of imperative data structures with reasonable programmer effort.  For most implementations, the verification burden is reduced by at least an order of magnitude compared to the old Ynot system, replacing manual proof with automation.  The core of the automation is a simplification procedure for implications in higher-order separation logic, with hooks that allow programmers to add domain-specific simplification rules.
+  
+  Compared to competing approaches to data structure verification, our system includes much less code that must be trusted; namely, about a hundred lines of Coq code defining a program logic.  All of our theorems and decision procedures have or build machine-checkable correctness proofs from first principles, removing opportunities for tool bugs to create faulty verifications.  We argue for the effectiveness of our infrastructure by verifying a number of data structures and comparing to similar efforts within other projects.
 \end{abstract}
 
-\category{CR-number}{subcategory}{third-level}
+%\category{CR-number}{subcategory}{third-level}
 
-\terms
-term1, term2
+%\terms
+%term1, term2
 
-\keywords
-keyword1, keyword2
+%\keywords
+%keyword1, keyword2
 
 \section{Introduction (GREG)}
 \begin{itemize}
