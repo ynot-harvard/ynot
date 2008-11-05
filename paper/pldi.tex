@@ -7,6 +7,8 @@
 
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
 
+\newcommand{\cd}[1]{\texttt{#1}}
+
 \newcommand{\coq}[1]{\mathsf{#1}}
 \newcommand{\return}[1]{\coq{return}(#1)}
 \newcommand{\bind}{\leftarrow}
@@ -120,10 +122,10 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
 
 Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing this complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
 $$\begin{array}{rcl}
-  p &::=& [P] \mid \emp \mid \pts{x}{y} \mid p \sep p \mid \exists x, p
+  P &::=& [p] \mid \emp \mid \pts{x}{y} \mid P \sep P \mid \exists x, P
 \end{array}$$
 
-For any pure Coq proposition $P$, $[P]$ is the heap predicate that asserts that $P$ is true and the heap is empty.  $\emp$ asserts that the heap is empty, and $\pts{x}{y}$ asserts that the heap contains only a mapping from $x$ to $y$.  $p_1 \sep p_2$ asserts that the heap can be broken into two heaps $h_1$ and $h_2$ with disjoint domains, such that $h_1$ satisfies $p_1$ and $h_2$ satisfies $p_2$.  Finally, we add existential quantification.
+For any pure Coq proposition $p$, $[p]$ is the heap predicate that asserts that $p$ is true and the heap is empty.  $\emp$ asserts that the heap is empty, and $\pts{x}{y}$ asserts that the heap contains only a mapping from $x$ to $y$.  $P_1 \sep P_2$ asserts that the heap can be broken into two heaps $h_1$ and $h_2$ with disjoint domains, such that $h_1$ satisfies $P_1$ and $h_2$ satisfies $P_2$.  Finally, we add existential quantification.
 
 It is worth pointing out that we simplify the assertion language substantially by taking advantage of Coq's base language.  We do not need to include program variables in the logic, because any Coq variable may be included anywhere in a Coq development, including within one of our assertions.  The same argument allows us to avoid explicit mention of specification variables, sometimes also called ``ghost state'' variables.
 
@@ -145,41 +147,86 @@ Figure \ref{STsep} presents the main rules of our separation logic.  The notable
 
 One consequence is that the ``read'' rule must take a kind of explicit framing condition.  This condition is parameterized by the value being read from the heap, making it a kind of description of the ``neighborhood around that value'' in the heap.  More standard separation logics force the exact value being read to be presented as an argument to the proof rule, but here we want to allow verification of programs where the exact value to read cannot be computed from the pieces of pure data that are in scope.
 
+\medskip
 
-\section{Comparison to Previous Ynot (AVI)}
+In the rest of this section, we will introduce the Ynot programming environment more concretely, via several examples.
 
- The original formulation of Ynot lead to large, unwieldy proofs.
- Reasoning about separation logic connectives was done at the heap
- level; a larger fraction of all of our proof scripts simply massaged
- subeaps into appropriate forms.  We had some tactics that implemented
- basic operations, such as the split, join, and flattening of
- sub-heaps, but the proof writer was forced to stitch them together to
- force the heaps into the correct form.
 
- The focus of our re-implementation of the Ynot system has been proof
- automation.  Throught the use of the sep tactic, we have virtually
- eliminated the need to reason about heaps; reasoning is done at the
- level of seperation logic.  Much of this reasoning has in turn been
- automated by a set of tactics such as \texttt{sep auto}. These
- tactics reduce the need to reason about the connectives of separation
- logic and their properties, allowing the proof writer to focus on the
- domain specific parts of the proof.  For proofs that only have simple
- domain specific parts, \texttt{sep auto} is often able to prove them
- on its own.
+\subsection{Verifying an Implementation of Imperative Stacks}
 
- The new model uses ``ghost variables'' to simplify specifying
- properties. It does so in a way that guarantees that they are
- computationally irrelevant, and so can always be eliminated when a
- program is extracted.  This in turn allows the new model to use unary
- post-conditions, which greatly simplifies specifications and enables
- the greater automation.  The old model used binary post-conditions to
- obviate the need for ghost variables.  Binary post-conditions where
- generally harder to reason about, since the connection between pre-
- and post-conditions always needed to be re-established.  In the new
- style, the connection is built in to the specification.
+\begin{figure}
+  \begin{verbatim}
+Module Type STACK.
+  Parameter t : Set -> Set.
+  Parameter rep T := t T -> list T -> hprop.
 
- In the new Ynot, proofs are an order of magnitude shorter then they
- where in the old Ynot. (provide numbers here)
+  Parameter new T :
+    STsep __ (fun s : t T => rep s nil).
+  Parameter free T (s : t T) :
+    STsep (rep s nil) (fun _ : unit => __).
+
+  Parameter push T (s : t T) (x : T) (ls : [list T]) :
+    STsep (ls ~~ rep s ls)
+          (fun _ : unit => ls ~~ rep s (x :: ls)).
+  Parameter pop T (s : t T) (ls : [list T]) :
+    STsep (ls ~~ rep s ls) (fun xo : option T => ls ~~
+            match xo with
+              | None => [ls = nil] * rep s ls
+              | Some x => Exists ls' :@ list T,
+                            [ls = x :: ls'] * rep s ls'
+            end).
+End STACK.
+  \end{verbatim}
+
+  \caption{\label{Stack}The signature of an imperative stack module}
+\end{figure}
+
+Figure \ref{Stack} shows the signature of a Ynot implementation of the stack ADT.  The signature is expressed in Coq's ML-like module system.  Each implementation contains a type family \cd{t}, where, for any type \cd{T}, a value of \cd{t(T)} represents a stack storing values of \cd{T}.  An abstract type in ML can be thought of as ``standing for the underlying invariant.''  For Ynot, this is true for ``pure'' invariants only.  We need to add an additional ``impure'' invariant explicitly.  The type \cd{hprop} stands for assertions, and the parameter \cd{rep} is an assertion-valued function over a stack and a \emph{functional model} of the stack.  Each stack can be thought of as standing for a particular pure list, and the \cd{rep} predicate formalizes this connection.
+
+The type of the \cd{new} operation tells us that it expects an empty heap on input, and on output the heap contains just whatever mappings are needed to satisfy the representation invariant between the function return value and the empty list.  The ASCII notation \cd{\_\_} stands for the $\emp$ of usual pencil-and-paper separation logics.  The \cd{free} operation takes a stack \cd{s} as an argument, and it expects the heap to satisfy \cd{rep} on \cd{s} and the empty list.  The post state shows that all heap values associated with \cd{s} are freed.
+
+The specification for \cd{push} says that it expects any valid stack as input and modifies the heap so that the same stack that stood for some list \cd{l} beforehand now stands for the list \cd{x :: l}, where \cd{x} is the appropriate function argument.  We see an argument \cd{ls} with type \cd{[list T]}.  The brackets are a notation defined by the Ynot library, standing for \emph{computationally irrelevance}.  That is, the type-checker should enforce that the value of \cd{ls} is not needed to execute the function.  Rather, such values may only be used in stating specifications and discharging proof obligations.  In other words, irrelevant variables act just like specification variables, but we do not need to build any special support for them into our assertion language.  We use Coq's notation scope mechanism to overload brackets for writing irrelevant types and lifted pure propositions.
+
+For an assertion \cd{P} that mentions the irrelevant variable \cd{x}, the notation \cd{x \textasciitilde\textasciitilde \; P} must be used to explicitly ``unpack'' \cd{x}.  The type of the unpack operation is such that it may only be applied to assertions and may not be used to allow an irrelevant variable's value to ``leak into'' the computational part of a program.
+
+The type of \cd{pop} showcases how we avoid the disjunctive connectives of separation logic.  The function returns an optional \cd{T} value, which will be \cd{None} when the stack is empty and will be \cd{Some x} when \cd{x} is at the top of the stack.  We use a Coq \cd{match} expression to give a different postcondition for each case.
+
+
+%% \section{Comparison to Previous Ynot (AVI)}
+
+%%  The original formulation of Ynot lead to large, unwieldy proofs.
+%%  Reasoning about separation logic connectives was done at the heap
+%%  level; a larger fraction of all of our proof scripts simply massaged
+%%  subeaps into appropriate forms.  We had some tactics that implemented
+%%  basic operations, such as the split, join, and flattening of
+%%  sub-heaps, but the proof writer was forced to stitch them together to
+%%  force the heaps into the correct form.
+
+%%  The focus of our re-implementation of the Ynot system has been proof
+%%  automation.  Throught the use of the sep tactic, we have virtually
+%%  eliminated the need to reason about heaps; reasoning is done at the
+%%  level of seperation logic.  Much of this reasoning has in turn been
+%%  automated by a set of tactics such as \texttt{sep auto}. These
+%%  tactics reduce the need to reason about the connectives of separation
+%%  logic and their properties, allowing the proof writer to focus on the
+%%  domain specific parts of the proof.  For proofs that only have simple
+%%  domain specific parts, \texttt{sep auto} is often able to prove them
+%%  on its own.
+
+%%  The new model uses ``ghost variables'' to simplify specifying
+%%  properties. It does so in a way that guarantees that they are
+%%  computationally irrelevant, and so can always be eliminated when a
+%%  program is extracted.  This in turn allows the new model to use unary
+%%  post-conditions, which greatly simplifies specifications and enables
+%%  the greater automation.  The old model used binary post-conditions to
+%%  obviate the need for ghost variables.  Binary post-conditions where
+%%  generally harder to reason about, since the connection between pre-
+%%  and post-conditions always needed to be re-established.  In the new
+%%  style, the connection is built in to the specification.
+
+%%  In the new Ynot, proofs are an order of magnitude shorter then they
+%%  where in the old Ynot. (provide numbers here)
+
 \section{Evaluation}
 \begin{figure*}
 \begin{center}
