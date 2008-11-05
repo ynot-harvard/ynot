@@ -1,10 +1,23 @@
 \documentclass[preprint,nocopyrightspace]{sigplanconf}
 %\usepackage[square, comma, sort&compress]{natbib}
+\usepackage{proof}
 
 \usepackage{amsmath}
 \usepackage{color}
 
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
+
+\newcommand{\coq}[1]{\mathsf{#1}}
+\newcommand{\return}[1]{\coq{return}(#1)}
+\newcommand{\bind}{\leftarrow}
+\newcommand{\emp}{\mathbf{emp}}
+\newcommand{\sep}{\ast}
+\newcommand{\pts}[2]{#1 \mapsto #2}
+\newcommand{\new}[1]{\coq{new}(#1)}
+\newcommand{\free}[1]{\coq{free}(#1)}
+\newcommand{\rd}[1]{!#1}
+\newcommand{\wri}[2]{#1 := #2}
+\newcommand{\himp}{\Rightarrow}
 
 \begin{document}
 
@@ -58,20 +71,52 @@
 \end{itemize}
 
 
-\section{Method (ADAM)}
-\subsection{Unary Post-conditions}
-More standard separation logic
+\section{The Ynot Programming Environment}
 
-enables automatic reasoning
+\begin{figure*}
+  $$\infer{\{\emp\} \; \return{v} \; \{\lambda v'. \; [v = v']\}}{}
+  \quad \infer{\{P_1\} \; x \bind e_1; e_2 \; \{Q_2\}}{
+    \{P_1\} \; e_1 \; \{Q_1\}
+    & (\forall x, \{P_2(x)\} \; e_2 \; \{Q_2\})
+    & (\forall x, Q_1(x) \himp P_2(x))
+  }$$
 
-\subsection{Proof Automation}
-higher order tactic for understanding separation logic
+  $$\infer{\{\emp\} \; \new{v} \; \{\lambda p. \; \pts{p}{v}\}}{}
+  \quad \infer{\{\exists v, \pts{p}{v}\} \; \free{p} \; \{\lambda \_. \; \emp\}}{}$$
 
-domain extensions {\tt llseg}, {\tt array}, (hprop)
+  $$\infer{\{\exists v, \pts{p}{v} \sep P(v)\} \; \rd{p} \; \{\lambda v. \; \pts{p}{v} \sep P(v)\}}{}
+  \quad \infer{\{\exists v, \pts{p}{v}\} \; \wri{p}{v'} \; \{\lambda \_. \; \pts{p}{v'}\}}{}$$
 
-Three parts: Model, Lemmas, hints and tactics
+  $$\infer{\{P\} \; e \; \{Q\}}{
+    P \himp P'
+    & \{P'\} \; e \; \{Q'\}
+    & Q' \himp Q
+  }
+  \quad \infer{\{P \sep R\} \; e \; \{Q \sep R\}}{
+    \{P\} \; e \; \{Q\}
+  }$$
 
-\subsection{Comparison to Previous Ynot (AVI)}
+  \caption{\label{STsep}The derived separation logic}
+\end{figure*}
+
+The axiomatic base of Ynot is a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
+$$\{\lambda h. \; \top\} \; \return{1} \; \{\lambda h, v, h'. \; h' = h \land v = 1\}$$
+and
+$$\begin{array}{c}
+  \{\lambda h. \coq{sel}(h, p_1) = p_2\} \\
+  x \bind \; \rd{p_1}; \wri{x}{1} \\
+  \{\lambda h, \_, h'. \; \coq{sel}(h, p_1) = p_2 \land h' = \coq{upd}(h, p_2, 1)\}
+\end{array}$$
+
+In actuality, Ynot has no separate concepts of programs and derivations.  Rather, the two are combined into one dependent type family, whose indices give the specification of a program.  For instance, the type of the first example program above would be:
+\begin{verbatim}
+ST (fun _ => True) (fun h v h' => h' = h /\ v = 1)
+\end{verbatim}
+
+Heaps are represented as functions from pointers to dynamically-typed packages, which are easy to implement in Coq with an inductive type definition.  The pointer read rule enforces that the heap value being read has the type that the code expects.  The original Ynot paper~\cite{ynot:icfp} contains further details of the base program logic.
+
+
+\section{Comparison to Previous Ynot (AVI)}
 
  The original formulation of Ynot lead to large, unwieldy proofs.
  Reasoning about separation logic connectives was done at the heap
