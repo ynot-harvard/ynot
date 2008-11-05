@@ -17,3 +17,4 @@ syntax: glob
 *.dvi
 *.fls
 *.ps
+*.temp
