@@ -43,11 +43,10 @@ Module BinaryTreeModel(A : BINARY_TREE_ASSOCIATION).
   Notation "k1 <=! k2" := (key_lte_dec k1 k2) (at level 70, right associativity).
 
   Notation "'Compare' e 'WhenLt' e1 'WhenEq' e2 'WhenGt' e3" :=
-    ((IfSO e As cm 
-      Then if cm
-           then e1
-           else e2
-      Else e3)) (no associativity, at level 90).
+    (match e with
+       | inleft cm => if cm then e1 else e2
+       | inright _ => e3
+     end) (no associativity, at level 90).
 
   Fixpoint filter (p : key_t -> bool) (l : alist_t) {struct l}:= 
     match l with
