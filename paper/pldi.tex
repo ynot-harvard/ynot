@@ -111,7 +111,7 @@ ST (fun _ => True) (fun h v h' => h' = h /\ v = 1)
 Heaps are represented as functions from pointers to dynamically-typed packages, which are easy to implement in Coq with an inductive type definition.  The pointer read rule enforces that the heap value being read has the type that the code expects.  The original Ynot paper~\cite{ynot:icfp} contains further details of the base program logic.
 
 
-\section{A Derived Separation Logic}
+\subsection{A Derived Separation Logic}
 
 \begin{figure*}
   $$\infer{\{\emp\} \; \return{v} \; \{\lambda v'. \; [v = v']\}}{}
@@ -139,7 +139,7 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
   \caption{\label{STsep}The derived separation logic}
 \end{figure*}
 
-Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing this complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
+Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
 $$\begin{array}{rcl}
   P &::=& [p] \mid \emp \mid \pts{x}{y} \mid P \sep P \mid \exists x, P
 \end{array}$$
@@ -156,7 +156,7 @@ We do need a notion of implication, though we do not need to include it in asser
 
 \medskip
 
-What we have described so far is the same as in the original Ynot work, with the exception that that work used some additional separation connectives that we no longer need.  The big departure of our new system is that we define a more standard separation logic.  The old Ynot's separation logic included ``binary postcondtions'' that may refer to both the initial and final heaps.  This is in stark contrast to traditional separation logics, where all assertions are simple separation formulas, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of lines of manual proof per line of program code.
+What we have described so far is the same as in the original Ynot work, with the exception that that work used some additional separation connectives that we no longer need.  The big departure of our new system is that we define a more standard separation logic.  The old Ynot's separation logic included ``binary postcondtions'' that may refer to both the initial and final heaps.  This is in stark contrast to traditional separation logics, where all assertions are simple separation formulas, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
 
 Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
 
@@ -177,7 +177,7 @@ In the rest of this section, we will introduce the Ynot programming environment 
   \begin{verbatim}
 Module Type STACK.
   Parameter t : Set -> Set.
-  Parameter rep T := t T -> list T -> hprop.
+  Parameter rep T : t T -> list T -> hprop.
 
   Parameter new T :
     STsep __ (fun s : t T => rep s nil).
@@ -204,7 +204,7 @@ Figure \ref{Stack} shows the signature of a Ynot implementation of the stack ADT
 
 The type of the \cd{new} operation tells us that it expects an empty heap on input, and on output the heap contains just whatever mappings are needed to satisfy the representation invariant between the function return value and the empty list.  The ASCII notation \cd{\_\_} stands for the $\emp$ of usual pencil-and-paper separation logics.  The \cd{free} operation takes a stack \cd{s} as an argument, and it expects the heap to satisfy \cd{rep} on \cd{s} and the empty list.  The post state shows that all heap values associated with \cd{s} are freed.
 
-The specification for \cd{push} says that it expects any valid stack as input and modifies the heap so that the same stack that stood for some list \cd{l} beforehand now stands for the list \cd{x :: l}, where \cd{x} is the appropriate function argument.  We see an argument \cd{ls} with type \cd{[list T]}.  The brackets are a notation defined by the Ynot library, standing for \emph{computationally irrelevance}.  That is, the type-checker should enforce that the value of \cd{ls} is not needed to execute the function.  Rather, such values may only be used in stating specifications and discharging proof obligations.  In other words, irrelevant variables act just like specification variables, but we do not need to build any special support for them into our assertion language.  We use Coq's notation scope mechanism to overload brackets for writing irrelevant types and lifted pure propositions.
+The specification for \cd{push} says that it expects any valid stack as input and modifies the heap so that the same stack that stood for some list \cd{l} beforehand now stands for the list \cd{x :: l}, where \cd{x} is the appropriate function argument.  We see an argument \cd{ls} with type \cd{[list T]}.  The brackets are a notation defined by the Ynot library, standing for \emph{computational irrelevance}.  That is, the type-checker should enforce that the value of \cd{ls} is not needed to execute the function.  Rather, such values may only be used in stating specifications and discharging proof obligations.  In other words, irrelevant variables act just like specification variables, but we do not need to build any special support for them into our assertion language.  We use Coq's notation scope mechanism to overload brackets for writing irrelevant types and lifted pure propositions.
 
 For an assertion \cd{P} that mentions the irrelevant variable \cd{x}, the notation \cd{x \textasciitilde\textasciitilde \; P} must be used to explicitly ``unpack'' \cd{x}.  The type of the unpack operation is such that it may only be applied to assertions and may not be used to allow an irrelevant variable's value to ``leak into'' the computational part of a program.
 
