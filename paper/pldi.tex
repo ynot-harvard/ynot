@@ -457,6 +457,35 @@ Qed.
 We suggest a hint based on commutativity of separating conjunction, state the inductive structure of the proof, and discharge the two cases with our specialized \cd{t}.  This is an instance of a common pattern, where lemmas requiring inductive proofs must be stated explicitly, while most other separation facts are proved automatically by \cd{sep}.
 
 
+\subsection{Arrays}
+
+It is also easy to support arrays within our framework.  We can define suitable constants in the base program logic:
+
+\begin{verbatim}
+Parameter array : Set.
+Parameter array_length : array -> nat.  
+Parameter array_plus : array -> nat -> [ptr].
+\end{verbatim}
+
+The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
+
+With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
+
+\begin{verbatim}
+Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
+  STsep (p :~~ a @+ i in p -->?)
+        (fun _ : unit =>
+               p :~~ a @+ i in p --> v).
+\end{verbatim}
+
+The type of the array allocation operation indicates that every pointer within the array is initialized to some unknown value.  The notation \cd{\{@ e | i <- min + len\}} is inspired by standard set comprehension notations, and it denotes an iterated separating conjunction where the variable \cd{i} ranges from \cd{min} to \cd{min + len - 1}.
+
+\begin{verbatim}
+Parameter new_array (n:nat) :
+  STsep __ (fun a : array => [array_length a = n]
+    * {@ p :~~ a @+ i in p -->? | i <- 0 + n}.
+\end{verbatim}
+
 %% \section{Comparison to Previous Ynot (AVI)}
 
 %%  The original formulation of Ynot lead to large, unwieldy proofs.
