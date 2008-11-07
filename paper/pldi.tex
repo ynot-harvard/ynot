@@ -1,4 +1,4 @@
-\documentclass[preprint]{sigplanconf}
+\documentclass[preprint,nocopyrightspace]{sigplanconf}
 %\usepackage[square, comma, sort&compress]{natbib}
 
 \usepackage{amsmath}
@@ -18,7 +18,7 @@
 
 %\titlebanner{DRAFT}
 
-\title{Effective Interactive Proofs for Imperative Programs}
+\title{Effective Interactive Proofs for Higher-Order Imperative Programs}
 
 
 \authorinfo{Double blind}
@@ -27,16 +27,37 @@
 \maketitle
 
 \begin{abstract}
-This is the text of the abstract.
+  We present a new approach for constructing and verifying
+  higher-order, imperative programs using the Coq proof assistant.
+  Our approach is similar to the shallow embedding of Hoare Type
+  Theory (HTT) that was used in the Ynot project.  However, compared
+  to Ynot, our new approach significantly reduces the burden on
+  the programmer.  For example, in both systems we have constructed
+  fully verified imperative data structures, such as hash-tables with
+  higher-order iterators, but the verification burden in the new
+  system is reduced by at least an order of magnitude compared to the
+  old Ynot system, by replacing manual proof with automation.  The core of
+  the automation is a simplification procedure for implications in
+  higher-order separation logic, with hooks that allow programmers to
+  add domain-specific simplification rules.
+  
+  Compared to competing approaches to data structure verification, our
+  system includes much less code that must be trusted; namely, about a
+  hundred lines of Coq code defining a program logic.  All of our
+  theorems and decision procedures have or build machine-checkable
+  correctness proofs from first principles, removing opportunities for
+  tool bugs to create faulty verifications.  We argue for the
+  effectiveness of our infrastructure by verifying a number of data
+  structures and comparing to similar efforts within other projects.
 \end{abstract}
 
-\category{CR-number}{subcategory}{third-level}
+%\category{CR-number}{subcategory}{third-level}
 
-\terms
-term1, term2
+%\terms
+%term1, term2
 
-\keywords
-keyword1, keyword2
+%\keywords
+%keyword1, keyword2
 
 \section{Introduction (GREG)}
 \begin{itemize}

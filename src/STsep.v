@@ -231,6 +231,7 @@ Implicit Arguments SepStrengthen [pre T post].
 Implicit Arguments SepFix [dom ran].
 Implicit Arguments SepFix2 [dom1 dom2 ran].
 Implicit Arguments SepFix3 [dom1 dom2 dom3 ran].
+Implicit Arguments SepFix4 [dom1 dom2 dom3 dom4 ran].
 
 Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
 
