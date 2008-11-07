@@ -228,7 +228,7 @@ Theorem himp_frame_cell : forall n T (v1 v2 : T) q1 q2,
   apply himp_frame; assumption.
 Qed.
 
-Lemma himp_trans P Q R : P ==> Q -> Q ==> R -> P ==> R.
+Lemma himp_trans Q P R : P ==> Q -> Q ==> R -> P ==> R.
 Proof. firstorder. Qed.
 
 Lemma himp_apply P T : P ==> T -> forall Q, Q ==> P -> Q ==> T.
@@ -608,7 +608,7 @@ Ltac sep stac tac :=
                 repeat match goal with
                          | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
                        end;
-                intros; s;
+                intros; s; tac;
                   repeat ((
                     search_prem ltac:(idtac;
                       search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
