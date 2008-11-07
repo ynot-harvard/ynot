@@ -43,11 +43,10 @@ Module BinaryTreeModel(A : BINARY_TREE_ASSOCIATION).
   Notation "k1 <=! k2" := (key_lte_dec k1 k2) (at level 70, right associativity).
 
   Notation "'Compare' e 'WhenLt' e1 'WhenEq' e2 'WhenGt' e3" :=
-    ((IfSO e As cm 
-      Then if cm
-           then e1
-           else e2
-      Else e3)) (no associativity, at level 90).
+    (match e with
+       | inleft cm => if cm then e1 else e2
+       | inright _ => e3
+     end) (no associativity, at level 90).
 
   Fixpoint filter (p : key_t -> bool) (l : alist_t) {struct l}:= 
     match l with
@@ -253,60 +252,46 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
     ; t. Defined.
 
   (* The free operation -- we must loop over the tree and free each node *)
-  Definition free_loop(free : T.free) : T.free.
-    intros free f l.
-    refine (n <- ! f 
-         ; Free f  
-         ;; IfNull n 
-              Then {{Return tt}}
-              Else free (n_left n) (l ~~~ (filter_gte (node_key n) l)) <@> _
-                ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l)))
-    ; t; t. Qed.
+  Definition free : T.free.
+  refine(Fix2 _ _ (fun (free:T.free) f l => 
+     n <- ! f 
+   ; Free f  
+  ;; IfNull n 
+     Then {{Return tt}}
+     Else free (n_left n) (l ~~~ (filter_gte (node_key n) l)) <@> _
+       ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l))))
+  ; t; t. Qed.
 
-  Definition free : T.free := Fix2 _ _ free_loop.
-
-  Definition lookup_loop (lookup_loop:T.lookup) : T.lookup.
-    intros lookup_loop f k l.
-
-    refine (n <- ! f
-         ; IfNull n
-           Then {{ Return None }}
-           Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-                let l_right := (l ~~~ (filter_lte (node_key n) l)) in
-                Compare BT.key_cmp k (node_key n)
-                WhenLt {{lookup_loop (node_left n) k l_left <@> _
-                  <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
-                    (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
-                WhenEq {{Return Some(AL.coerce _ (node_value n))}}
-                WhenGt {{lookup_loop (node_right n) k l_right
-                  <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) *
-                    (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}})
+  Definition lookup  : T.lookup.
+  refine (Fix3 _ _ (fun (lookup:T.lookup) f k l => 
+     n <- ! f
+   ; IfNull n
+     Then {{ Return None }}
+     Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
+          let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+            Compare BT.key_cmp k (node_key n)
+            WhenLt {{lookup (node_left n) k l_left <@> _
+              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
+            WhenEq {{Return Some(AL.coerce _ (node_value n))}}
+            WhenGt {{lookup (node_right n) k l_right
+              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}))
   ; t. Qed.
 
-  Definition lookup : T.lookup := Fix3 _ _ lookup_loop.
-
-  Definition insert_loop (insert_loop:T.insert) : T.insert.
-    intros insert_loop f k v l.
-    
-    refine 
-         (n <- ! f ; 
-          IfNull n
-          Then nleft <- New None(A:=node_t) 
-             ; nright <- New None(A:=node_t)
-             ; {{ f ::= Some (Node v nleft nright) }}
-          Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-               let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+  Definition insert : T.insert.
+  refine(Fix4 _ _ (fun (insert:T.insert) f k v l =>
+     n <- ! f 
+   ; IfNull n
+     Then nleft <- New None(A:=node_t) 
+        ; nright <- New None(A:=node_t)
+        ; {{ f ::= Some (Node v nleft nright) }}
+     Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
+          let l_right := (l ~~~ (filter_lte (node_key n) l)) in
             Compare BT.key_cmp k (node_key n)
-            WhenLt {{insert_loop (node_left n) k v l_left
-              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
-                (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
+            WhenLt {{insert (node_left n) k v l_left
+              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
             WhenEq {{ f ::= Some (Node v (node_left n) (node_right n)) }}
-            WhenGt {{insert_loop (node_right n) k v l_right
-              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) *
-              (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}); 
-         t.
-  Qed.
-
-  Definition insert : T.insert := (Fix4 _ _ _ _ _ _ insert_loop).
+            WhenGt {{insert (node_right n) k v l_right
+              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}))
+ ; t. Qed.
 
 End BinaryTree.
