@@ -396,6 +396,67 @@ In the method implementations, we see invocations of functions whose names begin
 Notice that all specification variables and proofs are eliminated automatically by the Coq extractor.  With the elision of weakening and related operations, we arrive at exactly the kind of monadic code that is standard fare for Haskell, such that the body of optimizations developed for Haskell can be put to immediate use in creating an efficient compilation pipeline for Ynot.
 
 
+\subsection{Verifying Imperative Queues}
+
+It is not much harder to implement and verify a queue structure.  We define an alternate list representation, parameterized by head and tail pointers.
+
+\begin{verbatim}
+Fixpoint listRep (ls : list T) (hd tl : ptr)
+    {struct ls} : hprop :=
+  match ls with
+    | nil => [hd = tl]
+    | h :: t => Exists p :@ ptr, hd --> Node h (Some p)
+                  * listRep t p tl
+  end.
+
+Record queue : Set := Queue {
+  front : ptr;
+  back : ptr
+}.
+
+Definition rep' (ls : list T) (fr ba : option ptr) :=
+  match fr, ba with
+    | None, None => [ls = nil]
+    | Some fr, Some ba => Exists ls' :@ list T,
+        Exists x :@ T, [ls = ls' ++ x :: nil]
+          * listRep ls' fr ba * ba --> Node x None
+    | _, _ => [False]
+  end.
+          
+Definition rep (q : queue) (ls : list T) :=
+  Exists fr :@ option ptr, Exists ba :@ option ptr,
+    front q --> fr * back q --> ba * rep' ls fr ba.
+\end{verbatim}
+
+For this representation, we prove similar ``unfolding'' lemmas to those we proved for stacks, with comparable effort.  We also need a new lemma for ``unfolding a queue from the back.''
+
+\begin{verbatim}
+Lemma rep'_back : forall ls fr ba,
+  rep' ls (Some fr) ba
+  ==> Exists nd :@ node, fr --> nd
+    * Exists ls' :@ list T, [ls = data nd :: ls']
+      * match next nd with
+          | None => [ls' = nil]
+          | Some fr' => rep' ls' (Some fr') ba
+        end.
+\end{verbatim}
+
+The proof of the lemma relies on some lemmas about pure functional lists.  With those available, we prove \cd{rep'\_back} in under 20 lines.  When we plug this and the two other unfolding lemmas into the \cd{sep} procedure, we arrive at quite a robust decision procedure for separation assertions about lists that may be modified at either end.
+
+Again, every proof obligation for our queue implementation is proved by a \cd{t} tactic built from \cd{sep}.  We write under 10 lines of new tactic hints to be applied during proof search, and we must prove one key lemma by induction.
+
+\begin{verbatim}
+Lemma push_listRep : forall ba x nd ls fr,
+  ba --> Node x (Some nd) * listRep ls fr ba
+  ==> listRep (ls ++ x :: nil) fr nd.
+  Hint Resolve himp_comm_prem.
+  induction ls; t.
+Qed.
+\end{verbatim}
+
+We suggest a hint based on commutativity of separating conjunction, state the inductive structure of the proof, and discharge the two cases with our specialized \cd{t}.  This is an instance of a common pattern, where lemmas requiring inductive proofs must be stated explicitly, while most other separation facts are proved automatically by \cd{sep}.
+
+
 %% \section{Comparison to Previous Ynot (AVI)}
 
 %%  The original formulation of Ynot lead to large, unwieldy proofs.
