@@ -136,7 +136,7 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
     \{P\} \; e \; \{Q\}
   }$$
 
-  \caption{\label{STsep}The derived separation logic}
+  \caption{\label{STsep}The main rules of the derived separation logic}
 \end{figure*}
 
 Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
@@ -516,6 +516,85 @@ Qed.
 The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2}.  Of the three arguments that we pass, the first two give the precondition and postcondition in terms of the two ``real'' arguments (and, for the postcondition, the return value).  The third argument is the function body.  It takes a recursive self-reference as its first argument, followed by the two ``real'' arguments.
 
 The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
+
+
+\section{Tactic Support}
+
+The examples from the last section show how much of the gory details of proofs can be hidden from programmers.  In actuality, every command triggers the addition of one or more proof obligations that cannot be discharged effectively by any of the built-in Coq automation tactics.  Not only is it hard to prove the obligations, it is also hard to infer the right intermediate specifications.  Our separation logic formulas range well outside the propositional fragment that automated tools tend to handle; specification inference and proving must deal with higher-order features.
+
+Here is an example of the proof obligations generated for the code we gave earlier for the stack \cd{push} method.  Numbers prefixed with question marks are unification variables, whose values the \cd{sep} tactic must infer.
+
+\begin{verbatim}
+ ls ~~ rep s ls ==>
+ Exists v :@ option ptr, s --> v * ?200 v
+
+ forall v : option ptr, s --> v * ?200 v ==> ?192 v
+
+ ?192 hd ==> ?217 * __
+
+ forall v : ptr, ?217 * v --> Node x hd ==> ?206 v
+
+ ?206 nd ==> ?234 * (Exists v' :@ ?231, s --> v')
+
+ ?234 * s --> Some nd ==> ls ~~ rep s (x :: ls)
+\end{verbatim}
+
+We can see that each goal has at most one new unification variable standing for a specification, and each such variable has its value determined by the value of the variable from the previous goal.  This is no accident; we designed our combinators and notations to have this property.
+
+Now we are ready to describe what the \cd{sep} tactic does.  We do not have space to include the literal Coq code implementing it; we will give pseudocode instead.  The implementation is in Coq's Ltac language~\cite{Ltac}, a domain-specific, dynamically-typed language for writing proof-generating proof search procedures.  Here is an example Ltac program that implements simplifications of goals that contain conjunctions.
+
+\begin{verbatim}
+Ltac un_and :=
+  repeat match goal with
+           | [ H : _ /\ _ |- _ ] => destruct H
+           | [ |- _ /\ _ ] => split
+         end.
+\end{verbatim}
+
+This program repeats a pattern-matching process until it fails.  Each iteration looks first for a hypothesis that states a conjunction.  If one is found, the tactic \cd{destruct} is used to split it into two new hypotheses.  If no conjunctive hypotheses remain, the second \cd{match} case checks if the conclusion is a conjunction.  If so, the \cd{split} tactic is used to split the goal into one subgoal for each conjunct.
+
+\medskip
+
+As we have seen, \cd{sep} takes two arguments, which we will call \cd{unfolder} and \cd{solver}.  The task of \cd{unfolder} is to simplify premises before specification inference, usually by unfolding definitions of recursive predicates, based on known facts about their arguments.  The task of \cd{solver} is to solve all of the goals that remain after generic separation logic reasoning is applied.
+
+Coq comes with the standard tactic \cd{tauto}, for proving propositional tautologies.  There is a more general version of \cd{tauto} called \cd{intuition}, which will apply a user-supplied tactic to finish off sub-proofs, while taking responsibility for handling propositional structure on its own.  The \cd{intuition} tactic also has the helpful property of leaving for the user any subgoals that it could not establish.  \cd{sep} is meant to be an analogue of \cd{intuition} for separation logic.  We also want it to handle easy instantiation of existential quantifiers, since they appear so often in our specifications.
+
+This is the procedure that \cd{sep} follows:
+
+\begin{enumerate}
+\item Look for an easy case of specification inference.
+  \begin{enumerate}
+  \item If a unification variable $U$ appears alone in the implication conclusion, set $U$ equal to the premise.
+  \item If the conclusion is a unification variable $U$ applied to a program variable $x$, set $U$ equal to a function that abstracts over the occurrences of $x$ in the premise.
+  \item Apply similar logic for cases like the above where extra $\emp$s appear as conjuncts around the main conclusion formula.
+  \end{enumerate}
+\item If this was not an easy case, try harder.
+  \begin{enumerate}
+  \item Introduce names for all existentially-quantified variables in the premise.
+  \item Introduce names for the values hidden inside of all computationally-irrelevant variables in scope.
+  \item Try applying \cd{unfolder}.  If it succeeds, repeat from the introduction of names.
+  \item Check if the conclusion matches the precondition of the rule for memory reads, with a unification variable $U$ appearing for the frame assertion.  If so, pick out from the conclusion the pointer $p$ that is being read.  Search syntactically in the premise for a points-to fact $\pts{p}{v}$.  ``Cross out'' that fact, and set $U$ equal to a function that abstracts over all occurrences of $v$ in what remains of the premise.  The function must additionally re-quantify any variables coming from existential quantifiers, and it must explicitly unpack any computationally-irrelevant variables that appear.
+  \item If the last rule did not match, check if the conclusion matches the precondition of the rule for memory writes for some pointer $p$, with an extra unification variable $U$ added as a frame assertion.  Like in the last case, pick out a premise assertion $\pts{p}{v}$ and remove it.  Set $U$ equal to everything that remains of the premise, modulo the same re-quantification as in the last case.
+  \item If the previous two rules did not match, cancel out equal subformulas on both sides of the implication.  If only a unification variable $U$ remains in the conclusion, set it equal to the remaining premise, after re-quantification.
+  \end{enumerate}
+\item Loop through attempting the following premise-oriented simplifications, until no more apply.
+  \begin{enumerate}
+  \item Apply standard Coq automation tactics, covering propositional structure and simplification of pattern-matching and calls to recursive functions.
+  \item Apply \cd{solver}.
+  \item Remove an occurrence of $\emp$ from the premise.
+  \item Remove a pure fact $[p]$ from the premise, adding it as a hypothesis to the normal proof context.
+  \end{enumerate}
+\item Loop through attempting the following conclusion-oriented simplifications, until no more apply.  Try the first two steps of the last loop after each simplification.
+  \begin{enumerate}
+  \item Replace an existentially-quantified formula with its body, where the bound variable is replaced by a fresh unification variable.
+  \item Cancel out a pair of occurrences of the same subformula on both sides of the implication.  The unification that occurs in this step can induce settings for unification variables introduced by the previous rule.
+  \item Remove an occurrence of $\emp$ from the conclusion.
+  \item Find an occurrence of a pure fact $[p]$ in the conclusion, prove it with \cd{solver}, and remove it from the conclusion.
+  \end{enumerate}
+\item If the sides of the implication match, finish the proof by reflexivity.
+\end{enumerate}
+
+Every step of this process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
