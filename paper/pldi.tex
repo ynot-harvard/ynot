@@ -489,11 +489,17 @@ Parameter new_array (n:nat) :
 
 \subsection{Loops}
 
+Like with many semi-automated verification systems, we require annotations that are equivalent to ``loop invariants.''  Since Coq's programming language is functional, it is more natural to write ``loops'' as recursive functions, and the ``loop invariants'' become the pre- and postconditions of these functions.
+
+We support general recursion with a primitive fixpoint operator in the base program logic, and it is easy to build a separation logic version on top of that.  We can also build multiple-argument recursive function forms on top of the single-argument form.
+
+An example is a \cd{getElements} function, defined in terms of the list invariant that we wrote for the stack example.  This operation returns the functional equivalent of an imperative list.  The task is not so trivial as it may look at first, because the computational irrelevance of the function's second argument prohibits its use to influence the return value.
+
 \begin{verbatim}
-Definition getElements (hd : option ptr) (ls: [list T]) :
-  STsep (ls ~~ listRep ls hd)
-        (fun res : list T =>
-          ls ~~ [res = ls] * listRep ls hd).
+Definition getElements (hd : option ptr) (ls : [list A]) :
+  STsep (ls ~~ listRep m hd)
+        (fun res : list A => ls ~~ [res = ls]
+          * listRep ls hd).
   refine (Fix2
     (fun hd ls => ls ~~ listRep ls hd)
     (fun hd ls res => ls ~~ [res = ls] * listRep ls hd)
@@ -502,14 +508,14 @@ Definition getElements (hd : option ptr) (ls: [list T]) :
         {{Return nil}}
       Else
         fn <- !hd;
-        Assert ((ls ~~ [head ls = Some (data fn)]
-            * hd --> fn)
-          * (ls' :~~ (ls ~~~ tail ls) in
-              listRep ls' (next fn)));;
         rest <- self (next fn) (ls ~~~ tail ls) <@> _;
-        {{Return (data fn :: rest)}})); t'.
+        {{Return (data fn :: rest)}})); t.
 Qed.
 \end{verbatim}
+
+The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2}.  Of the three arguments that we pass, the first two give the precondition and postcondition in terms of the two ``real'' arguments (and, for the postcondition, the return value).  The third argument is the function body.  It takes a recursive self-reference as its first argument, followed by the two ``real'' arguments.
+
+The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
