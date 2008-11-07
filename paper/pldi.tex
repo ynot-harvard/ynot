@@ -267,7 +267,7 @@ Theorem listRep_Some : forall ls hd,
 Qed.
 \end{verbatim}
 
-The proofs are given in Coq's tactic language.  We ask to do a case analysis on the structure of the list \cd{ls}, applying the parametrized separation logic solver in each case.  We will go into more detail later on the significance of the two arguments to the \cd{sep} procedure.
+The proofs are given in Coq's tactic language.  We ask to do a case analysis on the structure of the list \cd{ls}, applying the parametrized separation logic solver in each case.  We will go into more detail shortly on the significance of the two arguments to the \cd{sep} procedure.
 
 Now we can plug our two unfolding rules into the separation solver.  We define a local procedure for simplifying separation implications.
 
@@ -279,6 +279,121 @@ Ltac simp_prem :=
 \end{verbatim}
 
 Our procedure, or \emph{tactic} in Coq parlance, first calls a simplification procedure associated with a syntax extension for checking pointer nullness.  Next, our procedure calls a tactic \cd{simpl\_prem} from the Ynot library, for simplifying premises of implications.  The argument to \cd{simpl\_prem} gives a procedure to attempt on each premise, until no further progress can be made.
+
+We can plug our domain-specific simplification tactic into the generic separation logic solver.  We define a new tactic that will suffice to prove all goals that will arise in this example.  The first argument to \cd{sep} gives a procedure to apply to simplify premises before starting the main proof search, and the second argument gives a procedure to attempt on individual subgoals throughout proof search.  The \cd{discriminate} tactic solves goals whose premises include inconsistent equalities over values of datatypes, like \cd{nil = x :: ls}; and adding \cd{try} in front prevents \cd{discriminate} from signaling an error if no such equality exists.
+
+\begin{verbatim}
+Ltac t := unfold rep; sep simp_prem
+                          ltac:(try discriminate).
+\end{verbatim}
+
+We implement each method by stating its type as a proof search goal, using tactics to realize the goal step by step.  Here is the implementation of the \cd{new} operation.
+
+\begin{verbatim}
+Definition new : STsep __ (fun s => rep s nil).
+  refine {{New (@None ptr)}}; t.
+Qed.
+\end{verbatim}
+
+A simple two-step proof script suffices.  We first use the \cd{refine} tactic to provide a ``template'' for the implementation.  The template may have holes in it, and each hole is added as a subgoal.  We chain our \cd{t} tactic with the semicolon operator, so that \cd{t} is applied to each subgoal generated from a hole.  This is enough to finish the implementation and proof.
+
+The holes in the refinement are not apparent from the syntax we have used.  We apply Coq's syntax extension system to hide such details for most programs.  In this case, it is the \cd{\{\{...\}\}} syntax that hides the holes.  This syntax requests simultaneous strengthening and weakening.  It expands to an explicit call to a rule that takes two proofs as arguments.  Those arguments are filled in as holes by the syntax extension.
+
+The definitions of \cd{free} and \cd{push} are not much more complicated.
+
+\begin{verbatim}
+Definition free s : STsep (rep s nil)
+    (fun _ : unit => __).
+  intros; refine {{Free s}}; t.
+Qed.
+\end{verbatim}
+
+\begin{verbatim}
+Definition push s x ls : STsep (ls ~~ rep s ls)
+    (fun _ : unit => ls ~~ rep s (x :: ls)).
+  intros; refine (hd <- !s;
+    nd <- New (Node x hd);
+    {{s ::= Some nd}}
+  ); t.
+Qed.
+\end{verbatim}
+
+The implementation of \cd{pop} uses another syntax extension, which provides an \cd{IfNull} expression form.  The \cd{option}-typed argument to \cd{IfNull} is checked for nullness (i.e., equality to \cd{None}).  In an \cd{Else} branch, where the pointer is known to be non-null, that fact is added as a usable proof hypothesis, and the variable being tested is rebound with a non-\cd{option} type.
+
+\begin{verbatim}
+Definition pop s ls :
+  STsep (ls ~~ rep s ls) (fun xo => ls ~~
+          match xo with
+            | None => [ls = nil] * rep s ls
+            | Some x => Exists ls' :@ list T,
+                          [ls = x :: ls'] * rep s ls'
+          end).
+  intros; refine (hd <- !s;
+    IfNull hd Then
+      {{Return None}}
+    Else
+      nd <- !hd;
+      Free hd;;
+      s ::= next nd;;
+      {{Return (Some (data nd))}}); t.
+Qed.
+\end{verbatim}
+
+We complete the implementation with a trivial definition of the type family \cd{t}, relying on the representation invariant to ensure proper use.
+
+\begin{verbatim}
+Definition t (_ : Set) := stack.
+\end{verbatim}
+
+\begin{figure}
+  \begin{verbatim}
+module Stack = 
+ struct 
+  type 't node = { data : 't; next : ptr option }
+  let data n = n.data
+  let next n = n.next
+  type stack = ptr
+  
+  let coq_new =
+    sepWeaken (sepStrengthen (sepFrame (sepNew None)))
+  
+  let free s =
+    sepWeaken (sepStrengthen (sepFrame (sepFree s)))
+  
+  let push s x =
+    sepBind (sepStrengthen (sepRead s)) (fun hd ->
+      sepBind (sepStrengthen (sepFrame
+          (sepNew { data = x; next = hd })))
+        (fun nd ->
+        sepWeaken (sepStrengthen (sepFrame
+          (sepWrite s (Some nd))))))
+  
+  let pop s =
+    sepBind (sepStrengthen (sepRead s)) (fun hd ->
+      match hd with
+        | Some v ->
+            sepBind (sepStrengthen (sepRead v)) (fun nd ->
+              sepSeq (sepStrengthen (sepFrame (sepFree v)))
+                (sepSeq (sepStrengthen (sepFrame
+                    (sepWrite s (next nd))))
+                  (sepWeaken
+                    (sepStrengthen (sepFrame
+                      (sepReturn (Some (data nd))))))))
+        | None -> sepWeaken (sepStrengthen (sepFrame
+                    (sepReturn None))))
+  
+  type 'x t = stack
+ end
+  \end{verbatim}
+
+  \caption{\label{extracted}OCaml code extracted from the stack example}
+\end{figure}
+
+For our modest efforts, we can now extract an executable OCaml version of our module.  Figure \ref{extracted} shows the result of running Coq's automatic extraction command on our \cd{Stack} module.
+
+In the method implementations, we see invocations of functions whose names begin with \cd{sep}.  These come from the Ynot library, and we must provide their OCaml implementations.  Any Ynot program that returns a type \cd{t} may be represented in \cd{unit -> t} in OCaml, regardless of the specification appearing in the original Coq type.  This makes it easy to implement the basic functions, in the spirit of how the Haskell IO monad is implemented.  We see calls to explicit weakening, strengthening, and framing rules in the extracted code.  In OCaml, these can be implemented as no-ops and elided by an optimizer.
+
+Notice that all specification variables and proofs are eliminated automatically by the Coq extractor.  With the elision of weakening and related operations, we arrive at exactly the kind of monadic code that is standard fare for Haskell, such that the body of optimizations developed for Haskell can be put to immediate use in creating an efficient compilation pipeline for Ynot.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
