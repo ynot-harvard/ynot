@@ -137,6 +137,55 @@ Definition removeFront (ll: LinkedList) (m: [list A]) :
   solve [ t | hdestruct m; t ].
 Qed.
 
+Theorem rep'_None : forall ls,
+  rep' None ls ==> [ls = nil].
+  destruct ls; sep fail idtac.
+Qed.
+
+Theorem rep'_Some : forall ls hd,
+  rep' (Some hd) ls ==> Exists h :@ A, Exists t :@ list A, Exists p :@ option ptr,
+  [ls = h :: t] * hd --> node h p * rep' p t.
+  destruct ls; sep fail ltac:(try discriminate).
+Qed.
+
+Lemma node_eta : forall fn v v1,
+  [fn = node v v1] ==> [data fn = v] * [next fn = v1].
+  destruct fn; sep fail ltac:(try congruence).
+Qed.
+
+Lemma cons_eta : forall x h t,
+  [x = h :: t] ==> [head x = Some h] * [tail x = t].
+  destruct x; sep fail ltac:(try congruence).
+Qed.
+
+Lemma rep'_eq : forall m x v0 v1 x0 fn,
+  m = [x]%inhabited
+  -> (m ~~~ tail m) = [x0]%inhabited
+  -> tail x = v0
+  -> next fn = v1
+  -> rep' v1 v0 ==> rep' (next fn) x0.
+  t.
+Qed.
+
+Hint Resolve rep'_eq.
+
+Ltac simp_prem :=
+  simpl_IfNull;
+  repeat simpl_prem ltac:(apply rep'_None || apply rep'_Some || apply node_eta || apply cons_eta);
+    unpack_conc.
+
+Ltac t'' := unfold rep; fold rep'; sep simp_prem simplr.
+
+Ltac t' := match goal with
+             | [ |- _ ==> ?P ] =>
+               match P with
+                 | context[rep' (next _) _] =>
+                   inhabiter; simp_prem;
+                   intro_pure; simpl_prem ltac:(solve [ eauto ]); unintro_pure; canceler; t''
+               end
+             | _ => t''
+           end.
+
 Definition getElements' (hd : option ptr) (m: [list A]) :
   STsep (m ~~ rep' hd m)
         (fun res:list A => m ~~ [res = m] * rep' hd m).
@@ -147,14 +196,9 @@ Definition getElements' (hd : option ptr) (m: [list A]) :
       IfNull hd Then
         {{Return nil}}
       Else
-        Assert (m ~~ Exists nde :@ Node, [head m = Some (data nde)] * 
-          hd --> nde * rep' (next nde) (tail m));;
         fn <- !hd;
-        Assert ((m ~~ [head m = Some (data fn)] * hd --> fn)
-          * (m' :~~ (m ~~~ tail m) in rep' (next fn) m'));;
         rest <- self (next fn) (m ~~~ tail m) <@> _;
-        {{Return (data fn :: rest)}}));
-  solve [ t | hdestruct m; t ].
+        {{Return (data fn :: rest)}})); t'.
 Qed.
 
 Definition getElements (ll: LinkedList) (m: [list A]) :

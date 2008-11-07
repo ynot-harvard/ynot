@@ -486,6 +486,32 @@ Parameter new_array (n:nat) :
     * {@ p :~~ a @+ i in p -->? | i <- 0 + n}.
 \end{verbatim}
 
+
+\subsection{Loops}
+
+\begin{verbatim}
+Definition getElements (hd : option ptr) (ls: [list T]) :
+  STsep (ls ~~ listRep ls hd)
+        (fun res : list T =>
+          ls ~~ [res = ls] * listRep ls hd).
+  refine (Fix2
+    (fun hd ls => ls ~~ listRep ls hd)
+    (fun hd ls res => ls ~~ [res = ls] * listRep ls hd)
+    (fun self hd ls => 
+      IfNull hd Then
+        {{Return nil}}
+      Else
+        fn <- !hd;
+        Assert ((ls ~~ [head ls = Some (data fn)]
+            * hd --> fn)
+          * (ls' :~~ (ls ~~~ tail ls) in
+              listRep ls' (next fn)));;
+        rest <- self (next fn) (ls ~~~ tail ls) <@> _;
+        {{Return (data fn :: rest)}})); t'.
+Qed.
+\end{verbatim}
+
+
 %% \section{Comparison to Previous Ynot (AVI)}
 
 %%  The original formulation of Ynot lead to large, unwieldy proofs.
