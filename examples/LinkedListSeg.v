@@ -69,7 +69,13 @@ Lemma head_tail : forall l f r,
   head l = Some f -> r = tail l -> l = f :: r.
   destruct l; intros;[ discriminate | simpl in *; congruence ] .
 Qed.
-Hint Resolve eta_node head_tail.
+
+Lemma head_some_nonil : forall x y,
+  head x = Some y
+  -> x <> nil.
+  destruct x; intros; simpl in *; congruence.
+Qed.
+Hint Resolve eta_node head_tail head_some_nonil.
 
 (** Folding and Unfolding **)
 Lemma llist_unfold : forall ls hd,
@@ -393,6 +399,7 @@ Ltac simplr := repeat (try congruence; discriminate
                     let RW := fresh "list_eq" in
                       assert (LS = HD :: (tail LS)) as RW; [ auto | rewrite -> RW; simpl ]
                 end
+(**              | context[ [?X]%hprop ] =>  try (assert (X); [ solve [ firstorder ] || fail 1 | ]; sep fail simpl) **)
             end
        (** ETA NODE APPLICATIONS **)
        | [ |- ?V = node ?X (next ?V) ] =>
@@ -503,14 +510,50 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
   t.
 Qed.
 
-Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct ls} : list A :=
-  match ls with
-    | nil    => a :: ls
-    | f :: r => match idx with
-                  | 0 => a :: f :: r
-                  | S idx' => f :: insertAt_model r a idx'
+Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
+  match idx with
+    | 0 => a :: ls
+    | S idx' => match ls with
+                  | nil    => a :: ls
+                  | f :: r => f :: insertAt_model r a idx'
                 end
   end.
+
+Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
+  STsep (ls' ~~ llist (Some p') ls')
+        (fun _:unit => ls' ~~ llist (Some p') (insertAt_model ls' a (S idx'))).
+  intros.
+  refine (Fix3 
+    (fun p ls idx => ls ~~ llist (Some p) ls)
+    (fun p ls idx (_:unit) => ls ~~ llist (Some p) (insertAt_model ls a (S idx)))
+    (fun self p ls idx =>
+      nde <- !p;
+      if nat_eq 0 idx then
+        nelem <- New (node a (next nde));
+        p ::= node (data nde) (Some nelem);;
+        {{Return tt}}
+      else
+        IfNull next nde As nxt Then 
+          nelem <- New (node a (next nde));
+          p ::= node (data nde) (Some nelem);;
+          {{Return tt}}
+        Else
+          {{self nxt (ls ~~~ tail ls) (pred idx)}}) p' ls' idx').
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t. destruct x. t. try simp_prem. sep fail simpl. Show Existentials.inversion H. sep fail simpl.
+  simpl. sep fail auto.
+  repeat match goal with
+           | [ |- _ ==> ?C ] =>
+             match C with 
+               | context [ [?X = ?Y -> False] ] => assert (X = Y -> False); [ congruence | sep fail idtac ]
+             end
+         end.
 
 Definition insertAt : forall (p' : LinkedList) (a : A) (idx' : nat) (ls' : [list A]),
   STsep (ls' ~~ llist p' ls')
