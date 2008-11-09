@@ -363,7 +363,12 @@ Ltac deExist P :=
       let y := eval cbv delta [F] in F in
         clear F; y.
 
-Ltac equater :=
+Ltac force_unify :=
+match goal with 
+  [|- ?g] => let GG := fresh in assert (GG:g = g); [reflexivity | clear GG]
+end.
+
+Ltac equater := (* force_unify; *)
   match goal with
     | [ |- ?p ==> ?q ] => equate p q || let q := deExist q in equate p q
     | [ |- ?p ==> (?q * __)%hprop ] => equate p q || let q := deExist q in equate p q
@@ -376,7 +381,7 @@ Ltac equater :=
                              | [ |- ?F _ = _ ] => equate U F
                            end; reflexivity
             | idtac
-          ]; clear H H')
+          ]; clear H H'); simpl; try apply himp_refl
     | [ |- ?p ==> ?U ?X ] =>
       let H := fresh in
         (pose (H := p); pattern X in H;
@@ -384,8 +389,10 @@ Ltac equater :=
             cbv delta [H]; match goal with
                              | [ |- ?F _ = _ ] => equate U F
                            end; reflexivity
-            | idtac
+            | (* simpl; try apply himp_refl *) idtac
           ]; clear H H')
+    | [ |- (_ _ * __)%hprop ==> _] => apply himp_comm_prem; apply himp_empty_prem; equater
+    | [ |- _ ==> (_ * __)%hprop ] => apply himp_comm_conc; apply himp_empty_conc; equater
   end.
 
 Theorem unpack : forall T (h : [T]) (P : Prop),
@@ -611,7 +618,8 @@ Ltac sep stac tac :=
                 intros; s; tac;
                   repeat ((
                     search_prem ltac:(idtac;
-                      search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
+                      search_conc ltac:(
+                        apply himp_frame || (* equater || *) (apply himp_frame_cell; trivial))) || search_conc concer); 
                   s);
                   try finisher).
 

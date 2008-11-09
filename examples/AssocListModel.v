@@ -32,6 +32,7 @@ Require Export List.
   Module DecKeyFacts := DecidableEqDep(DecKey).
 
   Definition key_eq_irr : (forall (k:A.key_t)(p:k = k), p = refl_equal k) := DecKeyFacts.UIP_refl.
+  Definition inj_pairT2 := DecKeyFacts.inj_pairT2.
 
   (* because of the dependency of values on keys, we don't just use normal lists *)
   Definition alist_t := list (sigT A.value_t).
@@ -97,6 +98,9 @@ Require Export List.
         match goal with
         | [H: _ = _ |- context [coerce ?pf _]] => equate pf H || equate pf (sym_eq H)
         | [H:?e = ?e |- _] => clear H
+        | [H: Some _ = Some _ |- _] => inversion H; clear H
+        | [H: (?k,,?v1) = (?k,,?v2) |- _] => generalize (inj_pairT2 H); clear H; intro H
+        | [H:(?k1,, _) = (?k2,, _) |- _] => inversion H; (subst k2 || subst k1); clear H
         | [|- context [match ?k1 =! ?k2 with 
                          | left _ => _ 
                          | right _ => _ end]] =>
@@ -109,7 +113,7 @@ Require Export List.
         |[|- ?a::_ = ?a::_ ]=> f_equal
       end))).
 
-  Ltac t := repeat progress (simpler; simpl in *; autorewrite with AssocListModel; auto).
+  Ltac t := repeat progress (simpler; simpl in *; autorewrite with AssocListModel; eauto; intuition).
 
   (* interactions of lookup and the other operations *)
   Lemma lookup_remove_eq k l : lookup k (remove k l) = None.
@@ -134,23 +138,23 @@ Require Export List.
 
   (* interactions of distinct and the other operations *)
   Lemma distinct_remove k l : distinct l -> distinct (remove k l).
-  Proof. induction l; t; intuition. Qed.
+  Proof. induction l; t. Qed.
 
   Lemma distinct_insert k (v:A.value_t k) l : distinct l -> distinct (insert v l).
-  Proof. induction l; t; intuition. Qed.
+  Proof. induction l; t. Qed.
 
   Hint Resolve lookup_none_remove lookup_none_perm distinct_remove distinct_insert. 
 
   Lemma distinct_perm l l' : Permutation l l' -> distinct l -> distinct l'.
-  Proof. induction 1; t; intuition (congruence||eauto). Qed.
+  Proof. induction 1; t. Qed.
 
   Hint Resolve distinct_remove distinct_perm Permutation_sym Permutation_refl.
 
   Lemma lookup_dis_perm k l l' : Permutation l l' -> distinct l -> lookup k l = lookup k l'.
-  Proof. induction 1; t; intuition try congruence. rewrite H2. eauto. Qed.
+  Proof. induction 1; t. rewrite H2; eauto. Qed.
 
   Lemma remove_perm k l l' : Permutation l l' -> Permutation (remove k l) (remove k l').
-  Proof.  Hint Constructors Permutation. induction 1; t; eauto. Qed.
+  Proof.  Hint Constructors Permutation. induction 1; t. Qed.
   Hint Resolve lookup_dis_perm remove_perm.
 
   Lemma insert_perm k l l' (v:A.value_t k) : Permutation l l' -> Permutation (insert v l) (insert v l').
@@ -161,7 +165,40 @@ Require Export List.
 
   Lemma insert_swap k (v:A.value_t k) k' (v':A.value_t k') l : k <> k' -> 
     Permutation (insert v (insert v' l)) (insert v' (insert v l)).
-  Proof. intros. Hint Constructors Permutation. unfold insert; t. rewrite remove_swap. auto. Qed.
+  Proof. intros. Hint Constructors Permutation. unfold insert. simpler. rewrite remove_swap. t. Qed.
   Hint Resolve remove_swap insert_perm insert_swap.
+
+  Lemma lookup_none_notin l k : lookup k l = None -> forall v, ~ In (k,,v) l.
+  Proof. induction l; t. Qed.
+
+  Lemma lookup_some_in l k v: lookup k l = Some v -> In (k,,v) l.
+  Proof. induction l; t. Qed.
+  Hint Resolve lookup_none_notin lookup_some_in.
+      
+  Lemma lookup_app_none1 k l1 l2 : lookup k l1 = None -> lookup k (l1++l2) = lookup k l2.
+  Proof. induction l1; t. Qed.
+  Hint Rewrite lookup_app_none1 using solve[t] : AssocListModel.
+
+  Lemma distinct_NoDup l : distinct l -> NoDup l.
+  Proof. Hint Constructors NoDup. induction l; t. Qed.
+  Hint Resolve distinct_NoDup.
+
+  Lemma distinct_In_inj k v1 v2 l : distinct l -> In (k,,v1) l -> In (k,,v2) l -> v1 = v2.
+  Proof. induction l; t. elim (lookup_none_notin _ H2 _ H0). elim (lookup_none_notin _ H2 _ H). Qed.
+
+  Lemma lookup_dis_in_some l k v : distinct l -> In (k,,v) l -> lookup k l = Some v.
+  Proof. intros. remember (lookup k l) as x.
+         destruct x. pose (lookup_some_in _ (sym_eq Heqx)). f_equal. eapply distinct_In_inj; eauto.
+         elim (lookup_none_notin _ (sym_eq Heqx) _ H0).
+  Qed.
+
+  Lemma distinct_look_perm l l' : distinct l -> distinct l' -> (forall k, lookup k l = lookup k l') -> Permutation l l'.
+  Proof. intros. apply NoDup_Permutation; t; pose (H1 x).
+         rewrite (lookup_dis_in_some _ _ H H2) in e; apply lookup_some_in; auto.
+         rewrite (lookup_dis_in_some _ _ H0 H2) in e; apply lookup_some_in; auto.
+  Qed.
+
+  Lemma distinct_in_perm l l' : distinct l -> distinct l' -> incl l l' -> incl l' l -> Permutation l l'.
+  Proof. intros. apply NoDup_Permutation; t. Qed.
 
 End AssocList.
