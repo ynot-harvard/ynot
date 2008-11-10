@@ -45,7 +45,7 @@
   We present a new approach for constructing and verifying
   higher-order, imperative programs using the Coq proof assistant.
   Our approach is similar to the shallow embedding of Hoare Type
-  Theory (HTT) that was used in the Ynot project.  However, compared
+  Theory that was used in the Ynot project.  However, compared
   to Ynot, our new approach significantly reduces the burden on
   the programmer.  For example, in both systems we have constructed
   fully verified imperative data structures, such as hash-tables with
@@ -75,22 +75,93 @@
 %keyword1, keyword2
 
 \section{Introduction (GREG)}
-\begin{itemize}
-\item Want to verify imperative programs
-\item Higher-order functions
-\item modularity
-\item {\it mom and apple pie}
-\end{itemize}
 
-  Ynot is the right design from a modularity, re-use perspective.  Much of the success hinges on the use of a higher-order dependently-typed language (Coq) and the ability to smoothly integrate modeling (inductive definitions), domain-specific abstractions (e.g., STsep) and uniform abstraction (Pi). If Ynot is to succeed, need drastic improvements in automation.
+A key goal of type systems is to prevent ``bad states'' from arising
+in the execution of programs.  But today's type systems fail to catch
+language-level errors, such as a null-pointer dereference or an
+out-of-bounds array index, much less library- and application-specific
+errors such as removing an element from an empty queue, failing to
+maintain the invariants of a blanced tree, or forgetting to release a
+critical resource such as a database connection.  For safety and
+security-critical code, a type system should ideally rule out these
+problems and in the limit, make it possible for programmers to verify
+that their code is correct.
 
+There are many recent attempts to extend the scope of type systems to
+address a wider range of safety properties.  Representative examples
+include ESC-Java~\cite{esc-java}, Spec\#~\cite{spec-sharp},
+Sage~\cite{sage}, ATS~\cite{ats}, Concoqtion~\cite{concoqtion}, and
+Ynot~\cite{ynot-icfp}.  Each of these systems integrates some form of
+specification logic into the type system in order to rule out a wider
+range of truly bad states.
 
-\section{Overview (GREG)}
-\begin{itemize}
-\item Features of Ynot
-\item problem with the proofs
-\end{itemize}
+However, in the case of ESC-Java, Spec\# and Sage, the program logic
+is too weak to support full verification because these systems rely upon
+provers to automatically discharge verification conditions.  While
+there have been great advances in the performance of automated
+provers, in practice, they can can only handle relatively shallow
+fragments of a first-order logic.  Thus, programmers are frustrated when code
+that is correct is rejected by the type-checker.  For example, none
+of these systems is able to prove that an array index is bounds when
+the constraints involved step outside Pressburger arithmetic.  
 
+In contrast, ATS, Concoqtion and Ynot use a powerful, higher-order
+logic that supports a much wider range of policies including (partial)
+correctness.  Furthermore, in the case of Ynot, programmers can define
+and use connectives in the style of Separation Logic~\cite{sep-logic}
+to achieve simple, modular specifications of higher-order imperative
+programs.  For example, a recent paper describes how Ynot was used
+to construct fully verified implementations of data structures such
+as queues, hash-tables, and splay-trees including support for 
+iterators.  
+
+The price paid for these more powerful type systems is that in
+general, programmers must provide explicit proofs to convince the
+type-checker that the code is correct.  Unfortunately, explicit proofs
+can be quite large when compared to the code: For example, in the Ynot
+module implementing a linked-list queue, the code takes up 7 lines
+whereas the proof of correctness is about 70 lines.  
+
+This paper reports our experience re-designing and re-implementing
+Ynot to dramatically reduce the burden of writing and maintaining the
+necessary proofs for full verification.  Like the original Ynot, our
+system is based on the ideas of Hoare Type Theory~\cite{htt} and is
+realized as an axiomatic extension of the Coq proof
+assistant~\cite{coq}.  This allows us to inherit the full power of
+Coq's dependent types for writing code, specifications, and proofs and
+to extract executable ML code.  However, unlike the previous version,
+we have taken advantage of Coq's tactic language Ltac to
+implement a new set of parameterized semi-decision procedures for
+automatically discharging or at least simplifying the separation logic
+style verification conditions.  The careful design of these procedures
+makes it possible for programmers to teach the prover about new domains
+as they arise.  
+
+We describe this new implementation of Ynot and report on our
+experience implementing and verifying various imperative data
+structures including stacks, queues, hash tables, binary heaps, and
+binary search trees.  When compared with the previous version of Ynot,
+we observe roughly an order of magnitude reduction in proof size.  In
+most cases, programmers need only prove key lemmas regarding the
+abstractions used in their interfaces, and plug these lemmas into our
+extensible tactics to realize automation.  More importantly, we show
+that the tactics used to generate the proofs are robust to small
+changes in the code or specifications.
+
+We also provide a qualitative comparison of our approach to two other
+verification projects that have recently appeared in the literature,
+Jahob~\cite{jahob} and Smallfoot~\cite{cite}.  To summarize, Jahob is
+based on the ideas of ESC-Java and Spec\# but aims for full
+verification of imperative data structures.  In general, we found that
+it requires many more annotations on the code because of its
+``large-footprint'' approach to specifications.  It also requires a
+much larger trusted computing base as it combines a number of external
+decision procedures, some of which do not provide witnesses.
+Smallfoot, like Ynot, is based on Separation Logic and requires many
+fewer annotations, but can only verify memory safety and not full
+correctness.  Furthermore, Smallfoot only understands a small set of
+existing abstractions (linked-list segments, and tree-segments) and
+thus will not scale to new abstractions.  
 
 \section{The Ynot Programming Environment}
 
