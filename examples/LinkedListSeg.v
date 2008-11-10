@@ -90,13 +90,13 @@ Qed.
 
 Lemma llseg_unfold_cons : forall hd tl ls v,
   llseg hd tl (v :: ls) ==> Exists p :@ ptr, [hd = Some p] * Exists nde :@ Node,
-    p --> nde * [v = data nde] * llseg (next nde) tl ls.
+    p --> nde * [nde = node v (next nde)] * llseg (next nde) tl ls.
   destruct ls; destruct hd; destruct tl; sep fail simpl. 
 Qed.
 
 Lemma llseg_unfold_some_cons : forall p tl ls v,
   llseg (Some p) tl (v :: ls) ==> Exists nde :@ Node,
-    p --> nde * [v = data nde] * llseg (next nde) tl ls.
+    p --> nde * [nde = node v (next nde)] * llseg (next nde) tl ls.
   destruct ls; destruct tl; sep fail simpl. 
 Qed.
 
@@ -119,20 +119,9 @@ Qed.
 
 Lemma llseg_unfold_tail_none : forall p l,
   p <> None
-  -> llseg p None l ==> Exists p' :@ ptr, [p = Some p'] * Exists nde :@ Node, p' --> nde * llseg (next nde) None (tail l) * [head l = Some (data nde)].
+  -> llseg p None l ==> Exists p' :@ ptr, [p = Some p'] * 
+  Exists nde :@ Node, p' --> nde * llseg (next nde) None (tail l) * [head l = Some (data nde)].
   destruct l; destruct p; sep fail auto.
-Qed.
-
-Lemma llseg_unfold : forall hd tl ls,
-  llseg hd tl ls ==> 
-  match ls with
-    | nil => [hd = tl]
-    | v :: r => [hd <> tl] * match hd with
-                               | None => [False]
-                               | Some p => Exists nde :@ Node, p --> nde * [v = data nde] * llseg (next nde) tl r
-                             end
-  end.
-  unfold llseg; destruct ls; destruct hd; sep fail simpl.
 Qed.
 
 Lemma combine : forall nde ls p tl,
@@ -261,6 +250,8 @@ Ltac add_mlocneq :=
             match goal with 
               | [ H: Some x = y -> False |- _ ] => fail 1
               | [ H: Some x <> y |- _ ] => fail 1
+              | [ H: y <> Some x |- _ ] => fail 1
+              | [ H: y = Some x -> False |- _ ] => fail 1
               | _ =>
                 apply (@himp_trans (x --> xv * y ~~> yv * z)); 
                   [ solve [ sep fail auto ] | apply add_mlocineq; intros ]
@@ -277,6 +268,8 @@ Ltac add_locneq :=
             match goal with 
               | [ H: x = y -> False |- _ ] => fail 1
               | [ H: x <> y |- _ ] => fail 1
+              | [ H: y = x -> False |- _ ] => fail 1
+              | [ H: y <> x |- _ ] => fail 1
               | _ =>
                 apply (@himp_trans (x --> xv * y --> yv * z)); 
                   [ solve [ sep fail auto ] | apply add_locineq; intros ]
@@ -293,6 +286,8 @@ Ltac add_segne :=
             match goal with 
               | [ H: X = Y -> False |- _ ] => fail 1
               | [ H: X <> Y |- _ ] => fail 1
+              | [ H: Y = X -> False |- _ ] => fail 1
+              | [ H: Y <> X |- _ ] => fail 1
               | _ =>
                 apply (@himp_trans (llseg X None XL * llseg Y None YL * z));
                   [ solve [ sep fail auto ] | apply add_neqseg; intros ]
@@ -307,6 +302,8 @@ Ltac add_somenoneseg :=
         match goal with 
           | [ H: XL = nil -> False |- _ ] => fail 1
           | [ H: XL <> nil |- _ ] => fail 1
+          | [ H: nil = XL -> False |- _ ] => fail 1
+          | [ H: nil <> XL |- _ ] => fail 1
           | _ => apply add_somenoneseg; intros
         end
     end).
@@ -367,16 +364,58 @@ Ltac ondemand_subst := idtac;
              end
          end.
 
+Ltac extend_eq l r tac :=
+  match l with
+    | r => fail 1
+    | _ => 
+      match goal with 
+        | [ H : l = r |- _ ] => fail 2
+        | [ H : r = l |- _ ] => fail 2
+        | _ => tac
+      end
+  end.
 
-Ltac simplr := repeat (try congruence; discriminate
+
+Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
   || (add_segne; idtac "S1")
   || (add_somenoneseg; idtac "S2")
   || (add_mlocneq; idtac "S3")
   || (add_locneq; idtac "S4")
   || match goal with
-       | [ H : Some ?X = Some ?Y |- _ ] => extend (X = Y) ltac:(inversion H)
+       | [ H : ?X = ?X |- _ ] => clear H
+       | [ H : Some ?X = Some ?Y |- _ ] => extend_eq X Y ltac:(inversion H)
+       | [ H : ?X = Some ?Y |- _ ] => 
+         match X with 
+           | Some _ => fail 1
+           | _ => rewrite -> H
+         end
        | [ H : next _ = None |- _ ] => rewrite -> H
        | [ H : next _ = Some _ |- _ ] => rewrite -> H
+       | [ H : [?x]%inhabited = [?y]%inhabited |- _ ] =>
+         match x with
+           | y => fail
+           | _ => extend_eq x y ltac:(assert (x = y); [ apply pack_injective; assumption | ])
+         end
+       | [ H : ?X = None |- context[?X ~~> _] ] => rewrite -> H
+       | [ H : None = ?X |- context[?X ~~> _] ] => rewrite <- H
+       | [ H : ?X = nil |- _ ] => rewrite -> H
+       | [ H : nil = ?X |- _ ] => rewrite <- H
+       | [ H : ?X <> None |- context[match ?X with
+                                       | None => _
+                                       | Some _ => _
+                                     end] ] => destruct X; [ | congruence ]
+       | [ H : None <> ?X |- context[match ?X with
+                                       | None => _
+                                       | Some _ => _
+                                     end] ] => destruct X; [ | congruence ]
+       | [ H : None = ?X -> False |- context[match ?X with
+                                               | None => _
+                                               | Some _ => _
+                                             end] ] => destruct X; [ | congruence ]
+       | [ H : ?X = None -> False |- context[match ?X with
+                                               | None => _
+                                               | Some _ => _
+                                             end] ] => destruct X; [ | congruence ]
      end 
   || match goal with 
        | [ |- ?PREM ==> ?CONC ] =>
@@ -393,35 +432,62 @@ Ltac simplr := repeat (try congruence; discriminate
            | context[llseg ?X ?X ?Y] => destruct Y; [ discriminate | ]
          end
          || match CONC with
-              | context [llseg _ _ ?LS] => idtac "here" LS ||
+              | context [llseg _ _ (match ?LS with 
+                                      | nil => _
+                                      | _ :: _ => _
+                                    end)] =>
+                match goal with
+                  | [ H : LS <> nil |- _ ] => destruct LS; [ discriminate | ]
+                  | [ H : head LS = Some _ |- _ ] => 
+                    destruct LS; [ pose (head_some_nonil H); discriminate | ]
+                end 
+              | context [llseg _ _ ?LS] =>
                 match goal with 
                   | [ H : head LS = Some ?HD |- _ ] => 
                     let RW := fresh "list_eq" in
-                      assert (LS = HD :: (tail LS)) as RW; [ auto | rewrite -> RW; simpl ]
+                      assert (LS = HD :: (tail LS)) as RW; [ solve [ auto | fail 1 ] | rewrite -> RW; simpl ]
                 end
-(**              | context[ [?X]%hprop ] =>  try (assert (X); [ solve [ firstorder ] || fail 1 | ]; sep fail simpl) **)
+              | context[ [?X]%hprop ] => 
+                match X with
+                  | ?Y = ?Y => fail 1
+                  | ?X = ?Y => extend_eq X Y ltac:(assert (X); [ solve [ congruence | firstorder ] || fail 1 | ])
+(**                match goal with
+                  | [ H : X |- _ ] => fail 1
+                  | _ => assert (X); [ solve [ congruence | firstorder ] || fail 1 | ]
+**)
+                end
             end
        (** ETA NODE APPLICATIONS **)
+       | [ |- ?V = node ?X ?Y ] =>
+         match V with
+           | node _ _ => fail 1
+           | _ => 
+             match goal with 
+               [ H: V = node _ _ |- _ ] => rewrite -> H; try reflexivity
+             end
+         end
        | [ |- ?V = node ?X (next ?V) ] =>
          match goal with
-           | [ H : X = data V |- _ ] => rewrite -> H; apply eta_node
-           | [ H : data V = X |- _ ] => rewrite <- H; apply eta_node
+           | [ H : X = data V |- _ ] => solve [ rewrite -> H; apply eta_node ]
+           | [ H : data V = X |- _ ] => solve [ rewrite <- H; apply eta_node ]
          end
        | [ |- ?V = node (data ?V) ?X ] =>
          match goal with
-           | [ H : X = next V |- _ ] => rewrite -> H; apply eta_node
-           | [ H : next V = X |- _ ] => rewrite <- H; apply eta_node
+           | [ H : X = next V |- _ ] => solve [ rewrite -> H; apply eta_node ]
+           | [ H : next V = X |- _ ] => solve [ rewrite <- H; apply eta_node ]
          end
        | [ |- ?V = node ?X ?Y ] =>
          match goal with
-           | [ H : Y = next V |- _ ] => rewrite -> H; apply eta_node
-           | [ H : next V = Y |- _ ] => rewrite <- H; apply eta_node
+           | [ H : Y = next V |- _ ] => rewrite -> H
+           | [ H : next V = Y |- _ ] => rewrite <- H
          end;
          match goal with
-           | [ H : X = data V |- _ ] => rewrite -> H; apply eta_node
-           | [ H : data V = X |- _ ] => rewrite <- H; apply eta_node
+           | [ H : X = data V |- _ ] => solve [ rewrite -> H; apply eta_node ]
+           | [ H : data V = X |- _ ] => solve [ rewrite <- H; apply eta_node ]
          end
      end).
+
+Ltac simplr := simpl; repeat simplr''.
 
 Ltac simp_prem := (try discriminate); (try ondemand_subst);
   simpl_prem ltac:(
@@ -435,7 +501,8 @@ Ltac simp_prem := (try discriminate); (try ondemand_subst);
     || (apply llseg_unfold_tail_none; [ solve [ congruence ] | ])
     || (apply llseg_unfold_some; congruence; idtac "some")).
 
-Ltac t := unfold llist; sep simp_prem ltac:(print_goal; simplr); sep fail auto.
+
+Ltac t := unfold llist; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
 
 (********************)
@@ -443,7 +510,7 @@ Ltac f := fold llseg; fold llist.
 (********************)
 Definition empty : STsep __ (fun r:LinkedList => llseg r r nil).
   refine ({{Return None}});
-    t.
+    t.  
 Qed.
 
 Definition cons : forall (v : A) (r : LinkedList) (q : [LinkedList]) (m : [list A])
@@ -493,8 +560,8 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
         Else
 (**          Assert (ls ~~ vt ~~ Exists nde :@ Node, [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * q ~~> vt);; **)
           nde <- !p;
-          rr <- self (next nde) (ls ~~~ tail ls) <@> _ (** (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]) **);
-          res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> _ (** (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls)) **);
+          rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
+          res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
           {{Return res}}) p' ls'); clear self.
   t.
   t.
@@ -502,12 +569,12 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
   t.
   t.
   t.
-  instantiate (1:= ls ~~ [head ls = Some (data nde)] * p0 --> nde). t.
+  (** instantiate (1:= ls ~~ [head ls = Some (data nde)] * p0 --> nde).**) t.
   t.
-  instantiate (1 :=  ls ~~ [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * p0 --> nde). t.
+  (**instantiate (1 :=  ls ~~ [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * p0 --> nde).**) t. 
   t.
   t.
-  t.
+  t. 
 Qed.
 
 Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
@@ -522,7 +589,7 @@ Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A 
 Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
   STsep (ls' ~~ llist (Some p') ls')
         (fun _:unit => ls' ~~ llist (Some p') (insertAt_model ls' a (S idx'))).
-  intros.
+  intros;
   refine (Fix3 
     (fun p ls idx => ls ~~ llist (Some p) ls)
     (fun p ls idx (_:unit) => ls ~~ llist (Some p) (insertAt_model ls a (S idx)))
@@ -538,7 +605,7 @@ Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
           p ::= node (data nde) (Some nelem);;
           {{Return tt}}
         Else
-          {{self nxt (ls ~~~ tail ls) (pred idx)}}) p' ls' idx').
+          {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self.
   t.
   t.
   t.
@@ -546,75 +613,50 @@ Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
   t.
   t.
   t.
-  t. destruct x. t. try simp_prem. sep fail simpl. Show Existentials.inversion H. sep fail simpl.
-  simpl. sep fail auto.
-  repeat match goal with
-           | [ |- _ ==> ?C ] =>
-             match C with 
-               | context [ [?X = ?Y -> False] ] => assert (X = Y -> False); [ congruence | sep fail idtac ]
-             end
-         end.
-
-Definition insertAt : forall (p' : LinkedList) (a : A) (idx' : nat) (ls' : [list A]),
-  STsep (ls' ~~ llist p' ls')
-        (fun r:LinkedList => ls' ~~ llist r (insertAt_model ls' a idx')).
-  intros;
-  refine (Fix3
-    (fun p ls idx => ls ~~ llist p ls)
-    (fun p ls idx (r:LinkedList) => ls ~~ llist r (insertAt_model ls a idx))
-    (fun self p ls idx =>
-      IfNull p Then
-        {{cons a p [None] ls [1] <@> (ls ~~ [ls = nil])}}
-      Else
-(**        Assert (ls ~~ [ls <> nil] * llist (Some p) ls);; **)
-        if nat_eq idx 0 then
-          {{cons a (Some p) [None] ls [0] <@> _}}
-(**          {{Return r}}  **)
-        else
-          Assert (ls ~~ [ls <> nil] * Exists nde :@ Node, p --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls));;
-          nde <- !p; 
-          Assert (ls ~~ [ls <> nil] * p --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls));;
-          zz <- self (next nde) (ls ~~~ tail ls) (pred idx) <@> (ls ~~ [ls <> nil] * p --> nde * [head ls = Some (data nde)]);
-          p ::= node (data nde) zz;;
-          {{Return (Some p)}}
-      ) p' ls' idx').
-  t.
-  t.
-  unfold llist.
-  intros; try equater; inhabiter.
-  simp_prem. inhabiter. simplr. sep fail auto.
   t.
   t.
   t.
-  solve [ t | hdestruct ls; t | hdestruct ls; t; destruct idx; t ].
+  t.
+  t.
+  t.
+  t.
+  match goal with 
+    | [ |- context[insertAt_model nil _ ?IDX] ] => destruct IDX; simpl
+  end; t.
+  t.
+  t. match goal with 
+    | [ |- context[insertAt_model nil _ ?IDX] ] => destruct IDX; simpl
+  end; t. 
+  destruct idx; t.
 Qed.
 
-Definition append : forall (p' : LinkedList) (q : LinkedList)
-  (lsp' lsq : [list A]), 
-  STsep (lsp' ~~ lsq ~~ llist p' lsp' * llist q lsq)
-        (fun r:LinkedList => lsp' ~~ lsq ~~ llist r (lsp' ++ lsq)).
-  intros.
-  refine (Fix2 
-    (fun p lsp   => lsp ~~ lsq ~~ llist p lsp * llist q lsq)
-    (fun p lsp r => lsp ~~ lsq ~~ llist r (lsp ++ lsq))
-    (fun self p lsp =>
-      IfNull p Then 
-        {{Return q}}
-      Else
-        Assert (lsp ~~ lsq ~~ Exists nde :@ Node, p --> nde * [head lsp = Some (data nde)] * llist (next nde) (tail lsp) * llist q lsq * [Some p <> q]);;
-        nde <- !p;
-        let d := data nde in
-        Assert (lsp ~~ lsq ~~ p --> nde * llist (next nde) (tail lsp) * llist q lsq * 
-                  [head lsp = Some (data nde)] * [Some p <> q]);;
-        zz <- self (next nde) (lsp ~~~ tail lsp) <@> 
-               (lsp ~~ lsq ~~ p --> nde * [head lsp = Some (data nde)]  *
-                                 [Some p <> q] * [Some p <> q]);
-        p ::= node d zz;;
-        {{Return (Some p)}}
-    ) p' lsp'); clear self;
-  solve [t | hdestruct lsp; t | hdestruct lsp; [ t | match goal with 
-                                                       | [ H : ?p = Some _ |- _ ] => rewrite H
-                                                     end; t ] ].
+Definition insertAt : forall (p : LinkedList) (a : A) (idx : nat) (ls : [list A]),
+  STsep (ls ~~ llist p ls)
+        (fun r:LinkedList => ls ~~ llist r (insertAt_model ls a idx)).
+  intros;
+  refine (
+    IfNull p Then
+      {{cons a p [None] ls [1] <@> (ls ~~ [ls = nil])}}
+    Else
+(**        Assert (ls ~~ [ls <> nil] * llist (Some p) ls);; **)
+      if nat_eq idx 0 then
+        {{cons a (Some p) [None] ls [0] <@> (__)}}
+(**          {{Return r}}  **)
+      else
+(**          Assert (ls ~~ [ls <> nil] * Exists nde :@ Node, p --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls));; **)
+(**          Assert (ls ~~ [ls <> nil] * p --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls));; **)
+        insertAt' p (pred idx) a ls <@> __;;
+        {{Return (Some p)}}).
+  t.
+  t. destruct idx; t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  destruct idx; t.
+  destruct idx; t.
 Qed.
 
 Section Remove.
@@ -627,6 +669,37 @@ Section Remove.
       | f :: r => if eq_a f a then r else f :: (removeFirst_model r a)
     end.
 
+  Definition removeFirst' : forall (pr' : ptr) (p' : LinkedList) (pr_a' a : A) (ls' : [list A]),
+    STsep (ls' ~~ llist p' ls' * pr' --> node pr_a' p' * [pr_a' <> a])
+          (fun _:unit => ls' ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls' a) * pr' --> node pr_a' p'' * [pr_a' <> a]).
+    intros.
+    refine (Fix4
+      (fun pr pr_a p ls => ls ~~ llist p ls * pr --> node pr_a p * [pr_a <> a])
+      (fun pr pr_a p ls r => ls ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls a) * pr --> node pr_a p'' * [pr_a <> a])
+      (fun self pr pr_a p ls =>
+        IfNull p As p' Then
+          {{Return tt}}
+        Else
+          nde <- !p';
+          if eq_a (data nde) a then 
+            pr ::=  node pr_a (next nde);;
+            Free p';;
+            {{Return tt}}
+          else 
+            {{self p' (data nde) (next nde) (ls ~~~ tail ls) <@> (pr --> node pr_a p)}}
+        ) pr' pr_a' p' ls'); clear self.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t. destruct x; [ t | simpl; destruct (eq_a a (data v0)); t ].
+    t. (** I'm substituting too early. I lose the information that pr_a = data nde **)
+    t. destruct x. simpl.
 
   Definition removeFirst : forall (p' : LinkedList) (a : A) (ls' : [list A]),
     STsep (ls' ~~ llist p' ls')
@@ -662,6 +735,36 @@ Section Remove.
     end.
 
 End Remove.
+
+
+
+Definition append : forall (p' : LinkedList) (q : LinkedList)
+  (lsp' lsq : [list A]), 
+  STsep (lsp' ~~ lsq ~~ llist p' lsp' * llist q lsq)
+        (fun r:LinkedList => lsp' ~~ lsq ~~ llist r (lsp' ++ lsq)).
+  intros.
+  refine (Fix2 
+    (fun p lsp   => lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+    (fun p lsp r => lsp ~~ lsq ~~ llist r (lsp ++ lsq))
+    (fun self p lsp =>
+      IfNull p Then 
+        {{Return q}}
+      Else
+        Assert (lsp ~~ lsq ~~ Exists nde :@ Node, p --> nde * [head lsp = Some (data nde)] * llist (next nde) (tail lsp) * llist q lsq * [Some p <> q]);;
+        nde <- !p;
+        let d := data nde in
+        Assert (lsp ~~ lsq ~~ p --> nde * llist (next nde) (tail lsp) * llist q lsq * 
+                  [head lsp = Some (data nde)] * [Some p <> q]);;
+        zz <- self (next nde) (lsp ~~~ tail lsp) <@> 
+               (lsp ~~ lsq ~~ p --> nde * [head lsp = Some (data nde)]  *
+                                 [Some p <> q] * [Some p <> q]);
+        p ::= node d zz;;
+        {{Return (Some p)}}
+    ) p' lsp'); clear self;
+  solve [t | hdestruct lsp; t | hdestruct lsp; [ t | match goal with 
+                                                       | [ H : ?p = Some _ |- _ ] => rewrite H
+                                                     end; t ] ].
+Qed.
 
 End LINKED_LIST_SEG.
 
