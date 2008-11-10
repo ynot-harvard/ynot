@@ -311,6 +311,13 @@ Definition remove_post k v prev ls :=
 (fun r:V => Exists pk :@ K, Exists pv :@ V, Exists x :@ list (prod K V), 
           [ls = (pk,pv) :: x] * rep' (Some prev) ((pk,pv)::(delete x k)) * [r = v]).
 
+Theorem lkup0 : forall ls k,
+  lookup ls k = None -> ls = delete ls k.
+ intros. induction ls. t. t. destruct a. destruct (eqK k k0). t. pose (IHls H). rewrite <- e. trivial. Qed.
+
+
+Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' ?x (delete ?ls ?n) ] =>  rewrite <- (lkup0 ls n H) ; t end. 
+
 Definition remove'' k v (prev: ptr) (ls: list (prod K V)) : 
    STsep (remove_pre k v prev ls)
          (remove_post k v prev ls).             
@@ -331,7 +338,7 @@ intros k v. refine (Fix2 (remove_pre k v) (remove_post k v)
         Else {{ self cur (tail ls) <@>  ( Exists t :@ list (prod K V), [lookup t (key pn) = None] * 
                                           [ls = (key pn, value pn) :: (key n, value n) :: t] *
                                          [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur) ) }} )); 
-unfold remove_pre; unfold remove_post; try solve [ pose lkup; t | t' ]. Admitted.
+unfold remove_pre; unfold remove_post; pose lkup; pose lkup0; try solve [ t | t' | sep fail auto; t'; tx ]. Qed.
 
  Definition remove' : forall k v (p: t) (m: list (prod K V)),
                      STsep (                        [lookup m k = Some v] * rep p m) 
