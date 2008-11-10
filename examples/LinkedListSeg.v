@@ -700,6 +700,7 @@ Section Remove.
     t. destruct x; [ t | simpl; destruct (eq_a a (data v0)); t ].
     t. (** I'm substituting too early. I lose the information that pr_a = data nde **)
     t. destruct x. simpl.
+    (** Doesn't quite finish **)
 
   Definition removeFirst : forall (p' : LinkedList) (a : A) (ls' : [list A]),
     STsep (ls' ~~ llist p' ls')
