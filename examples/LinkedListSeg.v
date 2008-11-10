@@ -119,9 +119,9 @@ Qed.
 
 Lemma llseg_unfold_tail_none : forall p l,
   p <> None
-  -> llseg p None l ==> Exists p' :@ ptr, [p = Some p'] * 
+  -> llseg p None l ==> [l <> nil] * Exists p' :@ ptr, [p = Some p'] * 
   Exists nde :@ Node, p' --> nde * llseg (next nde) None (tail l) * [head l = Some (data nde)].
-  destruct l; destruct p; sep fail auto.
+  destruct l; destruct p; sep fail ltac:(try congruence).
 Qed.
 
 Lemma combine : forall nde ls p tl,
@@ -341,6 +341,7 @@ Ltac extend P tk := idtac;
     | _ => tk
   end.
 
+(**
 Lemma lift : forall (p : Prop) P Q,
 (** TODO: Move this into Separation.v **)
   (p -> [p] * P ==> Q) -> [p] * P ==> Q.
@@ -354,6 +355,7 @@ Ltac remember_all :=
       | [ |- [?P] * _ ==> _ ] =>
         extend P ltac:(apply (@lift P); intro)
     end).
+**)
 
 Ltac ondemand_subst := idtac;
   repeat match goal with 
@@ -451,10 +453,6 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
                 match X with
                   | ?Y = ?Y => fail 1
                   | ?X = ?Y => extend_eq X Y ltac:(assert (X); [ solve [ congruence | firstorder ] || fail 1 | ])
-(**                match goal with
-                  | [ H : X |- _ ] => fail 1
-                  | _ => assert (X); [ solve [ congruence | firstorder ] || fail 1 | ]
-**)
                 end
             end
        (** ETA NODE APPLICATIONS **)
@@ -489,7 +487,7 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
 
 Ltac simplr := simpl; repeat simplr''.
 
-Ltac simp_prem := (try discriminate); (try ondemand_subst);
+Ltac simp_prem := print_state; (try discriminate); (try ondemand_subst);
   simpl_prem ltac:(
 (**      apply empty_seg; idtac "empty_seg"  **)
        apply llist_unfold
@@ -502,7 +500,7 @@ Ltac simp_prem := (try discriminate); (try ondemand_subst);
     || (apply llseg_unfold_some; congruence; idtac "some")).
 
 
-Ltac t := unfold llist; sep simp_prem simplr; sep fail auto.
+Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
 
 (********************)
@@ -670,12 +668,12 @@ Section Remove.
     end.
 
   Definition removeFirst' : forall (pr' : ptr) (p' : LinkedList) (pr_a' a : A) (ls' : [list A]),
-    STsep (ls' ~~ llist p' ls' * pr' --> node pr_a' p' * [pr_a' <> a])
-          (fun _:unit => ls' ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls' a) * pr' --> node pr_a' p'' * [pr_a' <> a]).
-    intros.
+    STsep (ls' ~~ llist p' ls' * pr' --> node pr_a' p')
+          (fun _:unit => ls' ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls' a) * pr' --> node pr_a' p'').
+    intros;
     refine (Fix4
-      (fun pr pr_a p ls => ls ~~ llist p ls * pr --> node pr_a p * [pr_a <> a])
-      (fun pr pr_a p ls r => ls ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls a) * pr --> node pr_a p'' * [pr_a <> a])
+      (fun pr pr_a p ls => ls ~~ llist p ls * pr --> node pr_a p)
+      (fun pr pr_a p ls r => ls ~~ Exists p'' :@ LinkedList, llist p'' (removeFirst_model ls a) * pr --> node pr_a p'')
       (fun self pr pr_a p ls =>
         IfNull p As p' Then
           {{Return tt}}
@@ -686,7 +684,7 @@ Section Remove.
             Free p';;
             {{Return tt}}
           else 
-            {{self p' (data nde) (next nde) (ls ~~~ tail ls) <@> (pr --> node pr_a p)}}
+            {{self p' (data nde) (next nde) (ls ~~~ tail ls) <@> (ls ~~ [head ls = Some (data nde)] * [ls <> nil] * [p = Some p'] * pr --> node pr_a p)}}
         ) pr' pr_a' p' ls'); clear self.
     t.
     t.
@@ -698,74 +696,160 @@ Section Remove.
     t.
     t.
     t. destruct x; [ t | simpl; destruct (eq_a a (data v0)); t ].
-    t. (** I'm substituting too early. I lose the information that pr_a = data nde **)
-    t. destruct x. simpl.
-    (** Doesn't quite finish **)
-
-  Definition removeFirst : forall (p' : LinkedList) (a : A) (ls' : [list A]),
-    STsep (ls' ~~ llist p' ls')
-          (fun r:LinkedList => ls' ~~ llist r (removeFirst_model ls' a)).
-    intros.
-    refine (Fix2
-      (fun p ls => ls ~~ llist p ls)
-      (fun p ls r => ls ~~ llist r (removeFirst_model ls a))
-      (fun self p ls =>
-        IfNull p As p' Then
-          {{Return p}}
-        Else
-          Assert (ls ~~ Exists nde :@ Node, p' --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls) * [ls <> nil]);;
-          nde <- !p';
-          if eq_a (data nde) a then 
-            Free p';;
-            {{Return (next nde)}}
-          else 
-            Assert (ls ~~ p' --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls) * [ls <> nil]);;
-            res <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ p' --> nde * [head ls = Some (data nde)] * [ls <> nil]);
-            p' ::= node (data nde) res;;
-            {{Return p}}            
-      ) p' ls'); clear self;
-    solve [ t | hdestruct ls; t | hdestruct ls; t; match goal with
-                                                     | [ |- context[eq_a ?X ?Y] ] => destruct (eq_a X Y)
-                                                   end; t ].
+    t. 
+    t; destruct x; t; destruct (eq_a (data nde) a); t.
   Qed.
 
-  Fixpoint filter_model : forall (ls : list A) (a : A) : list A :=
+  Definition removeFirst : forall (p : LinkedList) (a : A) (ls : [list A]),
+    STsep (ls ~~ llist p ls)
+          (fun r:LinkedList => ls ~~ llist r (removeFirst_model ls a)).
+    intros;
+    refine (
+      IfNull p As p' Then
+        {{Return p}}
+      Else
+(**       Assert (ls ~~ Exists nde :@ Node, p' --> nde * [head ls = Some (data nde)] * llist (next nde) (tail ls) * [ls <> nil]);; **)
+        nde <- !p';
+        if eq_a (data nde) a then 
+          Free p';;
+          {{Return (next nde)}}
+        else
+          removeFirst' p' (next nde) (data nde) a (ls ~~~ tail ls) <@> (ls ~~ [head ls = Some (data nde)]);;
+          {{Return p}}
+      ).
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t; destruct x; [ t | t; destruct (eq_a (data v0) (data v0)); t ].
+    t.
+    t.
+    t.
+    t; destruct x; [ t | simpl; destruct (eq_a a0 a); t ].
+  Qed.
+
+  Fixpoint filter_model (ls : list A) (a : A) : list A :=
     match ls with 
       | nil => nil
       | f :: r => if eq_a f a then filter_model r a else f :: filter_model r a
     end.
 
+  Definition filter' : forall (pr' : ptr) (p' : LinkedList) (pr_a' a : A) (ls' : [list A]),
+    STsep (ls' ~~ llist p' ls' * pr' --> node pr_a' p')
+          (fun (_:unit) => ls' ~~ Exists r :@ LinkedList, llist r (filter_model ls' a) * pr' --> node pr_a' r).
+    intros;
+    refine (Fix4
+      (fun pr pr_a p ls => ls ~~ llist p ls * pr --> node pr_a p)
+      (fun pr pr_a p ls (_:unit) => ls ~~ Exists r :@ LinkedList, llist r (filter_model ls a) * pr --> node pr_a r)
+      (fun self pr pr_a p ls =>
+        IfNull p As p' Then
+          {{Return tt}}
+        Else
+          nde <- !p';
+          if eq_a (data nde) a then 
+            pr ::=  node pr_a (next nde);; 
+            Free p';;
+            {{self pr pr_a       (next nde) (ls ~~~ tail ls) <@> _ (ls ~~ [head ls = Some (data nde)] * [p = Some p'])}}
+          else 
+            {{self p' (data nde) (next nde) (ls ~~~ tail ls) <@> (ls ~~ [head ls = Some (data nde)] * [p = Some p'] * pr --> node pr_a p)}}
+        ) pr' pr_a' p' ls').
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t; destruct x; [ t | simpl; destruct (eq_a a (data nde)); t ].
+    t.
+    t.
+    t; destruct x; [ t | simpl; destruct (eq_a a0 a); t ].
+  Qed.
+  
+  Definition filter : forall (p : LinkedList) (a : A) (ls : [list A]),
+    STsep (ls ~~ llist p ls)
+          (fun r:LinkedList => ls ~~ llist r (filter_model ls a)).
+    intros;
+    refine (
+      IfNull p As p' Then 
+        {{Return p}}
+      Else
+        nde <- !p';
+        {{filter' p' (next nde) (data nde) a (ls ~~~ tail ls) <@> (ls ~~ [head ls = Some (data nde)])}};;
+        if eq_a (data nde) a then
+          nde <- !p';
+          Free p';;
+          {{Return (next nde)}}
+        else
+          {{Return p}}).
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t. destruct x. t. simpl. destruct (eq_a a (data nde)); t.
+    t.
+    t. destruct x. t. simpl. destruct (eq_a a0 a); t.
+  Qed.    
+
 End Remove.
 
-
-
-Definition append : forall (p' : LinkedList) (q : LinkedList)
-  (lsp' lsq : [list A]), 
-  STsep (lsp' ~~ lsq ~~ llist p' lsp' * llist q lsq)
-        (fun r:LinkedList => lsp' ~~ lsq ~~ llist r (lsp' ++ lsq)).
-  intros.
-  refine (Fix2 
-    (fun p lsp   => lsp ~~ lsq ~~ llist p lsp * llist q lsq)
-    (fun p lsp r => lsp ~~ lsq ~~ llist r (lsp ++ lsq))
-    (fun self p lsp =>
-      IfNull p Then 
-        {{Return q}}
-      Else
-        Assert (lsp ~~ lsq ~~ Exists nde :@ Node, p --> nde * [head lsp = Some (data nde)] * llist (next nde) (tail lsp) * llist q lsq * [Some p <> q]);;
-        nde <- !p;
-        let d := data nde in
-        Assert (lsp ~~ lsq ~~ p --> nde * llist (next nde) (tail lsp) * llist q lsq * 
-                  [head lsp = Some (data nde)] * [Some p <> q]);;
-        zz <- self (next nde) (lsp ~~~ tail lsp) <@> 
-               (lsp ~~ lsq ~~ p --> nde * [head lsp = Some (data nde)]  *
-                                 [Some p <> q] * [Some p <> q]);
-        p ::= node d zz;;
-        {{Return (Some p)}}
-    ) p' lsp'); clear self;
-  solve [t | hdestruct lsp; t | hdestruct lsp; [ t | match goal with 
-                                                       | [ H : ?p = Some _ |- _ ] => rewrite H
-                                                     end; t ] ].
+Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
+  STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
+        (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
+  intros;
+  refine (Fix3
+    (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
+    (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
+    (fun self pr nde lsp =>
+      IfNull (next nde) As p Then
+        {{pr ::= node (data nde) q}}
+      Else 
+        nde' <- !p;
+        {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
+    ) pr' nde' lsp').
+  t.
+  t.
+  t.
+  t.
+  t.
+  t. destruct x; t.
 Qed.
+
+Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
+  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+        (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
+  intros;
+  refine (
+    IfNull p As p' Then
+      {{Return q}}
+    Else 
+      nde <- !p';
+      append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
+      {{Return p}}).
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t; destruct x0; t.
+Qed.
+
 
 End LINKED_LIST_SEG.
 
