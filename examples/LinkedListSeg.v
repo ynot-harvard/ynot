@@ -531,18 +531,14 @@ Definition freeHead : forall (p : LinkedList) (q : [LinkedList]) (b : [A]) (ls :
         (fun r => ls ~~ q ~~ llseg r q ls).
   intros;
   refine (
-    IfNull p
-    Then {{!!!}}
-    Else
-(**      Assert (ls ~~ q ~~ b ~~ Exists nde :@ Node, p --> nde * [b = data nde] * llseg (next nde) q ls);; **)
-      nde <- !p;
-      Free p;;
-      {{Return (next nde)}});
+    IfNull p Then {{!!!}}
+    Else nde <- !p;
+         Free p;;
+         {{Return (next nde)}});
   t.
 Qed.
 
-Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
-  (T : Set) (vt : [T]),
+Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T : Set) (vt : [T]),
   STsep (ls' ~~ vt ~~ llseg p' q ls' * q ~~> vt)
         (fun r:LinkedList => ls' ~~ vt ~~ llseg p' q ls' * llseg r q ls' * q ~~> vt).
   intros;
@@ -555,12 +551,10 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
       else
         IfNull p
         Then {{!!!}}
-        Else
-(**          Assert (ls ~~ vt ~~ Exists nde :@ Node, [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * q ~~> vt);; **)
-          nde <- !p;
-          rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
-          res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
-          {{Return res}}) p' ls'); clear self.
+        Else nde <- !p;
+             rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
+             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
+             {{Return res}}) p' ls'); clear self.
   t.
   t.
   t.
