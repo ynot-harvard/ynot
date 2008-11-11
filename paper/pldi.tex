@@ -139,7 +139,7 @@ as they arise.
 
 We describe this new implementation of Ynot and report on our
 experience implementing and verifying various imperative data
-structures including stacks, queues, hash tables, binary heaps, and
+structures including stacks, queues, hash tables, binomial trees, and
 binary search trees.  When compared with the previous version of Ynot,
 we observe roughly an order of magnitude reduction in proof size.  In
 most cases, programmers need only prove key lemmas regarding the
@@ -712,8 +712,8 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 {\tt LL-Jahob} & RYAN\\
 {\tt LL-Smallfoot} & GREGORY\\
 {\tt Hashtable} & AVI\\
-{\tt Binary Heap} & RYAN\\
-{\tt BST} & ??\\
+{\tt Binomial Tree} & RYAN\\
+{\tt BST} & AVI\\
 {\tt Stack} & ADAM\\
 {\tt Queue} & ADAM\\
 \end{tabular}
@@ -725,19 +725,32 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 
 The Jahob system~\cite{jahob} allows the specification and verification 
 of recursive, linked data structures in a fragment of Java.  Like ynot, 
-verified programs are correct up to termination.  
+verified programs are correct up to termination.  We compare Ynot
+and Jahob along two lines: representation (underlying logic, heap model, abstract state),
+ and reasoning (how programs are verified).  We illustrate using a running
+ example of an association list, implemented similarly in Jahob and Ynot.
+ 
+Jahob specifications are written in classical higher order logic.  Ynot
+specifications, while higher order, cannot currently be written in classical logic. The law of the excluded middle implies proof irrelevence, which 
+conflicts with a Ynot axiom required for reasoning about computationally
+irrelevent functional models.  However, we believe a slight modification 
+to Coq should remedy this. 
 
-Jahob specifications are written in classical higher order logic.  
-The abstract state of an object is given by s a collection of 
-programmer defined ``specvars'' which do not exist during program execution.
-Specvars are defined by Jahob formulae, which resemble formulae of set 
+The abstract state of an object in Jahob is given by s a collection of 
+programmer defined ``specvars'' which do not exist during program execution.  These are 
+equivalent to Ynot's pure functional models and \cd{rep} predicates.
+
+Specvars are defined with formulae that resemble set 
 theory in Isabelle/HOL.  Jahob formulae are simply typed with ground types
 bool, obj, and int, type constructors $\Rightarrow$ for total functions, * for tuples
 and set for sets.  The logic contains polymorphic equality, standard
 logical connectives $\wedge, \vee, \neg, \to, \forall, \exists$ and
 $\lambda$ binders, set comprehension, operations on sets ($\cup, \in$) 
 and transitive closure, finite set cardinality, and a tree function for indicating
-that a structure is a tree.  Here is the interface for a Jahob association list: 
+that a structure is a tree.  This set of operators is fixed and cannot be extended
+by the programmer.  Specifications are written in Java comments.  
+
+In Jahob, an association list based can be given an interface that includes:
 
 \begin{verbatim}
 class AssocList {
@@ -753,15 +766,7 @@ public Object put(Object k0, Obkect v0)
              (k0, v) in old content) /\
      /\ (result <> null -> 
            (k0, result) in old content) */
-{...}
-public Object get(Object k0)
-/*: requires "k0 <> null"
-    ensures  
-    "result =  null -> 
-      ~ exists v, (k0, v) in content 
-      /\ result <> null -> 
-           (k0, result) in content" */
-}
+{...} }
 \end{verbatim}
 
 Like ynot, Jahob relates the abstract state of a data structure to its concrete heap representation.  
@@ -774,8 +779,8 @@ class Node {
     public Object key; public Object value; 
     public Node next;
     //: public ghost specvar cnt 
-         :: "(obj * obj) set" = "{}"
-}
+         :: "(obj * obj) set" = "{}"   }
+         
 private static specvar edge 
   :: ``obj => obj => bool'';
 
@@ -793,7 +798,6 @@ and the members of the subsequent nodes.  It also ensures that keys only occur o
 
 \begin{verbatim}
 private Node first;
-
 vardefs "content == first..cnt";
 
 invariant CntDef:
@@ -803,160 +807,27 @@ invariant CntDef:
               U x..next..cnt /\
            (forall v, (x..key, v) 
               notin x..next..cnd)'';
+              
 invariant CntNull:
     ``forall x, x in Node /\ x in Alloc 
         /\ x = null -> x..cnt = {}'';
 \end{verbatim}
 
-Ynot's approach to specification and abstract state is similar in spirit to Jahob's but 
-feels more computational in practice.
-Because ynot is embedded in Coq, specifications and programs share a common language.
-This makes it possible to define specifications using programs with reduction behavior
-rather than with formulae of set theory; reasoning about such computational entities
-is at the core of ynot's proof automation.  In addition, ynot uses separation connectives
-to describe the heap.  For instance, the representation invariant rep for the ynot
-singly linked list implementation is defined as a Coq fixpoint of essentially a separation logic formula:
+The set-theoretic nature of Jahob specifications gives reasoning a slightly
+different feel than Ynot.  Set extensionality must be built on top of
+the definitional equality of Coq, and so our equivalent Ynot implementation
+uses lists with a uniqueness invariant to provide the semantic guarantees 
+of the Jahob interface.  
 
-\begin{verbatim}
-Variables K V: Set.
-Variable eqK : forall (k1 k2: K), {k1=k2} + {k1<>k2}.
-
-Record Node : Set := node {
-  key: K; value: V; next: option ptr
-}.
-
-Definition AssocList : Set := ptr.
-
-Fixpoint rep' (m : list (prod K V)) 
-(p : option ptr) {struct m} : hprop :=
-  match p with
-    | None => [m = nil]
-    | Some hd => 
-      match m with
-        | (k,v) :: b => Exists nxt :@ option ptr, 
-             hd --> node k v nxt * rep' b nxt
-        | nil => [False]
-      end
-  end.
-
-Definition rep (m: list (prod K V)) 
- (ll: AssocList) : hprop :=
-   Exists n :@ option ptr, 
-    ll --> n * rep' m n.
-\end{verbatim}
-
-The computational behavior of specification means, for instance, that the type of new
-\begin{verbatim}
-Definition new : STsep __ (rep nil).
-\end{verbatim}
-
-is definitionally equal to 
-\begin{verbatim}
-  STsep __ (fun p => match p with 
-                       | None => [nil = nil] 
-                       | Some hd => [False]
-                     end)
-\end{verbatim}
-
-and so it is easy to automate (using a tactic called t) the reasoning that proves
-the new association list allocator is correct:
-\begin{verbatim}
-Definition new : STsep __ (rep nil).
-  refine {{ New None }}; t. Qed.
-\end{verbatim}
-
-The specifications for put and lookup exploit other pure functional programs:
-
-\begin{verbatim}
-Fixpoint lookup (k: K) 
-  (l: list (prod K V)) : option V :=
- match l with
-  | nil => None
-  | (k', v)::b => if eqK k k' 
-                  then Some v 
-                  else lookup k b
- end.
-
-todo - change put 
-Definition put (ll : AssocList) 
- (m : [list (prod K V)]) (k : K) (v : V) :
-  STsep (m ~~ rep m ll)
-        (fun _:unit => m ~~ rep ((k,v)::m) ll ).
-
-Definition get'' (k: K) (hd: option ptr) 
- (m: [list (prod K V)]) : 
-  STsep (m ~~ rep' m hd)
-        (fun res:option V => m ~~ 
-           [res = lookup k m] * rep' m hd).
-\end{verbatim} 
-
-The actual implementations of get in ynot and jahob are essentially identical.
-In both cases annotations are required to guide the proving process.  (Add numbers here).
-In Jahob:
-
-\begin{verbatim}
-/*: requires ``k0 <> null''
-    ensures 
-      ``(result <> null -> 
-          (k0, result) in content 
-          /\ (result =  null -> 
-                ~exists v0, 
-                  (k0, v) in content)) */
-{
-  Node current = first;
-  while //: inv ``forall v, ((k0, v) in content) 
-                    = ((k0, v) in current..cnt)''
-   (current != null) {
-     if (current.key == k0) { 
-       return current.value; 
-     }
-     current = current.next
-  }
-  return null;
-}
-\end{verbatim}
-
-In ynot:
-
-\begin{verbatim}
-Definition get (k: K) 
- (hd: option ptr) (m: [list (prod K V)]):
-  STsep (m ~~ rep' m hd)
-        (fun res:option V => m ~~ 
-           [res = lookup k m] * rep' m hd).
-intro k.
-refine (Fix2
-    (fun hd m => m ~~ rep' m hd)
-    (fun hd m o => m ~~ 
-       [o = lookup k m] * rep' m hd)
-    (fun self hd m =>
-      IfNull hd
-      Then {{ Return None }}
-      Else fn <- hd !! fun fn => m ~~ 
-             [head m = Some (key fn, value fn)] 
-             * rep' (tail m) (next fn);
-           if eqK (key fn) k
-           then {{ Return (Some (value fn)) }}
-           else {{ 
-            self (next fn) (m ~~~ tail m) 
-              <@> (m ~~ hd --> fn * 
-                  [head m = Some (key fn, value fn)]) 
-           }}
-      )); try solve [ t | hdestruct m; t ].
-Defined.
-
-Definition get (k: K) 
- (ll: AssocList) (m: [list (prod K V)]) :
-   STsep (m ~~ rep m ll)
-         (fun r:option V => m ~~ 
-            rep m ll * [r = lookup k m]).
-intros; refine (hd <- !ll;
-    Assert (ll --> hd * (m ~~ rep' m hd));;
-    {{get'' k hd m <@> _}});
-  t.
-\end{verbatim}
-
-Whereas ynot's automated reasoning is completely captured by Coq tactics,
+Although Jahob provides a number of constructs to simplify
+the set theoretic description of linked data structures, reasoning about
+the heap is done using conventional techniques that can be difficult
+to scale (todo cite).  Ynot uses separation logic to both simply
+ reasoning about the heap and to provide a useful ``heap abstraction
+barrier'' to programmers.  The effectiveness of the sep tactic
+is evidence of the scalability of our approach.
+ 
+Whereas Ynot's automated reasoning is completely captured by Coq tactics,
 Jahob programs are verified using a series of stages similar to 
 a compiler pipeline.  First, Jahob programs are translated into 
 an extended guarded command language.
@@ -966,7 +837,18 @@ on an obligation, another is tried.  This allows Jahob to run multiple
 provers in parallel.  Because provers are often specialized to particular
 classes of formulae, formula approximation techiques must be used to integrate them with
 a system using higher order logic. Jahob supports a number of 1st order and SMT provers, and also the 
-MONA prover for the monadic fragment of 2nd order logic and Isabelle and Coq. 
+MONA prover for the monadic fragment of 2nd order logic and Isabelle and Coq.  
+The total amount of Jahob code is (todo), and Ynot code is (todo).
+
+We have compared the Jahob association list with an equivalent in ynot program. 
+Jahob uses 27 lines of ``representation'' code -- things like the invariant
+and edge relation.  The ynot association list has only 20 lines of such code,
+but also requires 8 lines to model unique lists and 100 lines of ``reasoning'' code -- things
+like lemmas and tactics.  The vast majority of this code is infrastructure code
+which can presumably be shared using libraries.  In Jahob, the equivalent functionality
+is provided by the underlying logic and theorem provers.  The Jahob program
+requires 17 lines of annotations, and the Ynot program 26 lines.   The Ynot
+program compiles in about two minutes on a 2ghz laptop.
 
  \subsection{Smallfoot (GREGORY)}
 We conclude our comparison with alternative approaches by comparing
