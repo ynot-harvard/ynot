@@ -60,8 +60,6 @@ Module Type JAHOB_ASSOC_LIST.
    STsep (m ~~ rep p m)
          (fun r:option V => m ~~ rep p m * [r = lookup m k] ).
 
-(* todo [~ Exists v @: V, In m (k, v) (maybe switch to forall v, ~ In k v ? *)
-
  Parameter isEmpty: forall (p: t) (m: [list (prod K V)]),
    STsep (m ~~ rep p m) (fun r:bool => m ~~ rep p m * if r then [m = nil] else [m <> nil]).
 
@@ -81,7 +79,7 @@ Module Type JAHOB_ASSOC_LIST.
 
 End JAHOB_ASSOC_LIST.
 
-(* This uses the same implementation code as Jahob *)
+(* This uses the same algorithms as Jahob *)
 Module JahobAssocList(A : NONDEP_ASSOCIATION) : JAHOB_ASSOC_LIST with Module A := A.
  Module A := A.
  Module AL := NondepAssocListModel(A).
@@ -247,12 +245,6 @@ Ltac t' := match goal with
                     n  <- New (node k v op) ;
                     {{ p ::= (Some n) }} ); t. Qed.
 
- (* Put           *********)
-
- Parameter put: forall k v (p: t) (m: [list (prod K V)]), 
-   STsep (m ~~ rep p m)
-         (fun r => m ~~ [r = lookup m k] * rep p ((k,v)::(delete m k))).
-
  (* Get           **********)
 
  Definition get' (k: K) (hd: option ptr) (m: [list (prod K V)]):
@@ -368,35 +360,31 @@ Lemma lkpdel : forall m k, lookup (delete m k) k = None.
  sep fail auto. instantiate (1:=v0). t. t. instantiate (1:= v2). t. t. instantiate(1:=v1). t. t.
 pose lkpdel. t. t. t. t. t. t. t. t. Qed.
 
-Parameter ff : False.
+ (* Put           *********)
 
-Definition putx k v (p: t) (m: [list (prod K V)]):
+Definition put k v (p: t) (m: [list (prod K V)]):
    STsep (m ~~ rep p m)
          (fun r => m ~~ [r = lookup m k] * rep p ((k,v)::(delete m k))).
 intros. 
-refine ( Assert (m ~~ rep p m) ;;
-         x <- get k p m ; 
-         Assert (m ~~ rep p m * [x = lookup m k]) ;;
+refine ( x <- get k p m ; 
           (match x as x0 return STsep (m ~~ rep p m * [x =lookup m k] * [x = x0])
-                                    (fun _:unit => m ~~ rep p (delete m k) * [x = lookup m k]) with
-            | Some xx => Assert ((m ~~ rep p m * [Some xx =lookup m k] * [x = Some xx])) ;;
- 
-(*                           <@ remove k p m ) @> (fun r:V =>  m ~~ rep p (delete m k) * [Some xx = lookup m k] )) ; 
-                          {{ Return  tt }} ;; *)
-                          False_rect _ ff 
-            | None => Assert (m ~~ rep p m * [None = lookup m k] * [x = None] ) ;;  
-                      {{  Return tt }} 
+                                    (fun _:unit => m ~~ rep p (delete m k) * [x = lookup m k])  with
+             | Some xx =>  z <- remove k p m <@> (m ~~ [Some xx =lookup m k] * [x = Some xx]) ;
+                             {{ Return  tt  }} 
+            | None => {{  Return tt <@> (m ~~  rep p m * [None =lookup m k] * [x = None])}} 
           end)  ;;
           add k v p (m ~~~ delete m k) <@> (m ~~ [x = lookup m k]) ;;
          {{ Return x }} 
-         ); pose lkup; pose lkpdel; pose lkup0; try solve [ t | t' |t'; tx ]. Admitted. (* sep fail auto. symmetry in H. t'. tx. Qed. *)
+         ); pose lkup; pose lkpdel; pose lkup0; try solve [ t | t' | sep fail auto; symmetry in H; t'; tx ].
+ sep fail auto. f. instantiate (1:=xx). t. Qed.
+
 
 (* todo switch to [ ] types in remove *)
 
 (* ******************************************************************************************************************************************* *)
 
 
-(* Equivalence to Jahob interface *)
+(* Equivalence to Jahob interface 
 
   Definition add0: forall k v (p: t) (m: [list (prod K V)]),
   STsep (m ~~ rep p m * [forall v0, ~ In (k,v0) m])
@@ -472,7 +460,7 @@ intros; refine(
    Else {{ putFast' k v opthd m <@> _ }} );
  try solve [ t | progress (hdestruct m; t) | destruct fn; hdestruct m; t; destruct m; t; t ]. Defined.
 
-*)
+*) *)
 
 End JahobAssocList.
 
