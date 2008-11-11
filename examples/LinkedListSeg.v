@@ -341,30 +341,20 @@ Ltac extend P tk := idtac;
     | _ => tk
   end.
 
-(**
-Lemma lift : forall (p : Prop) P Q,
-(** TODO: Move this into Separation.v **)
-  (p -> [p] * P ==> Q) -> [p] * P ==> Q.
-  intros. unfold hprop_imp in *. intros. destruct H0. destruct H0. destruct H0. destruct H1. destruct H1. pose (H H3 h). apply q.
-  unfold hprop_sep. exists x. exists x0. split; auto. split; auto. unfold hprop_inj. split; auto.
-Qed.
-
-Ltac remember_all :=
-  repeat search_prem ltac:(idtac; 
-    match goal with
-      | [ |- [?P] * _ ==> _ ] =>
-        extend P ltac:(apply (@lift P); intro)
-    end).
-**)
-
 Ltac ondemand_subst := idtac;
-  repeat match goal with 
-           | [ H : ?X = [_]%inhabited |- _ ] => fail
-           | [ H : ?X = ?Y |- _ ] => 
-             match goal with
-               | [ |- context[X] ] => rewrite -> H
-             end
-         end.
+  match goal with 
+    | [ H : ?X = ?Y |- _ ] => 
+      match Y with 
+        | [_]%inhabited => fail 1
+        | X => fail 1
+        | _ => 
+          match goal with
+            | [ H' : isExistential Y |- _ ] => fail 1
+            | [ H' : isExistential X |- _ ] => fail 1
+            | _ => rewrite -> H
+          end
+      end
+  end.
 
 Ltac extend_eq l r tac :=
   match l with
@@ -402,22 +392,6 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
        | [ H : None = ?X |- context[?X ~~> _] ] => rewrite <- H
        | [ H : ?X = nil |- _ ] => rewrite -> H
        | [ H : nil = ?X |- _ ] => rewrite <- H
-       | [ H : ?X <> None |- context[match ?X with
-                                       | None => _
-                                       | Some _ => _
-                                     end] ] => destruct X; [ | congruence ]
-       | [ H : None <> ?X |- context[match ?X with
-                                       | None => _
-                                       | Some _ => _
-                                     end] ] => destruct X; [ | congruence ]
-       | [ H : None = ?X -> False |- context[match ?X with
-                                               | None => _
-                                               | Some _ => _
-                                             end] ] => destruct X; [ | congruence ]
-       | [ H : ?X = None -> False |- context[match ?X with
-                                               | None => _
-                                               | Some _ => _
-                                             end] ] => destruct X; [ | congruence ]
      end 
   || match goal with 
        | [ |- ?PREM ==> ?CONC ] =>
@@ -487,17 +461,23 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
 
 Ltac simplr := simpl; repeat simplr''.
 
-Ltac simp_prem := print_state; (try discriminate); (try ondemand_subst);
-  simpl_prem ltac:(
-(**      apply empty_seg; idtac "empty_seg"  **)
-       apply llist_unfold
-    || (apply llseg_unfold_nil; idtac "nil")
+Ltac unfolder := idtac "UNFOLDING"; print_goal; simpl_prem 
+  ltac:(apply llseg_unfold_nil
     || (apply llseg_unfold_some_cons; idtac "some_cons")
     || (apply llseg_unfold_same; idtac "same")
     || (apply llseg_unfold_cons; idtac "cons")
     || (apply llseg_unfold_head_none; idtac "head_none")
     || (apply llseg_unfold_tail_none; [ solve [ congruence ] | ])
-    || (apply llseg_unfold_some; congruence; idtac "some")).
+    || (apply llseg_unfold_some; idtac "some" )).
+
+Ltac simp_prem := discriminate ||
+  (repeat (
+     ondemand_subst
+  || unfolder
+  || (add_segne; idtac "S1")
+  || (add_somenoneseg; idtac "S2")
+  || (add_mlocneq; idtac "S3")
+  || (add_locneq; idtac "S4"))).
 
 
 Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
@@ -537,9 +517,28 @@ Definition freeHead : forall (p : LinkedList) (q : [LinkedList]) (b : [A]) (ls :
 (**      Assert (ls ~~ q ~~ b ~~ Exists nde :@ Node, p --> nde * [b = data nde] * llseg (next nde) q ls);; **)
       nde <- !p;
       Free p;;
-      {{Return (next nde)}});
+      {{Return (next nde)}}).
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
   t.
 Qed.
+
+Ltac tr := unfold llist; intros;
+  match goal with 
+    | [ |- _ ==> ?C ] =>
+      match C with 
+        | context[inhabit_unpack _ _ ] => idtac "recursion";
+          (inhabiter; simp_prem; intro_pure;
+            (try simpl_prem ltac:(solve [ eauto ])); unintro_pure; canceler) || fail 1
+        | _ => idtac "no recursion"
+      end
+    | [ |- _ ] => idtac "what???"; print_goal
+  end; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 
 Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
   (T : Set) (vt : [T]),
@@ -561,6 +560,27 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
           rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
           res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
           {{Return res}}) p' ls'); clear self.
+(**  tr.
+  tr.
+  tr.
+  tr.
+  tr. 
+  tr.
+  intros; try equater; inhabiter. simp_prem. intro_pure. unpack_conc. unintro_pure. canceler. sep fail auto.
+  Show Existentials.
+  t.
+
+ t.
+
+
+  tr.
+  tr.
+  tr.
+  tr.
+  tr.
+  tr.
+  tr. *)
+  t.
   t.
   t.
   t.
@@ -571,8 +591,50 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A])
   t.
   (**instantiate (1 :=  ls ~~ [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * p0 --> nde).**) t. 
   t.
-  t.
   t. 
+Qed.
+
+Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
+  STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
+        (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
+  intros;
+  refine (Fix3
+    (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
+    (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
+    (fun self pr nde lsp =>
+      IfNull (next nde) As p Then
+        {{pr ::= node (data nde) q}}
+      Else 
+        nde' <- !p;
+        {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
+    ) pr' nde' lsp').
+  t.
+  t.
+  t.
+  t.
+  t.
+  t. destruct x; t.
+Qed.
+
+Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
+  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+        (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
+  intros;
+  refine (
+    IfNull p As p' Then
+      {{Return q}}
+    Else 
+      nde <- !p';
+      append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
+      {{Return p}}).
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t.
+  t; destruct x0; t.
 Qed.
 
 Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
@@ -806,50 +868,6 @@ Section Remove.
   Qed.    
 
 End Remove.
-
-Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
-  STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
-        (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
-  intros;
-  refine (Fix3
-    (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
-    (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
-    (fun self pr nde lsp =>
-      IfNull (next nde) As p Then
-        {{pr ::= node (data nde) q}}
-      Else 
-        nde' <- !p;
-        {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
-    ) pr' nde' lsp').
-  t.
-  t.
-  t.
-  t.
-  t.
-  t. destruct x; t.
-Qed.
-
-Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
-  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
-        (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
-  intros;
-  refine (
-    IfNull p As p' Then
-      {{Return q}}
-    Else 
-      nde <- !p';
-      append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
-      {{Return p}}).
-  t.
-  t.
-  t.
-  t.
-  t.
-  t.
-  t.
-  t; destruct x0; t.
-Qed.
-
 
 End LINKED_LIST_SEG.
 
