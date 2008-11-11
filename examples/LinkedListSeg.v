@@ -341,28 +341,12 @@ Ltac extend P tk := idtac;
     | _ => tk
   end.
 
-(**
-Lemma lift : forall (p : Prop) P Q,
-(** TODO: Move this into Separation.v **)
-  (p -> [p] * P ==> Q) -> [p] * P ==> Q.
-  intros. unfold hprop_imp in *. intros. destruct H0. destruct H0. destruct H0. destruct H1. destruct H1. pose (H H3 h). apply q.
-  unfold hprop_sep. exists x. exists x0. split; auto. split; auto. unfold hprop_inj. split; auto.
-Qed.
-
-Ltac remember_all :=
-  repeat search_prem ltac:(idtac; 
-    match goal with
-      | [ |- [?P] * _ ==> _ ] =>
-        extend P ltac:(apply (@lift P); intro)
-    end).
-**)
-
 Ltac ondemand_subst := idtac;
   repeat match goal with 
-           | [ H : ?X = [_]%inhabited |- _ ] => fail
-           | [ H : ?X = ?Y |- _ ] => 
-             match goal with
-               | [ |- context[X] ] => rewrite -> H
+           | [ H : ?X = ?Y |- context[?X] ] => 
+             match Y with 
+               | [_]%inhabited => fail 1
+               | _ => rewrite -> H
              end
          end.
 
@@ -402,22 +386,6 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
        | [ H : None = ?X |- context[?X ~~> _] ] => rewrite <- H
        | [ H : ?X = nil |- _ ] => rewrite -> H
        | [ H : nil = ?X |- _ ] => rewrite <- H
-       | [ H : ?X <> None |- context[match ?X with
-                                       | None => _
-                                       | Some _ => _
-                                     end] ] => destruct X; [ | congruence ]
-       | [ H : None <> ?X |- context[match ?X with
-                                       | None => _
-                                       | Some _ => _
-                                     end] ] => destruct X; [ | congruence ]
-       | [ H : None = ?X -> False |- context[match ?X with
-                                               | None => _
-                                               | Some _ => _
-                                             end] ] => destruct X; [ | congruence ]
-       | [ H : ?X = None -> False |- context[match ?X with
-                                               | None => _
-                                               | Some _ => _
-                                             end] ] => destruct X; [ | congruence ]
      end 
   || match goal with 
        | [ |- ?PREM ==> ?CONC ] =>
@@ -487,18 +455,23 @@ Ltac simplr'' := (idtac "simplr''"; simpl; congruence || discriminate
 
 Ltac simplr := simpl; repeat simplr''.
 
-Ltac simp_prem := print_state; (try discriminate); (try ondemand_subst);
-  simpl_prem ltac:(
-(**      apply empty_seg; idtac "empty_seg"  **)
-       apply llist_unfold
-    || (apply llseg_unfold_nil; idtac "nil")
+Ltac unfolder := simpl_prem ltac:(
+       (apply llseg_unfold_nil; idtac "nil")
     || (apply llseg_unfold_some_cons; idtac "some_cons")
     || (apply llseg_unfold_same; idtac "same")
     || (apply llseg_unfold_cons; idtac "cons")
     || (apply llseg_unfold_head_none; idtac "head_none")
-    || (apply llseg_unfold_tail_none; [ solve [ congruence ] | ])
-    || (apply llseg_unfold_some; congruence; idtac "some")).
+    || (apply llseg_unfold_some; idtac "some"; solve [ congruence ])
+    || (apply llseg_unfold_tail_none; solve [ congruence ])).
 
+Ltac expander :=
+     (add_segne; idtac "S1")
+  || (add_somenoneseg; idtac "S2")
+  || (add_mlocneq; idtac "S3")
+  || (add_locneq; idtac "S4").
+
+Ltac simp_prem := print_state; discriminate || 
+  (repeat (ondemand_subst || unfolder || expander)).
 
 Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
