@@ -454,11 +454,18 @@ Ltac inhabiter :=
     || (apply himp_ex_prem; do 2 intro)).
 
 Ltac canceler :=
-  repeat search_prem ltac:(idtac;
+  search_conc ltac:(idtac; (** Eliminate the empty heaps on the RHS **)
     match goal with
-      | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
-      | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
-    end).
+      [ |- _ ==> __ * _ ] => apply himp_empty_conc
+    end);
+  repeat search_prem ltac:(idtac;
+    apply himp_empty_prem || (** Eliminate empty heaps on LHS **)
+    search_conc ltac:(idtac; 
+      (** Eliminate common heaps. The match prevents capturing existentials **)
+      match goal with
+        | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
+        | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
+      end)). 
 
 Ltac specFinder stac :=
   inhabiter; try (stac; inhabiter);
