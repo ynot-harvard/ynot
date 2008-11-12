@@ -667,13 +667,13 @@ Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
       nde <- !p;
       if nat_eq 0 idx then
         nelem <- New (node a (next nde));
-        p ::= node (data nde) (Some nelem);;
-        {{Return tt}}
+        {{p ::= node (data nde) (Some nelem)}}
+(**        {{Return tt}} **)
       else
         IfNull next nde As nxt Then 
           nelem <- New (node a (next nde));
-          p ::= node (data nde) (Some nelem);;
-          {{Return tt}}
+          {{p ::= node (data nde) (Some nelem)}};;
+(**          {{Return tt}} **)
         Else
           {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self.
   t.
@@ -887,11 +887,10 @@ Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq
     (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
     (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
     (fun self pr nde lsp =>
-      IfNull (next nde) As p Then
-        {{pr ::= node (data nde) q}}
-      Else 
-        nde' <- !p;
-        {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
+      IfNull (next nde) As p
+      Then {{pr ::= node (data nde) q}}
+      Else nde' <- !p;
+           {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
     ) pr' nde' lsp').
   t.
   t.
@@ -906,12 +905,11 @@ Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]
         (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
   intros;
   refine (
-    IfNull p As p' Then
-      {{Return q}}
-    Else 
-      nde <- !p';
-      append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
-      {{Return p}}).
+    IfNull p As p'
+    Then {{Return q}}
+    Else nde <- !p';
+         append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
+         {{Return p}}).
   t.
   t.
   t.

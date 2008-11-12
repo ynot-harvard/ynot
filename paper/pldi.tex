@@ -6,6 +6,7 @@
 \usepackage{color}
 
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
+\newcommand{\hide}[1]{}
 
 \newcommand{\cd}[1]{\texttt{#1}}
 
@@ -881,14 +882,80 @@ program compiles in about two minutes on a 2ghz laptop.
  \subsection{Smallfoot (GREGORY)}
 We conclude our comparison with alternative approaches by comparing
 our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
-compltely automatic reasoning and concurrency, and it's almost
-complete nature makes many correct programs go through with only the
-function level annotations. Since the current version of Ynot does not
-address concurrency (it is planned for the future), we will not
-address this in our comparison. Based on these points, we draw a
-comparison in two parts: the size of annotations and proof obligations
-and the expressivity of the logic.
+completely automatic reasoning and concurrency. Since the current
+version of Ynot does not address concurrency, we will not address this
+in our comparison. We draw a comparison in two parts: the size of
+annotations and proof obligations and the expressivity of the
+logic. We use the linked list as a running example.
 
+The Smallfoot system defines a segment of a linked list as the minimal
+predicate satisfying the following:
+$$
+ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
+$$
+
+\noindent The definition is expressible in a similar manner to the
+queue representation fixpoint described previously. The notable
+difference being the addition of the inequality which is necessary to
+guarantee non-cycles. The only difficulty in reasoning comes from the
+fact that {\tt new} returns a pointer which is guaranteed distinct
+only from {\it currently allocated} pointers, not all previously
+allocated pointers. This requires the Ynot functions which allocate to
+accept a ghost variable witnessing that the list ends at {\tt nil} or
+an allocated pointer. The type for {\it cons} shows the use of this
+condition.
+\begin{verbatim}
+cons :: forall (v : A) (r : LinkedList) 
+  (q : [LinkedList]) (m : [list A]) (T : Type)
+  (vt : [T]),
+  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
+    (fun r:LinkedList => q ~~ m ~~ vt ~~ 
+     llseg r q (v :: m) * q ~~> vt * [r <> None]).
+\end{verbatim}
+Where the {\tt ~~>} arrow denotes a option pointer (potentially null)
+pointing to {\it vt} if it is not {\tt null}. In the case of a
+complete list, {\it vt} is {\tt null} and any values of {\it T} and
+{\it vt} will suffice. \todo{While subtle, this bug is potentially
+  dangerous and, not addressed by the Smallfoot system.} Allocating a
+list, and then addressing only a prefix of the list creates a problem
+because the sentinal value could become a pointer in the middle of the
+list if the head of the remaining list is freed and memory is
+reclaimed and returned in a call to insert into the segment.
+
+We consider {\tt append} function on lists as a representative
+example. In Smallfoot, the function is built using a {\tt while} loop,
+requires 14 lines, and three annotations: the pre- and post-conditions
+and the loop invariant. To maintain a close symmetry between the
+definitions, we break the {\it append} function into two pieces, one
+for the loop and the other for the main body. The two functions are,
+respectively, 4 and 5 lines but require \todo{4 total} lines of
+annotations, two for the fixpoint definition \todo{and a framing
+  condition on each recursive call}. As with all previous examples,
+the proof-automation tactics used for this function apply to all
+functions dealing with linked lists.
+
+While the Smallfoot system is faster and requires less verbose
+annotations, there are two primary advantages that Ynot has over
+it. The first is, as previously mentioned, Ynot functions use
+dependent types to represent partial correctness; the Smallfoot system
+guarantees only heap-safety. This is captured in the type for {\it
+  append}:
+\begin{verbatim}
+append :: (p q : LinkedList) (lsp lsq : [list A]),
+  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+        (fun r:LinkedList => 
+             lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
+\end{verbatim}
+The second advantage is that of expressivity which has been shown in
+previous examples. The ease of use in Smallfoot comes at the price of
+restricting programs to a small set of data structures (including
+linked lists, doubly linked lists, trees, and xor-lists) for which the
+definitions and corresponding inductive properties can be defined
+using predicate logic. The theory built for each data structure in
+Smallfoot plays the same roll as the theorems for which counts are
+given in Figure \ref{loc}. 
+
+\hide{
 On the size of proof obligations, the Smallfoot system comes out
 ahead, requiring no user-constructed proofs. The drawback to this is
 that only inductive data of the following types are allowed: singly
@@ -995,6 +1062,7 @@ Smallfoot examples:
 \item xor linked list segment
 \item xdeq --- uses parallelism (reading and writing buffer)
 \end{itemize}
+}
 
 \section{Other Related Work}
 
