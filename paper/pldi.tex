@@ -96,14 +96,15 @@ specification logic into the type system in order to rule out a wider
 range of truly bad states.
 
 However, in the case of ESC/Java, Spec\#, and Sage, the program logic
-is too weak to support full verification because these systems rely upon
-provers to automatically discharge verification conditions.  While
-there have been great advances in the performance of automated
-provers, in practice, they can can only handle relatively shallow
-fragments of first-order logic.  Thus, programmers are frustrated when code
-that is correct is rejected by the type-checker.  For example, none
-of these systems is able to prove that an array index is in bounds when
-the constraints involved step outside quantifier-free linear arithmetic.  
+is too weak to support full verification because these systems rely
+upon provers to automatically discharge verification conditions.
+While there have been great advances in the performance of automated
+provers, in practice, they can only handle relatively shallow
+fragments of first-order logic.  Thus, programmers are frustrated when
+code that is correct is rejected by the type-checker.  For example,
+none of these systems is able to prove that an array index is in
+bounds when the constraints involved step outside quantifier-free
+linear arithmetic.
 
 In contrast, ATS, Concoqtion, and Ynot use powerful, higher-order
 logics that support a much wider range of policies including (partial)
@@ -117,10 +118,10 @@ iterators.
 
 The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
-type-checker that code is correct.  Unfortunately, explicit proofs
-can be quite large when compared to the code: For example, in the Ynot
-module implementing a linked-list queue, the code takes up 7 lines
-whereas the proof of correctness is about 70 lines.  
+type-checker that code is correct.  Unfortunately, explicit proofs can
+be quite large when compared to the code.  For example, in the Ynot
+module implementing a linked-list queue, the code takes up 7 lines,
+whereas the proof of correctness is about 70 lines.
 
 This paper reports our experience re-designing and re-implementing
 Ynot to dramatically reduce the burden of writing and maintaining the
@@ -128,14 +129,14 @@ necessary proofs for full verification.  Like the original Ynot, our
 system is based on the ideas of Hoare Type Theory~\cite{htt} and is
 realized as an axiomatic extension of the Coq proof
 assistant~\cite{CoqArt}.  This allows us to inherit the full power of
-Coq's dependent types for writing code, specifications, and proofs and
-to extract executable ML code.  However, unlike the previous version,
-we have taken advantage of Coq's tactic language Ltac to
-implement a new set of parameterized semi-decision procedures for
-automatically discharging or at least simplifying the separation
-logic-style verification conditions.  The careful design of these procedures
-makes it possible for programmers to teach the prover about new domains
-as they arise.  
+Coq's dependent types for writing code, specifications, and proofs,
+and it allows us to use Coq's facility for extraction to executable ML
+code.  However, unlike the previous version, we have taken advantage
+of Coq's tactic language Ltac to implement a new set of parameterized
+semi-decision procedures for automatically discharging or at least
+simplifying the separation logic-style verification conditions.  The
+careful design of these procedures makes it possible for programmers
+to teach the prover about new domains as they arise.
 
 We describe this new implementation of Ynot and report on our
 experience implementing and verifying various imperative data
