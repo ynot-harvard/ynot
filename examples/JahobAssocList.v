@@ -251,7 +251,6 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
 
  (* Get           **********)
 
-
  Definition get' (k: K) (hd: option ptr) (m: [list (prod K V)]):
     STsep (m ~~ rep' hd m) (fun r => m ~~ [r = lookup m k] * rep' hd m).
   intro k.
@@ -264,8 +263,9 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
       Else  fn <- ! hd ;
             if eqK k (key fn) 
             then {{ Return (Some (value fn)) }} 
-            else {{ self (next fn) (m ~~~ tail m) <@> (m ~~ [head m = Some (key fn, value fn)] * [lookup (tail m) (key fn) = None] (* * [lookup (tail m) k = lookup m k] *) * hd --> fn  ) }})); pose lkup; try t'. Qed.  
-
+            else {{ self (next fn) (m ~~~ tail m) <@>  (m ~~ [head m = Some (key fn, value fn)] * 
+                                                              [lookup (tail m) (key fn) = None] 
+                                                              * hd --> fn  )  }})); pose lkup; try t'. Qed.  
 
   Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
     STsep (m ~~ rep p m)
@@ -310,8 +310,9 @@ intro k. refine (Fix4 (remove_pre k) (remove_post k)
        Else {{ self (ls ~~~ tail ls) cur n nt <@>  (ls ~~ Exists t :@ list (prod K V), [lookup t (key pn) = None] * 
                                             [ls = (key pn, value pn) :: (key n, value n) :: t]  * [k <> key n] * 
                                             [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur))  }})); 
-unfold remove_pre; unfold remove_post; pose lkup; pose lkup0; try solve [ t | t' | sep fail auto; t'; tx ].
-rewrite _0. t'. instantiate (1:=v0). t. Qed.
+unfold remove_pre; unfold remove_post; pose lkup; pose lkup; 
+solve [ t | t' | sep fail auto; t'; tx | rewrite _0; t'; instantiate (1:=v0); t ]. Qed.
+
 
 Lemma lkpdel : forall m k, lookup (delete m k) k = None.
  intros. induction m. trivial. simpl. destruct a. destruct (eqK k k0). assumption. simpl. 
@@ -374,3 +375,4 @@ refine ( x <- get k p m ;
  sep fail auto. f. instantiate (1:=xx). t. Qed.
 
 End JahobAssocList.
+
