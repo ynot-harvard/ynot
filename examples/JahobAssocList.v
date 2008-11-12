@@ -18,15 +18,29 @@ Module NondepAssocListModel(A : NONDEP_ASSOCIATION).
     the same list mutations that Jahob gets using set deletion 
     and union. *)  
 
- Fixpoint delete (l: list (prod K V)) (k: K) :=  match l with  | nil => nil
-   | (k', v')::b => if eqK k k'  then delete b k  else (k',v') :: (delete b k)  end.
+ Fixpoint delete (l: list (prod K V)) (k: K) :=  
+   match l with  
+     | nil => nil
+     | (k', v')::b => if eqK k k'  then delete b k  else (k',v') :: (delete b k)  
+   end.
 
- Fixpoint lookup l (k: K) : option V         :=  match l with  | nil => None
-  | (k', v)::b   => if eqK k k'  then Some v      else lookup b k               end.
+ Fixpoint lookup l (k: K) : option V         :=  
+   match l with  
+     | nil => None
+     | (k', v)::b   => if eqK k k'  then Some v      else lookup b k               
+   end.
 
- Definition head (ls : list (prod K V)) := match ls with | nil => None | x :: _ => Some x end.
+ Definition head (ls : list (prod K V)) := 
+   match ls with 
+     | nil => None 
+     | x :: _ => Some x 
+   end.
 
- Definition tail (ls : list (prod K V)) := match ls with | nil => nil  | _ :: ls' => ls'  end.
+ Definition tail (ls : list (prod K V)) := 
+   match ls with 
+     | nil => nil  
+     | _ :: ls' => ls'  
+   end.
 
 End NondepAssocListModel.
 
@@ -135,7 +149,6 @@ Ltac simplr := repeat (try discriminate;
     | [  H : next ?nn = ?a |- ?n = node (key ?nn) (value ?nn) ?a ] => rewrite <- H; destruct n; reflexivity
     | [ _ : (if eqK ?a ?b then Some _ else None) = Some _ |- _ ] => destruct (eqK a b); [ idtac | discriminate ] 
     | [ _ : (if eqK ?a ?a then _ else _) = _ |- _ ] => destruct (eqK a a); [ idtac | intuition ] 
-  (*  | [ |- context[ if (eqK ?v1 ?v2) then _ else _ ] ] => destruct (eqK v1 v2) *)
   end).
 
 Ltac t := unfold rep; unfold rep'; sep fail simplr.
@@ -230,6 +243,10 @@ Theorem lkup0 : forall ls k,
   lookup ls k = None -> ls = delete ls k.
  intros. induction ls. t. t. destruct a. destruct (eqK k k0). t. pose (IHls H). rewrite <- e. trivial. Qed.
 
+Lemma lkpdel : forall m k, lookup (delete m k) k = None.
+ intros. induction m. trivial. simpl. destruct a. destruct (eqK k k0). assumption. simpl. 
+ destruct (eqK k k0). contradiction. assumption. Qed.
+
 Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' ?x (delete ?ls ?n) ] =>  rewrite <- (lkup0 ls n H) ; t end. 
 
 (* Implementation ***************************************************)
@@ -263,13 +280,15 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
       Else  fn <- ! hd ;
             if eqK k (key fn) 
             then {{ Return (Some (value fn)) }} 
-            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup; t'. Qed.
+            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup; t'. 
+  Qed.
 
   Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
     STsep (m ~~ rep p m)
           (fun r:option V => m ~~ rep p m * [r = lookup m k] ).
   intros; refine (hd <- !p;
-                {{get' k hd m <@> p --> hd }}); t. Qed.
+                {{get' k hd m <@> p --> hd }}); t. 
+  Qed.
 
  (* isEmpty         ********)
 
@@ -278,7 +297,8 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
    intros; refine ( ohd <- SepRead p (fun ohd => m ~~ rep' ohd m) ;
                     IfNull ohd 
                     Then  {{ Return true  }}
-                    Else  {{ Return false }} ); t'. Qed.
+                    Else  {{ Return false }} ); t'. 
+ Qed.
 
  (* Remove         *********)
 
@@ -310,11 +330,6 @@ intro k. refine (Fix4 (remove_pre k) (remove_post k)
                                             [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur))  }})); 
 unfold remove_pre; unfold remove_post; pose lkup; pose lkup; 
 solve [ t | t' | sep fail auto; t'; tx | rewrite _0; t'; instantiate (1:=v0); t ]. Qed.
-
-
-Lemma lkpdel : forall m k, lookup (delete m k) k = None.
- intros. induction m. trivial. simpl. destruct a. destruct (eqK k k0). assumption. simpl. 
- destruct (eqK k k0). contradiction. assumption. Qed.
 
  Definition remove : forall k (p: t) (m: [list (prod K V)]),
                      STsep (m ~~ rep p m * Exists v :@ V, [Some v = lookup m k]) 
