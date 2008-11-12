@@ -226,6 +226,12 @@ Ltac t' := match goal with
              | _ => t''
            end.
 
+Theorem lkup0 : forall ls k,
+  lookup ls k = None -> ls = delete ls k.
+ intros. induction ls. t. t. destruct a. destruct (eqK k k0). t. pose (IHls H). rewrite <- e. trivial. Qed.
+
+Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' ?x (delete ?ls ?n) ] =>  rewrite <- (lkup0 ls n H) ; t end. 
+
 (* Implementation ***************************************************)
 
   Open Scope stsepi_scope.
@@ -258,7 +264,8 @@ Ltac t' := match goal with
       Else  fn <- ! hd ;
             if eqK k (key fn) 
             then {{ Return (Some (value fn)) }} 
-            else {{ self (next fn) (m ~~~ tail m) <@> _ }})); t'. Qed. 
+            else {{ self (next fn) (m ~~~ tail m) <@> (m ~~ [head m = Some (key fn, value fn)] * [lookup (tail m) (key fn) = None] (* * [lookup (tail m) k = lookup m k] *) * hd --> fn  ) }})); pose lkup; try t'. Qed.  
+
 
   Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
     STsep (m ~~ rep p m)
@@ -277,11 +284,6 @@ Ltac t' := match goal with
 
  (* Remove         *********)
 
-Theorem lkup0 : forall ls k,
-  lookup ls k = None -> ls = delete ls k.
- intros. induction ls. t. t. destruct a. destruct (eqK k k0). t. pose (IHls H). rewrite <- e. trivial. Qed.
-
-Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' ?x (delete ?ls ?n) ] =>  rewrite <- (lkup0 ls n H) ; t end. 
 
 Definition remove_pre k ls prev pn cur := (ls ~~ Exists t :@ list (K*V), Exists v :@ V, Exists n :@ Node, 
  [lookup ((key n, value n)::t) k = Some v] * 
