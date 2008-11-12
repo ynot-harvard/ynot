@@ -998,7 +998,18 @@ Smallfoot examples:
 \item xdeq --- uses parallelism (reading and writing buffer)
 \end{itemize}
 
-\section{Other related work}
+\section{Other Related Work}
+
+The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
+
+A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic, making it much harder to write verified data structure implementations than in our system.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
+
+There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories like arithmetic.
+
+The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users not just to define new inductive predicates, but also to extend a generic solver with arbitrary rules for simplifying uses of the predicates.
+
+In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
+
 
 
 \section{Conclusions \& Future Work}
