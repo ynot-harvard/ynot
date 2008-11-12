@@ -855,16 +855,14 @@ program compiles in about two minutes on a 2ghz laptop.
 
  \subsection{Smallfoot (GREGORY)}
 We conclude our comparison with alternative approaches by comparing
-our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot
-is on compltely automatic reasoning, and it's almost complete nature
-makes many correct programs go through with only the function level
-annotations, a goal, but not yet a complete reality in Ynot. In
-addition to the focus on automatic proofs, Smallfoot includes simple
-concurrency primitives, $||$ and $\mathsf{with}\,r\,\mathsf{when}(B)
-C$ with which they are able to implement a producer-consumer
-model. Based on these points, we will draw a comparison in two parts:
-the size of annotations and proof obligations and the expressivity of
-the logic.
+our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
+compltely automatic reasoning and concurrency, and it's almost
+complete nature makes many correct programs go through with only the
+function level annotations. Since the current version of Ynot does not
+address concurrency (it is planned for the future), we will not
+address this in our comparison. Based on these points, we draw a
+comparison in two parts: the size of annotations and proof obligations
+and the expressivity of the logic.
 
 On the size of proof obligations, the Smallfoot system comes out
 ahead, requiring no user-constructed proofs. The drawback to this is
