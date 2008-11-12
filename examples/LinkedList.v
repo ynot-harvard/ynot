@@ -380,7 +380,8 @@ Definition removeAfter : forall (ll: LinkedList) (eq : forall q r : A, {q = r} +
   intros;
   refine (hd <- !ll; {{removeAfter' hd eq a c b d <@> (ll --> hd)}}); t.
 Qed.
-  
+
+(*  
 Conjecture length' (hd : option ptr) (m: [list A]) :
   STsep (m ~~ rep' hd m)
         (fun res:nat => m ~~ [res = length m] * rep' hd m).
@@ -412,9 +413,11 @@ Definition foreach : forall (this : LinkedList) (f : A -> STsep) (ls : [list A])
   STsep (ls ~~ rep ls this)
         (
 **)
+*)
 
 End LINKED_LIST. 
 
+(*
 Definition SepWhile : forall I P
   (test : STsep (I) (fun r:{P} + {~P} => I)) 
   (body : STsep ([P] * I) (fun _:unit => I)),
@@ -431,6 +434,7 @@ Definition SepWhile : forall I P
                   {{Return tt}}) tt);
   solve [ t | destruct continue; t ].
 Qed.
+*)
 
 (**
 Definition SepPose : forall (H : hprop) (P : hprop) (pf : __ ==> P),
