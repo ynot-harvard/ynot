@@ -77,25 +77,25 @@
 \section{Introduction (GREG)}
 
 A key goal of type systems is to prevent ``bad states'' from arising
-in the execution of programs.  But today's type systems fail to catch
+in the execution of programs, but today's type systems fail to catch
 language-level errors, such as a null-pointer dereference or an
 out-of-bounds array index, much less library- and application-specific
 errors such as removing an element from an empty queue, failing to
 maintain the invariants of a blanced tree, or forgetting to release a
-critical resource such as a database connection.  For safety and
+critical resource such as a database connection.  For safety- and
 security-critical code, a type system should ideally rule out these
-problems and in the limit, make it possible for programmers to verify
+problems and, in the limit, make it possible for programmers to verify
 that their code is correct.
 
 There are many recent attempts to extend the scope of type systems to
 address a wider range of safety properties.  Representative examples
-include ESC-Java~\cite{esc-java}, Spec\#~\cite{spec-sharp},
-Sage~\cite{sage}, ATS~\cite{ats}, Concoqtion~\cite{concoqtion}, and
-Ynot~\cite{ynot-icfp}.  Each of these systems integrates some form of
+include ESC/Java~\cite{esc-java}, Spec\#~\cite{spec-sharp},
+ATS~\cite{ats}, Concoqtion~\cite{concoqtion}, Sage~\cite{sage}, and
+Ynot~\cite{ynot:icfp}.  Each of these systems integrates some form of
 specification logic into the type system in order to rule out a wider
 range of truly bad states.
 
-However, in the case of ESC-Java, Spec\# and Sage, the program logic
+However, in the case of ESC-Java, Spec\#, and Sage, the program logic
 is too weak to support full verification because these systems rely upon
 provers to automatically discharge verification conditions.  While
 there have been great advances in the performance of automated
