@@ -471,8 +471,7 @@ Ltac expander :=
   || (add_mlocneq; idtac "S3")
   || (add_locneq; idtac "S4").
 
-Ltac simp_prem := print_state; discriminate || 
-  (repeat (ondemand_subst || unfolder || expander)).
+Ltac simp_prem := discriminate || (repeat (ondemand_subst || unfolder || expander)).
 
 Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
@@ -512,6 +511,30 @@ Definition freeHead : forall (p : LinkedList) (q : [LinkedList]) (b : [A]) (ls :
   t.
 Qed.
 
+Ltac lp := idtac;
+  match goal with
+    | [ H : ?P |- ?PREM ==> ?CONC ] =>
+      match P with
+        | context [ [_]%inhabited ] => fail 1
+        | _ = _ => 
+          match PREM with
+            | context [ [P] ] => fail 1
+            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
+          end
+        | _ <> _ => 
+          match PREM with
+            | context [ [P] ] => fail 1
+            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
+          end
+        | _ = _ -> False => 
+          match PREM with
+            | context [ [P] ] => fail 1
+            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
+          end
+        | _ => fail
+      end
+  end.
+
 Ltac rect := 
   intros; try equater; try inhabiter; simp_prem; unpack_conc;
     repeat match goal with
@@ -519,7 +542,7 @@ Ltac rect :=
                let l := fresh "eq" in
                rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
            end; ondemand_subst; print_goal;
-    canceler; t.
+    try canceler; t.
 
 Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T : Set) (vt : [T]),
   STsep (ls' ~~ vt ~~ llseg p' q ls' * q ~~> vt)
@@ -545,6 +568,49 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T 
   rect.
   rect.
   rect.
+  intros; try equater; try inhabiter; simp_prem. unpack_conc.
+  repeat match goal with
+    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
+      let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l; clear l)
+    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => 
+
+        rewrite -> H1 in H2; simpl in H2
+  end. canceler. repeat lp. sep fail idtac.
+  intros; try equater. cbv beta. apply himp_refl.
+  canceler. try equater. apply himp_refl.
+
+  intros; try equater; try inhabiter; simp_prem. unpack_conc.
+  repeat match goal with
+    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
+      let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l; clear l)
+    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => 
+
+        rewrite -> H1 in H2; simpl in H2
+  end. canceler. repeat lp. sep fail idtac.
+
+ try inhabiter. simp_prem. inhabiter. unpack_conc.
+  canceler. t.
+
+  rect.
+
+
+
+  match goal with
+    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] => extend_eq X Y ltac:(pose (l := pack_injective H))
+    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => idtac "recursion";
+      let l := fresh "eq" in
+        rewrite -> H1 in H2; simpl in H2
+  end.
+
+
+
+  match goal with
+    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => idtac "recursion";
+      let l := fresh "eq" in
+        rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
+  end.
+  
+
   rect. ondemand_subst. 
   try match goal with 
     | [ H : ?X = ?Y |- _ ] => idtac X Y; fail
