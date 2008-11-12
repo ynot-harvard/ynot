@@ -454,7 +454,7 @@ Ltac inhabiter :=
     || (apply himp_ex_prem; do 2 intro)).
 
 Ltac canceler :=
-  search_conc ltac:(idtac; (** Eliminate the empty heaps on the RHS **)
+  try search_conc ltac:(idtac; (** Eliminate the empty heaps on the RHS **)
     match goal with
       [ |- _ ==> __ * _ ] => apply himp_empty_conc
     end);
