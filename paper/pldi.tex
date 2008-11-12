@@ -562,7 +562,7 @@ Parameter array_plus : array -> nat -> [ptr].
 
 The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
 
-With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
+With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde \; v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
 
 \begin{verbatim}
 Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
@@ -590,7 +590,7 @@ An example is a \cd{getElements} function, defined in terms of the list invarian
 
 \begin{verbatim}
 Definition getElements (hd : option ptr) (ls : [list A]) :
-  STsep (ls ~~ listRep m hd)
+  STsep (ls ~~ listRep ls hd)
         (fun res : list A => ls ~~ [res = ls]
           * listRep ls hd).
   refine (Fix2
