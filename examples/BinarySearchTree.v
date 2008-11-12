@@ -3,236 +3,13 @@
  *)
 Require Import Ynot.
 Require Import FiniteMap.
+Require Import AssocListOrdModel.
 
 Set Implicit Arguments.
-
-Module Type BINARY_TREE_ASSOCIATION.
-  Variable key_t : Set.
-  Variable key_eq_dec : forall (k1 k2:key_t), {k1=k2} + {k1<>k2}.
-  Notation "k1 =! k2" := (key_eq_dec k1 k2) (at level 70, right associativity).
-  Variable key_lt : key_t -> key_t -> Prop.
-  Notation "k1 < k2" := (key_lt k1 k2).
-  Variable key_lt_imp_ne : forall k1 k2, k1 < k2 -> k1 <> k2.
-  Variable key_lt_trans : forall k1 k2 k3, k1 < k2 -> k2 < k3 -> k1 < k3.
-  Variable key_cmp : forall (k1 k2:key_t), {k1 < k2} + {k1 = k2} + {k2 < k1}.
-  Variable value_t : key_t -> Set.
-End BINARY_TREE_ASSOCIATION.
-
-Module BinaryTreeModel(A : BINARY_TREE_ASSOCIATION).
-  Import A.
-  Module AL := AssocList(A).
-  Export AL.
-
-  (* generally useful tactics *)
-  Ltac notHyp P :=
-  match goal with
-    | [ _ : P |- _ ] => fail 1
-    | _ => idtac
-  end.
-
-  Ltac extend pf :=
-    let t := type of pf in
-      notHyp t; generalize pf; intro.
-  
-  Definition key_lte_dec k1 k2 : {k1 < k2 \/ k1=k2} + {k2 < k1}
-    := match key_cmp k1 k2 with
-         | inleft (left k1_lt_k2) => left _ (or_introl _ k1_lt_k2)
-         | inleft (right k1_eq_k2) => left _ (or_intror _ k1_eq_k2)
-         | inright k1_gt_k2 => right _ k1_gt_k2
-       end.
-  Notation "k1 <=! k2" := (key_lte_dec k1 k2) (at level 70, right associativity).
-
-  Notation "'Compare' e 'WhenLt' e1 'WhenEq' e2 'WhenGt' e3" :=
-    (match e with
-       | inleft cm => if cm then e1 else e2
-       | inright _ => e3
-     end) (no associativity, at level 90).
-
-  Fixpoint filter (p : key_t -> bool) (l : alist_t) {struct l}:= 
-    match l with
-      | nil => nil
-      | (k,,v)::l' => 
-        if (p k) then filter p l' else (k,,v)::(filter p l') 
-    end.
-
-  Notation "'filter_lte' k" := 
-    (filter (fun k' => if k' <=! k then true else false)) (no associativity, at level 10).
-
-  Notation "'filter_gte' k" := 
-    (filter (fun k' => if k <=! k' then true else false)) (no associativity, at level 10).
-
-  Ltac simpler := 
-    repeat (progress ((repeat (
-      match goal with
-        | [H1: ?e, H2: ?e |- _] => clear H2 || clear H1
-        | [H1: ?a = ?b, H2:?b = ?a |- _] => clear H2 || clear H1
-        | [ |- context[if ?e1 <=! ?e2 then _ else _] ] => 
-          destruct (e1 <=! e2) ; try congruence ; try solve [assert False; intuition]; try subst
-        | [ |- context[if ?e1 =! ?e2 then _ else _] ] => 
-          destruct (e1 =! e2) ; try congruence ; try solve [assert False; intuition]; try subst
-        | [ |- context[if ?e1 then _ else _] ] => 
-          case_eq (e1) ; intros; try congruence ; try solve [assert False; intuition]; try subst
-        | [H1:?k1 < ?k2 |- _] => elim (key_lt_imp_ne H1); congruence
-        | [H1:?k1 < ?k2, H2:?k2 < ?k3 |- _] => extend (key_lt_trans H1 H2)
-      end)); AL.simpler)).
-
-  Ltac t := repeat (progress (simpler; simpl in *; auto; intuition; autorewrite with AssocListModel)).
-
-  (* maybe I should just use key_cmp directly? *)
-  Lemma key_cmp_direct : forall k k', (if k <=! k' then true else false) = (if key_cmp k k' then true else false).
-    intros. destruct (key_cmp k k'); t. 
-  Qed.
-
-  Lemma key_lt_imp_ne' : forall k1 k2, k1 < k2 -> k2 <> k1.
-  Proof. intros; pose (key_lt_imp_ne H); auto. Qed.
-  Hint Resolve key_lt_imp_ne key_lt_imp_ne'.
-  
-  (* interactions of filter *)
-  Lemma lookup_filter_gte_eq(k:key_t)(l:alist_t) : 
-    lookup k (filter_gte k l) = None.
-  Proof. induction l; t. Qed.
-
-  Lemma lookup_filter_lte_eq(k:key_t)(l:alist_t) : 
-    lookup k (filter_lte k l) = None.
-  Proof. induction l; t. Qed.
-
-  Lemma lookup_filter_gte(k1 k2:key_t)(l:alist_t) : 
-    k1 < k2 -> lookup k1 (filter_gte k2 l) = lookup k1 l.
-  Proof. induction l; t. Qed.
-
-  Lemma lookup_filter_lte(k1 k2:key_t)(l:alist_t) : 
-    k2 < k1 -> lookup k1 (filter_lte k2 l) = lookup k1 l.
-  Proof. induction l; t. Qed.
-  Hint Rewrite lookup_filter_gte_eq lookup_filter_lte_eq : AssocListModel.
-  Hint Rewrite lookup_filter_gte lookup_filter_lte using solve[t] : AssocListModel.
-
-  Lemma filter_lookup_none f k l : lookup k l = None -> lookup k (filter f l) = None.
-  Proof. induction l; t. Qed.
-  Hint Resolve filter_lookup_none.
-
-  Lemma filter_lookup_some_false f k v l : lookup k (filter f l) = Some v -> f k = false.
-  Proof. induction l; t. Qed.
-
-  Lemma filter_lookup_some f k v l : lookup k (filter f l) = Some v -> lookup k l = Some v.
-  Proof. induction l; t; [| destruct (f x); t].
-    case_eq (f k); intro eq1; rewrite eq1 in H0; t.
-    rewrite (filter_lookup_some_false _ _ H0) in eq1. congruence.
-  Qed.
-
-  Lemma filter_perm f l l' : Permutation l l' -> Permutation (filter f l) (filter f l').
-  Proof. induction 1; t; eauto. Qed.
-  Hint Resolve filter_perm : AssocListModel.
-
-  Lemma filter_distinct f l : distinct l -> distinct (filter f l).
-  Proof. induction l; t. Qed.
-  Hint Resolve filter_distinct : AssocListModel.
-
-  Lemma filter_remove f k l : (filter f (remove k l)) = remove k (filter f l).
-  Proof. induction l; t. Qed.
-  Hint Rewrite filter_remove : AssocListModel.
-
-  Lemma filter_nil f : filter f nil_al = nil_al.
-  Proof. auto. Qed.
-  Hint Rewrite filter_nil : AssocListModel.
-
-  Lemma remove_filter_lte_lt k1 k2 l : k1 < k2 -> remove k1 (filter_lte k2 l) = filter_lte k2 l.
-  Proof. induction l; t. Qed.
-  Hint Rewrite remove_filter_lte_lt using solve[t] : AssocListModel.
-
-  Lemma remove_filter_gte_gt k1 k2 l : k2 < k1 -> remove k1 (filter_gte k2 l) = filter_gte k2 l.
-  Proof. induction l; t. Qed.
-  Hint Rewrite remove_filter_gte_gt using solve[t] : AssocListModel.
-
-  Lemma remove_filter_lte_eq k1 k2 l : k1 = k2 -> remove k1 (filter_lte k2 l) = filter_lte k2 l.
-  Proof. induction l; t. Qed.
-  Hint Rewrite remove_filter_lte_eq using solve[t] : AssocListModel.
-
-  Lemma remove_filter_gte_eq k1 k2 l : k1 = k2 -> remove k1 (filter_gte k2 l) = filter_gte k2 l.
-  Proof. induction l; t. Qed.
-  Hint Rewrite remove_filter_gte_eq using solve[t] : AssocListModel.  
-
-  Lemma insert_filter_lte_gt k1 k2 (v:value_t k1) l : k2 < k1 -> (filter_lte k2 (insert v l)) = insert v (filter_lte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-  Hint Rewrite insert_filter_lte_gt using solve[t] : AssocListModel.
-
-  Lemma insert_filter_gte_lt k1 k2 (v:value_t k1) l : k1 < k2 -> (filter_gte k2 (insert v l)) = insert v (filter_gte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-  Hint Rewrite insert_filter_gte_lt using solve[t] : AssocListModel.
-
-  (* generally, we will have that lookup k = Some v *)
-  Definition pivot k v l := ((k,,v)::(filter_lte k l) ++ (filter_gte k l)).
-  Implicit Arguments pivot [].
-
-  Lemma pivot_distinct : forall k v l, distinct l -> distinct (pivot k v l).
-  Proof. constructor. t. induction l; t.
-    assert (p:Permutation ((x,, v0) :: (filter_lte k) l ++ (filter_gte k) l)
-      ((filter_lte k) l ++ (x,, v0) :: (filter_gte k) l)).
-      apply Permutation_cons_app; apply Permutation_refl.
-    apply (distinct_perm p). constructor; t.
-  Qed.
-
-  Lemma lookup_app_some1 k v l1 l2 : lookup k l1 = Some v -> lookup k (l1++l2) = Some v.
-  Proof. induction l1; t. Qed.
-
-  Lemma lookup_app_inv k v l1 l2 : lookup k (l1++l2) = Some v -> 
-    lookup k l1 = Some v \/ lookup k l1 = None /\ lookup k l2 = Some v.
-  Proof. induction l1; t. Qed.
-
-  Lemma lookup_filters k k' l : k <> k' -> lookup k l = lookup k ((filter_lte k') l ++ (filter_gte k' l)).
-  Proof. intros. remember (lookup k l) as x. destruct x.
-    remember (lookup k (filter_lte k' l)) as x. destruct x.
-    rewrite (filter_lookup_some _ _ (sym_eq Heqx0)) in Heqx. simpler. 
-    symmetry. eapply lookup_app_some1; eauto.
-    
-
-
-    
-
-      
-
-    destruct (k <=! k'); intuition; try congruence.
-    
-
-         induction l; repeat progress (simpler; simpl in *; intuition).
-         
-
-         induction l; auto. repeat progress (simpler; simpl in *; intuition).
-  Lemma pivot_perm k v l : distinct l -> lookup k l = Some v -> Permutation l (pivot k v l).
-  Proof. intros. apply distinct_look_perm; repeat (progress (simpler; intuition)); unfold pivot.
-         rewrite lookup_app_none1; t.
-         pose (pivot_distinct v l H); firstorder.
-
-
-
-
-
-         
-         
-
-         symmetry; rewrite lookup_app_none1; eapply filter_lookup_none; auto.
-         
-         
-
-
-
-(*
-  Lemma insert_filter_lte_lt k1 k2 (v:value_t k1) l : k1 < k2 -> (filter_lte k2 (insert v l)) = (filter_lte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-
-  Lemma insert_filter_gte_gt k1 k2 (v:value_t k1) l : k2 < k1 -> (filter_gte k2 (insert v l)) = (filter_gte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-
-  Lemma insert_filter_lte_eq k1 k2 (v:value_t k1) l : k1 = k2 -> (filter_lte k2 (insert v l)) = (filter_lte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-
-  Lemma insert_filter_gte_eq k1 k2 (v:value_t k1) l : k1 = k2 -> (filter_gte k2 (insert v l)) = (filter_gte k2 l).
-  Proof. unfold insert; induction l; t. Qed.
-*)    
-  End BinaryTreeModel.
   
 Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A := BT. *)
   Module A := BT.
-  Module AL := BinaryTreeModel(BT).
+  Module AL := AssocListOrdModel(BT).
   Import AL.
   
   Open Local Scope stsepi_scope.
@@ -272,7 +49,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
       ==> rep' x l.
 
   Hint Constructors rep'.
-  Definition rep := rep'.
+  Definition rep x l := rep' x l * [distinct l].
 
   (* Unwind the definition of rep' when we know the node that the tree 
    * points to. *)
@@ -326,6 +103,11 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
           ; {{ Return f }})
     ; t. Defined.
 
+  (* coq modules are a little annoying... *)
+  Lemma filter_distinct' f l : AL.distinct l -> AL.distinct (filter f l).
+  Proof. apply filter_distinct. Qed.
+  Hint Resolve filter_distinct'.
+
   (* The free operation -- we must loop over the tree and free each node *)
   Definition free : T.free.
   refine(Fix2 _ _ (fun (free:T.free) f l => 
@@ -337,11 +119,201 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
        ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l))))
   ; t; t. Qed.
 
-(* debugging tools *)
-Ltac print_goal := idtac; 
+Ltac perm_simpl := 
   match goal with
-    [|- ?g] => idtac g
-  end. 
+  | [H:Permutation nil ?x |- _ ] => generalize (Permutation_nil H); clear H; intro H; subst x
+  | [H:Permutation ?x nil |- _ ] => generalize (Permutation_nil (Permutation_sym H)); clear H; intro H; subst x
+  | [H:Permutation (?a::?x1) ?x2 |- _ ] => 
+    match x2 with
+      | (_::_) => fail 1
+      | (_++_) => fail 1
+      | _ => destruct x2; [elim (Permutation_nil_cons (Permutation_sym H)) |]
+    end
+  | [H:Permutation ?x2 (?a::?x1) |- _ ] => 
+    match x2 with
+      | (_::_) => fail 1
+      | (_++_) => fail 1
+      | _ => destruct x2; [elim (Permutation_nil_cons H) |]
+    end
+end.
+
+  Lemma fold_hprop P Q: P==>Q -> forall h, P h -> Q h.
+  Proof. auto. Qed.
+
+  Lemma filter_length f l: (length (filter f l) < S (length l))%nat.
+  Proof. induction l; simpler; auto. omega. Qed.
+  Hint Resolve filter_length.
+
+  Lemma lookup_dis_perm' : forall (k : BT.key_t) (l l' : list (sigT BT.value_t)),
+       Permutation l l' -> distinct l -> AL.lookup k l = AL.lookup k l'.
+  Proof. apply lookup_dis_perm. Qed.
+
+  Lemma filter_gte_length l k v : AL.lookup k l = Some v -> (length (filter_gte k l) < length l)%nat.
+  Proof. induction l; AL.t; simpler; intuition; simpler; auto.
+    apply Lt.lt_n_S. apply (IHl _ _ H). 
+  Qed.
+
+  Lemma filter_lte_length l k v : AL.lookup k l = Some v -> (length (filter_lte k l) < length l)%nat.
+  Proof. induction l; AL.t; simpler; intuition; simpler; auto.
+    apply Lt.lt_n_S. apply (IHl _ _ H). 
+  Qed.
+
+  Lemma perm'_n n x l l' : length l <= n -> [Permutation l l'] * [distinct l] * rep' x l ==> rep' x l'.
+  Proof. induction n; sep fail auto; destruct l; simpl in H; try (assert False; [omega|intuition]); perm_simpl. 
+    sep fail auto. sep fail auto.
+    intros h R. inversion_clear R.
+    apply (@Rep_some x k v xleft xright (s0::l')).
+    set (ll := (s::l)) in *. set (ll' := (s0::l')) in *.
+    revert h H2. apply fold_hprop. search_prem premer.
+    search_conc ltac:(apply himp_inj_conc). rewrite (lookup_dis_perm' k H0 H1) in H2. auto.
+
+    unfold hprop_imp in IHn. repeat apply himp_split.
+    sep fail auto.
+    intros h R. apply IHn with (l:=filter_gte k ll).
+    generalize (filter_gte_length ll H2). intro. 
+    assert (length ll <= S n) by auto. omega.
+    revert h R. apply fold_hprop. repeat search_conc ltac:(apply himp_inj_conc).
+    apply filter_perm. auto.
+    apply filter_distinct. auto.
+    sep fail auto.
+
+    intros h R. apply IHn with (l:=filter_lte k ll).
+    generalize (filter_lte_length ll H2). intro. 
+    assert (length ll <= S n) by auto. omega.
+    revert h R. apply fold_hprop. repeat search_conc ltac:(apply himp_inj_conc).
+    apply filter_perm. auto.
+    apply filter_distinct. auto.
+    sep fail auto.
+Qed.
+
+  Lemma perm' x l l' :Permutation l l' -> distinct l -> rep' x l ==> rep' x l'.
+  Proof. intros. apply (himp_apply (@perm'_n _ x l l' (le_n _))). t. Qed.
+
+   Lemma perm : T.perm.
+   Proof. T.unfm_t; unfold rep; intros. sep fail auto.
+     search_conc ltac:(apply himp_inj_conc). apply (distinct_perm H H0).
+     apply perm'; auto.
+   Qed.
+
+   Lemma perm'_frame x l l' P Q :Permutation l l' -> distinct l -> P ==> Q -> rep' x l * P ==> rep' x l' * Q.
+   Proof. Hint Resolve perm'. intros. apply himp_split; auto. Qed.
+
+   Ltac rep'_perm := search_conc ltac:(search_prem ltac:(apply perm'_frame)) || auto.
+
+   (* prove this along with perm *)
+   Lemma perm_node_rep n l l' : Permutation l l' -> distinct l -> node_rep n l ==> node_rep n l'.
+   Proof. destruct n; simpl.
+     sep fail rep'_perm. rewrite (lookup_dis_perm' (node_key n) H H0) in H1. sep fail auto.
+     unfold AL.nil_al; sep fail ltac:(perm_simpl || auto).
+   Qed.
+
+   Lemma perm_node_swap_frame n l l' P Q : Permutation l l' -> distinct l -> P ==> Q -> node_rep n l * P ==> node_rep n l' * Q.
+   Proof. Hint Resolve perm_node_rep. intros. apply himp_split; auto. Qed.
+
+   Ltac nr_perm := search_conc ltac:(search_prem ltac:(apply perm_node_swap_frame)) || auto.
+
+   Definition remove : T.remove.
+   refine(Fix3 _ _ (fun (remove:T.remove) f k l =>
+      n <- ! f 
+    ; IfNull n
+      Then {{ Return tt}}
+      Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
+           let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+             Compare BT.key_cmp k (node_key n)
+             WhenLt {{remove (node_left n) k l_left
+               <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}
+             WhenEq ln <- SepRead (node_left n) 
+                 (fun ln => (l_left ~~ node_rep ln l_left) *
+                   f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
+                   (l ~~ [distinct l] * [lookup (node_key n) l = Some (node_value n)]))
+                  ; rn <- SepRead (node_right n)
+                  (fun rn => ((node_left n) --> ln * (l_left ~~ node_rep ln l_left)) *
+                    f --> Some n * (l_right ~~ node_rep rn  l_right) * 
+                   (l ~~ [distinct l] * [lookup (node_key n) l = Some (node_value n)]))
+                  ; IfNull ln
+                    Then Free (node_right n)
+                      ;; Free (node_left n)
+                      ;; {{f ::= rn}}
+                     Else IfNull rn
+                          Then Free (node_right n)
+                            ;; Free (node_left n)
+                            ;; {{f ::= Some ln}}
+                          Else {{ remove f k l }}
+             WhenGt {{remove (node_right n) k l_right
+               <@> (f --> Some n * 
+                 (l_left ~~ rep' (node_left n) l_left) * 
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}})).
+ t. t. t. t. t. t. t. t. t. t. t. t. t. t. t. t.
+
+ sep fail nr_perm.
+ apply Permutation_sym. pose (remove_perm_filters _ H H0).
+ rewrite H1 in p. unfold AL.nil_al in p. rewrite <- app_nil_end in p. exact p.
+
+ t. t. t. t. t.
+ t. sep fail auto.
+ pose (remove_perm_filters _ H H0). rewrite H2 in p. simpl in p.
+ sep fail nr_perm.
+ rewrite <- filter_remove. apply filter_perm. apply Permutation_sym; auto.
+ rewrite <- filter_remove. apply filter_perm. apply Permutation_sym; auto.
+
+ search_conc ltac:(apply himp_inj_conc).
+ cut (AL.lookup (node_key ln0) (remove (node_key n0) x) =
+   Some (node_value ln0)); [intro XX; apply XX|idtac].
+ rewrite (lookup_dis_perm' (node_key ln0) p (distinct_remove (node_key n0) _ H)). auto.
+ sep fail auto.
+
+ t. t. t. t.
+ Qed.
+
+
+
+   Definition lookup  : T.lookup.
+   refine (Fix3 _ _ (fun (lookup:T.lookup) f k l => 
+      n <- ! f
+    ; IfNull n
+      Then {{ Return None }}
+      Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
+           let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+             Compare BT.key_cmp k (node_key n)
+             WhenLt {{lookup (node_left n) k l_left <@> _
+               <@> (f --> Some n * 
+                   (l_right ~~ rep' (node_right n) l_right) * 
+                   (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}
+             WhenEq {{Return Some(AL.coerce _ (node_value n))}}
+             WhenGt {{lookup (node_right n) k l_right
+               <@> (f --> Some n * 
+                 (l_left ~~ [distinct l_left] * rep' (node_left n) l_left) * 
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}))
+   ; t. Qed.
+
+   Definition insert : T.insert.
+   refine(Fix4 _ _ (fun (insert:T.insert) f k v l =>
+      n <- ! f 
+    ; IfNull n
+      Then nleft <- New None(A:=node_t) 
+         ; nright <- New None(A:=node_t)
+         ; {{ f ::= Some (Node v nleft nright) }}
+      Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
+           Let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+             Compare BT.key_cmp k (node_key n)
+             WhenLt {{insert (node_left n) k v l_left
+               <@> (f --> Some n * 
+                 (l_right ~~ rep' (node_right n) l_right) * 
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}
+             WhenEq {{ f ::= Some (Node v (node_left n) (node_right n)) }}
+             WhenGt {{insert (node_right n) k v l_right
+               <@> (f --> Some n * 
+                 (l_left ~~ rep' (node_left n) l_left) * 
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}))
+  ; t; intuition; t. Qed.
+
+
+ (* debugging tools *)
+ Ltac print_goal := idtac; 
+   match goal with
+     [|- ?g] => idtac g
+   end. 
 
 Ltac print_hyps := idtac; 
   try match goal with
@@ -350,49 +322,6 @@ end.
 Ltac print_all := idtac ""; idtac "subgoal: "; print_hyps; idtac "========================="; print_goal.
 
 
-
-  Definition remove : T.remove.
-  refine(Fix3 _ _ (fun (remove:T.remove) f k l =>
-     n <- ! f 
-   ; IfNull n
-     Then {{ Return tt}}
-     Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-          let l_right := (l ~~~ (filter_lte (node_key n) l)) in
-            Compare BT.key_cmp k (node_key n)
-            WhenLt {{remove (node_left n) k l_left
-              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
-                (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
-            WhenEq (*Assert (
-              (Exists ln :@ option node_t, (node_left n) --> ln * (l_left ~~ node_rep ln l_left) *
-                f --> Some n * 
-              (l_right ~~ rep' (node_right n) l_right) * 
-              (l ~~ [lookup (node_key n) l = Some (node_value n)])))
-                ;; *) ln <- SepRead (node_left n) 
-                (fun ln => (l_left ~~ node_rep ln l_left) *
-                  f --> Some n * (l_right ~~ rep' (node_right n) l_right) * 
-                  (l ~~ [lookup (node_key n) l = Some (node_value n)]))
-                 ; rn <- SepRead (node_right n)
-                 (fun rn => ((node_left n) --> ln * (l_left ~~ node_rep ln l_left)) *
-                   f --> Some n * (l_right ~~ node_rep rn  l_right) * 
-                  (l ~~ [lookup (node_key n) l = Some (node_value n)]))
-                 ; IfNull ln
-                   Then Free (node_right n)
-                     ;; Free (node_left n)
-                     ;; {{f ::= rn}}
-                    Else {{ remove f k l }}
-            WhenGt {{remove (node_right n) k l_right
-              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}})).
-
-t. t. t. t. t. t. t. t. t. t. t. t. t. t. t. t.
-
-sep fail auto.
-
-
-t. t. t. t. t.
-
-sep fail auto.
-t. 
-t.
 
 
 Ltac equate e1 e2 := not_eq e1 e2; idtac "noteq"; let H := fresh in assert (H : e1 = e2); [idtac "done1"; print_all; 
@@ -558,6 +487,7 @@ pattern n0 in H8.
                            end; reflexivity
             | idtac
           ]; clear H H')
+          
 (node_rep v ?7184 * (f --> Some n0 * rep' (node_right n0) ?7185) ==>
  ?3292 ?7378 * __)
 
@@ -572,37 +502,5 @@ node_rep v HH * (f --> Some n0 * rep' (node_right n0) GG) ==>
 
 
 subst n; simpl.
-
-  Definition lookup  : T.lookup.
-  refine (Fix3 _ _ (fun (lookup:T.lookup) f k l => 
-     n <- ! f
-   ; IfNull n
-     Then {{ Return None }}
-     Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-          let l_right := (l ~~~ (filter_lte (node_key n) l)) in
-            Compare BT.key_cmp k (node_key n)
-            WhenLt {{lookup (node_left n) k l_left <@> _
-              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
-            WhenEq {{Return Some(AL.coerce _ (node_value n))}}
-            WhenGt {{lookup (node_right n) k l_right
-              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}))
-  ; t. Qed.
-
-  Definition insert : T.insert.
-  refine(Fix4 _ _ (fun (insert:T.insert) f k v l =>
-     n <- ! f 
-   ; IfNull n
-     Then nleft <- New None(A:=node_t) 
-        ; nright <- New None(A:=node_t)
-        ; {{ f ::= Some (Node v nleft nright) }}
-     Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-          let l_right := (l ~~~ (filter_lte (node_key n) l)) in
-            Compare BT.key_cmp k (node_key n)
-            WhenLt {{insert (node_left n) k v l_left
-              <@> (f --> Some n * (l_right ~~ rep' (node_right n) l_right) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}
-            WhenEq {{ f ::= Some (Node v (node_left n) (node_right n)) }}
-            WhenGt {{insert (node_right n) k v l_right
-              <@> (f --> Some n * (l_left ~~ rep' (node_left n) l_left) * (l ~~ [AL.lookup (node_key n) l = Some (node_value n)]))}}))
- ; t; intuition; t. Qed.
 
 End BinaryTree.

@@ -177,7 +177,6 @@ Require Export List.
       
   Lemma lookup_app_none1 k l1 l2 : lookup k l1 = None -> lookup k (l1++l2) = lookup k l2.
   Proof. induction l1; t. Qed.
-  Hint Rewrite lookup_app_none1 using solve[t] : AssocListModel.
 
   Lemma distinct_NoDup l : distinct l -> NoDup l.
   Proof. Hint Constructors NoDup. induction l; t. Qed.
@@ -200,5 +199,20 @@ Require Export List.
 
   Lemma distinct_in_perm l l' : distinct l -> distinct l' -> incl l l' -> incl l' l -> Permutation l l'.
   Proof. intros. apply NoDup_Permutation; t. Qed.
+
+  Lemma lookup_app_some1 k v l1 l2 : lookup k l1 = Some v -> lookup k (l1++l2) = Some v.
+  Proof. induction l1; t. Qed.
+
+  Lemma lookup_app_inv k v l1 l2 : lookup k (l1++l2) = Some v -> 
+    lookup k l1 = Some v \/ lookup k l1 = None /\ lookup k l2 = Some v.
+  Proof. induction l1; t. Qed.
+
+  Lemma remove_app k l1 l2 : remove k (l1++l2) = remove k l1 ++ remove k l2.
+  Proof. induction l1; t. Qed.
+  Hint Rewrite remove_app : AssocListModel.
+
+  Lemma insert_app k v l1 l2 : insert (k:=k) v (l1++l2) = insert v l1 ++ remove k l2.
+  Proof. unfold insert; t. Qed.
+  Hint Rewrite insert_app : AssocListModel.
 
 End AssocList.
