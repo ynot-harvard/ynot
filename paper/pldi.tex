@@ -168,7 +168,26 @@ abstractions by programmers.
 
 \section{The Ynot Programming Environment}
 
-The axiomatic base of Ynot is a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
+To a first approximation, Coq can be thought of as a functional programing language like Haskell or ML, but with support for dependent types.  For instance, one can have types such as:
+\begin{verbatim}
+div : nat -> forall n : nat, n <> 0 -> nat
+\end{verbatim}
+and write functions like
+\begin{verbatim}
+Definition avg (x:list nat) : nat :=
+  let sum := fold plus 0 x in
+  let len := length x in
+  match eq_nat_dec len 0 with
+    | inl(pf1: len = 0) => 0
+    | inr(pf2: len <> 0) => div sum len pf2
+  end.
+\end{verbatim}
+
+This function averages the values in a list of natural numbers.  It has a normal type like you might find in ML, and its implementation begins in an ML-like way, using a higher-order \cd{fold} function.  The interesting part is the \cd{match} expression.  We match on the result of a call to \cd{eq\_nat\_dec}, a dependently-typed natural number comparison function.  That function returns more than just a boolean; it returns a sum type with equality proofs in one branch and inequality proofs in the other.  We bind a name for each proof explicitly in the pattern for each \cd{match} case.  The proof that \cd{len} is not zero is passed to \cd{div} to justify the safety of the operation.
+
+All Coq functions have to be pure -- terminating without side effects.  This is necessary to ensure that proofs really are proofs, with no spurious ``proofs by infinite loop.''  Ynot extends Coq with support for side-effecting computations.  Similar to Haskell, we introduce a monadic type constructor \cd{ST T} which describes computations that might diverge and that might have side effects, but that, if they do return, return values of type \cd{T}.  We can use \cd{ST} to safely keep the ``effectful'' computations separate from the pure computations.
+
+Unlike Haskell's \cd{IO} monad, the \cd{ST} type is parameterized by a pre- and post- condition, which can be used to describe the effects of the computation on a mutable store.  Alternatively, one can think of the axiomatic base of Ynot as a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands, hence the IO-monad-like presentation.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
 $$\{\lambda \_. \; \top\} \; \return{1} \; \{\lambda h, v, h'. \; h' = h \land v = 1\}$$
 and
 $$\begin{array}{c}
@@ -543,7 +562,7 @@ Parameter array_plus : array -> nat -> [ptr].
 
 The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
 
-With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
+With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde \; v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
 
 \begin{verbatim}
 Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
@@ -571,7 +590,7 @@ An example is a \cd{getElements} function, defined in terms of the list invarian
 
 \begin{verbatim}
 Definition getElements (hd : option ptr) (ls : [list A]) :
-  STsep (ls ~~ listRep m hd)
+  STsep (ls ~~ listRep ls hd)
         (fun res : list A => ls ~~ [res = ls]
           * listRep ls hd).
   refine (Fix2
@@ -707,21 +726,27 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 %%  where in the old Ynot. (provide numbers here)
 
 \section{Evaluation}
+
 \begin{figure*}
-\begin{center}
-\begin{tabular}{r | r | r | r | r | r | r | r}
- & lines of code & total  non-code & annotations & lemmas & proofs & aux. def & tactics\\\hline
-{\tt LL-ref} & AVI\\
-{\tt LL-Jahob} & RYAN\\
-{\tt LL-Smallfoot} & GREGORY\\
-{\tt Hashtable} & AVI\\
-{\tt Binomial Tree} & RYAN\\
-{\tt BST} & AVI\\
-{\tt Stack} & ADAM\\
-{\tt Queue} & ADAM\\
-\end{tabular}
-\end{center}
+  \begin{center}
+    \begin{tabular}{r | r | r | r | r | r | r | r}
+      & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics\\\hline
+      Linked list finite map & AVI\\
+      Association list Jahob comparison & RYAN\\
+      Linked list Smallfoot comparison & GREGORY\\
+      Hash table & AVI\\
+      Binomial tree & RYAN\\
+      Binary search tree finite map & AVI\\
+      Stack & 13 & 31 & 8 & 0 & 9 & 9 & 5 \\
+      Queue & 34 & 123 & 14 & 0 & 14 & 38 & 23 \\
+    \end{tabular}
+  \end{center}
+
+  \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
+
+Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.
+
 
 \section{Related Work}
 \subsection{Jahob (RYAN)}
@@ -971,7 +996,18 @@ Smallfoot examples:
 \item xdeq --- uses parallelism (reading and writing buffer)
 \end{itemize}
 
-\section{Other related work}
+\section{Other Related Work}
+
+The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
+
+A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic, making it much harder to write verified data structure implementations than in our system.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
+
+There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories like arithmetic.
+
+The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users not just to define new inductive predicates, but also to extend a generic solver with arbitrary rules for simplifying uses of the predicates.
+
+In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
+
 
 
 \section{Conclusions \& Future Work}
