@@ -168,7 +168,26 @@ abstractions by programmers.
 
 \section{The Ynot Programming Environment}
 
-The axiomatic base of Ynot is a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
+To a first approximation, Coq can be thought of as a functional programing language like Haskell or ML, but with support for dependent types.  For instance, one can have types such as:
+\begin{verbatim}
+div : nat -> forall n : nat, n <> 0 -> nat
+\end{verbatim}
+and write functions like
+\begin{verbatim}
+Definition avg (x:list nat) : nat :=
+  let sum := fold plus 0 x in
+  let len := length x in
+  match eq_nat_dec len 0 with
+    | inl(pf1: len = 0) => 0
+    | inr(pf2: len <> 0) => div sum len pf2
+  end.
+\end{verbatim}
+
+This function averages the values in a list of natural numbers.  It has a normal type like you might find in ML, and its implementation begins in an ML-like way, using a higher-order \cd{fold} function.  The interesting part is the \cd{match} expression.  We match on the result of a call to \cd{eq\_nat\_dec}, a dependently-typed natural number comparison function.  That function returns more than just a boolean; it returns a sum type with equality proofs in one branch and inequality proofs in the other.  We bind a name for each proof explicitly in the pattern for each \cd{match} case.  The proof that \cd{len} is not zero is passed to \cd{div} to justify the safety of the operation.
+
+All Coq functions have to be pure -- terminating without side effects.  This is necessary to ensure that proofs really are proofs, with no spurious ``proofs by infinite loop.''  Ynot extends Coq with support for side-effecting computations.  Similar to Haskell, we introduce a monadic type constructor \cd{ST T} which describes computations that might diverge and that might have side effects, but that, if they do return, return values of type \cd{T}.  We can use \cd{ST} to safely keep the ``effectful'' computations separate from the pure computations.
+
+Unlike Haskell's \cd{IO} monad, the \cd{ST} type is parameterized by a pre- and post- condition, which can be used to describe the effects of the computation on a mutable store.  Alternatively, one can think of the axiomatic base of Ynot as a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands, hence the IO-monad-like presentation.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
 $$\{\lambda \_. \; \top\} \; \return{1} \; \{\lambda h, v, h'. \; h' = h \land v = 1\}$$
 and
 $$\begin{array}{c}
