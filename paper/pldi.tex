@@ -82,7 +82,7 @@ in the execution of programs, but today's type systems fail to catch
 language-level errors, such as a null-pointer dereference or an
 out-of-bounds array index, much less library- and application-specific
 errors such as removing an element from an empty queue, failing to
-maintain the invariants of a blanced tree, or forgetting to release a
+maintain the invariants of a balanced tree, or forgetting to release a
 critical resource such as a database connection.  For safety- and
 security-critical code, a type system should ideally rule out these
 problems and, in the limit, make it possible for programmers to verify
@@ -121,7 +121,7 @@ The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
 type-checker that code is correct.  Unfortunately, explicit proofs can
 be quite large when compared to the code.  For example, in the Ynot
-module implementing a linked-list queue, the code takes up 7 lines,
+module implementing a enqueue for a linked-list, requires 7 lines of code,
 whereas the proof of correctness is about 70 lines.
 
 This paper reports our experience re-designing and re-implementing
@@ -767,17 +767,19 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
   \begin{center}
     \begin{tabular}{r | r | r | r | r | r | r | r | r}
                                              & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics & Time (m:s) \\ \hline
-      ref         finite map                 &   8    &     19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
-      Association list Jahob comparison      &  43     &   174             &  33   &   14        & 16         & 63     & 42      & 3:10 \\
-      Linked list Smallfoot comparison       &  84     &   421             &  36   &    8        & 20         & 127    & 230     &  tbd \\
-      Hash table                             &  28     &   234             & 29    &   28        & 23         & 103    &  51     & 0:45 \\
-      Binomial tree                          &  17    &     44             & 14    &    7        & 13         &     0  & 10      & 2:33 \\
-      Binary search tree finite map          &  17    &     160            & 18    &    4        & 51         & 63     & 24      & 1:35 \\
-      Stack                                  & 13      &    31             &     8 & 0           &  9         &  9     &  5      & 0:12 \\
-      Queue                                  & 34      & 81                & 12    & 0           & 14         & 32     & 23      & 1:36 \\
+Stack                                        & 13      &    31             &   8   &    0        &  9         &  9     &  5      & 0:12 \\
+Queue                                        & 34      &    81             &  12   &    0        & 14         & 32     & 23      & 1:36 \\
+Ref to Functional Finite Map                 &   8     &    19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
+Hash Table                                   &  28     &   234             &  29   &   28        & 23         & 103    &  51     & 0:45 \\
+BST Finite Map                               &  17     &   160             &  18   &    4        & 51         & 63     & 24      & 1:35 \\
+Binomial tree                                &  17     &    44             &  14   &    7        & 13         &  0     & 10      & 2:33 \\
+Association List$^1$           &  43     &   174             &  33   &   14        & 16         & 63     & 42      & 3:10 \\
+Linked List$^2$                &  84     &   421             &  36   &    8        & 20         & 127    & 230     &  tbd \\
     \end{tabular}
   \end{center}
-
+\footnotesize
+$^1$ Jahob comparison, $^2$ Smallfoot comparison
+\normalsize
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
@@ -810,7 +812,7 @@ classes of formulae, formula approximation techiques must be used to integrate t
 a system using higher order logic. Jahob supports a number of first order and SMT provers,
 Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  In contrast, Ynot's automated reasoning is implemented completely in Coq.  Our approach is extremely lightweight: the entire Ynot codebase is smaller than just the Jahob-MONA interface.
 
- \subsection{Smallfoot (GREGORY)}
+ \subsection{Smallfoot}
 We conclude our comparison with alternative approaches by comparing
 our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
 completely automatic reasoning and concurrency. Since the current
@@ -825,16 +827,16 @@ $$
 ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
 $$
 
+\hide{
 \noindent The definition is expressible in a similar manner to the
 queue representation fixpoint described previously. The notable
 difference being the addition of the inequality which is necessary to
 guarantee non-cycles. The only difficulty in reasoning comes from the
 fact that {\tt new} returns a pointer which is guaranteed distinct
 only from {\it currently allocated} pointers, not all previously
-allocated pointers. This requires the Ynot functions which allocate to
-accept a ghost variable witnessing that the list ends at {\tt nil} or
-an allocated pointer. The type for {\it cons} shows the use of this
-condition.
+allocated pointers. This means that Ynot functions which allocate
+require witnesses that the list ends at {\tt nil} or an allocated
+pointer. The type for {\it cons} shows the use of this condition.
 \begin{verbatim}
 cons :: forall (v : A) (r : LinkedList) 
   (q : [LinkedList]) (m : [list A]) (T : Type)
@@ -846,154 +848,52 @@ cons :: forall (v : A) (r : LinkedList)
 Where the {\tt ~~>} arrow denotes a option pointer (potentially null)
 pointing to {\it vt} if it is not {\tt null}. In the case of a
 complete list, {\it vt} is {\tt null} and any values of {\it T} and
-{\it vt} will suffice. \todo{While subtle, this bug is potentially
-  dangerous and, not addressed by the Smallfoot system.} Allocating a
-list, and then addressing only a prefix of the list creates a problem
-because the sentinal value could become a pointer in the middle of the
-list if the head of the remaining list is freed and memory is
-reclaimed and returned in a call to insert into the segment.
+{\it vt} will suffice. Allocating a list, and then addressing only a
+prefix of the list creates a problem because the sentinal value could
+become a pointer in the middle of the list if the head of the
+remaining list is freed and memory is reclaimed and returned in a call
+to insert into the segment.
+}
 
-We consider {\tt append} function on lists as a representative
-example. In Smallfoot, the function is built using a {\tt while} loop,
-requires 14 lines, and three annotations: the pre- and post-conditions
-and the loop invariant. To maintain a close symmetry between the
-definitions, we break the {\it append} function into two pieces, one
-for the loop and the other for the main body. The two functions are,
-respectively, 4 and 5 lines but require \todo{4 total} lines of
-annotations, two for the fixpoint definition \todo{and a framing
-  condition on each recursive call}. As with all previous examples,
-the proof-automation tactics used for this function apply to all
-functions dealing with linked lists.
+For comparing annotatations, we consider {\tt append} function on
+lists as a representative example. In Smallfoot, the function is built
+using a {\tt while} loop, requires 14 lines, and three annotations:
+the pre- and post-conditions and the loop invariant. To maintain a
+close symmetry between the definitions, we break the {\it append}
+function into two pieces, one for the loop and the other for the main
+body. The two functions are, respectively, 4 and 5 lines long and
+require 2 lines of annotations for the fixpoint definition which
+corresponds to the Smallfoot loop invariant. As with all previous
+examples, the proof-automation tactics and lemmas used for this
+function apply to all functions dealing with linked lists in the same
+way that the linked list representation predicate is axiomatized in
+the Smallfoot system and is reused.
 
 While the Smallfoot system is faster and requires less verbose
 annotations, there are two primary advantages that Ynot has over
 it. The first is, as previously mentioned, Ynot functions use
-dependent types to represent partial correctness; the Smallfoot system
-guarantees only heap-safety. This is captured in the type for {\it
-  append}:
+dependent types to represent partial correctness while Smallfoot
+guarantees only heap-safety. This is captured in the type of the {\it
+  cons} function:
 \begin{verbatim}
-append :: (p q : LinkedList) (lsp lsq : [list A]),
-  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
-        (fun r:LinkedList => 
-             lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
+cons :: forall (v : A) (r : LL) (q : [LL])
+    (m : [list A]) (T : Type) (vt : [T]),
+  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
+        (fun r:LL => q ~~ m ~~ vt ~~ 
+                  llseg r q (v :: m) * q ~~> vt).
 \end{verbatim}
-The second advantage is that of expressivity which has been shown in
-previous examples. The ease of use in Smallfoot comes at the price of
-restricting programs to a small set of data structures (including
-linked lists, doubly linked lists, trees, and xor-lists) for which the
-definitions and corresponding inductive properties can be defined
-using predicate logic. The theory built for each data structure in
-Smallfoot plays the same roll as the theorems for which counts are
-given in Figure \ref{loc}. 
+In Smallfoot, the system can guarantee only that the returned list is
+valid. Thus, {\it cons}, {\it removeFirst}, etc. all have the same
+type despite the fact that they do different things.
 
-\hide{
-On the size of proof obligations, the Smallfoot system comes out
-ahead, requiring no user-constructed proofs. The drawback to this is
-that only inductive data of the following types are allowed: singly
-linked lists, doubly linked lists, trees and xor lists. This
-restriction is necessary to Smallfoot in order to make the proofs
-decidable.
-
-The annotations in the example programs are small mainly because they
-use these. While the predicates are hard-coded in Smallfoot,
-predicates can be coded directly by the user in Ynot. The style of
-Ynot representations are to express data by mapping a ``ghost''
-representation into a heap representation. This approach allows
-stronger dependent types in the contracts for functions, requireing
-the accompanying proof to be a proof of partial correctness rather
-than simply of resource constraints. For example, consider the
-function to test whether a list is empty in Smallfoot and in Ynot.
-\begin{verbatim}
-is_empty(r;l) [l |-> t * list(t)] {
-  local p;
-  p = l->p;
-  if (p == NULL) { r = 1; } 
-  else { r = 0; }
-} [l|-> t * list(t)]
-\end{verbatim}
-
-The following function also has the same type:
-\begin{verbatim}
-is_empty(r;l) [l |-> t * list(t)] {
-  r = 1;
-} [l|-> t * list(t)]
-\end{verbatim}
-In Ynot, the \verb|is_empty| function can be defined as follows:
-\begin{verbatim}
-Definition is_empty A (ll : LinkedList)
-  (m : [list A]) :
-  STsep (m ~~ rep m ll) 
-    (fun res:bool => m ~~ match res with
-                            | nil => [res = true]
-                            | _   => [res = false]
-                          end).
-  intros;
-  refine (hd <- !ll;
-          IfNull hd Then {{Return true}}
-          Else {{Return false}}); sep simpl.
-Qed.          
-\end{verbatim}
-The type guarantees that the function is implemented correctly with
-respect to the underlying list.
-
-\todo{This is analagous to the implementation of llseg presented in
-  the smallfoot paper.}
-For example, the following fixpoint expresses the recursive definition
-of a linked list segement.  \todo{What is the best way to encode a
-  linked list segment?}
-\begin{verbatim}
-Fixpoint llseg A (hd tl : option ptr) 
-  (m : list A) {struct m} :=
-  match m with 
-    | nil => [hd = tl]
-    | a :: b => 
-      match hd with 
-        | None => [False]
-        | Some p => [hd <> tl] * 
-            Exists nxt :@ option ptr, 
-              hd --> node a nxt * llseg nxt tl b
-      end
-  end.
-\end{verbatim}
-
-
-
-
-Comparison points
-\begin{itemize}
-\item The use of Coq allows quantifiers in formula. (makes inference
-  more difficult but allows more expressive types)
-\item Ynot is capble of arbitrary inductive predicates
-\item Ynot does not support concurrency which is a strength of
-  smallfoot (race detection)
-\item Smallfoot is very fast
-\item A lot of the ``parallel examples'' don't actually use
-  synchronization. These would be pretty trivial to implement in Ynot
-  with a function:
-\begin{verbatim}
-SepParallel (r1 r2 : Type) (P_i Q_i : hprop)
-  (P_e : r1 -> hprop) (Q_e : r2 -> hprop) :
-     STsep (P_i) (P_e) -> STsep (Q_i) (Q_e)
-  -> STsep (P_i * Q_i) (fun r:(r1 * r2) => 
-               (P_e (fst r)) * (Q_e (snd r)))
-\end{verbatim}
-the more interesting aspect of the parallelism comes from the locking
-mechanism, which could be encoded in Ynot but only after a little bit
-of hacking. (smallfoot uses resource invariants to control this)
-\end{itemize}
-
-Smallfoot examples:
-\begin{itemize}
-\item circular list
-\item doubly linked list
-\item merge sort
-\item ``memory manager'' (basically just a stack)
-\item queue
-\item tree
-\item xor linked list segment
-\item xdeq --- uses parallelism (reading and writing buffer)
-\end{itemize}
-}
+The second advantage in Ynot is the ability to deal use higher-order
+logic to express properties. The ease of use in Smallfoot comes at the
+price of restricting programs to a small set of data structures
+(including linked lists, doubly linked lists, trees, and xor-lists)
+for which the definitions and corresponding inductive properties can
+be defined using predicate logic. The theory built for each data
+structure in Smallfoot plays the same roll as the unrolling lemmas for
+which counts are given in Figure \ref{loc}.
 
 \section{Other Related Work}
 
@@ -1026,3 +926,5 @@ Nonetheless, our current system already fills a crucial niche in the space of ve
 \bibliography{bib}
 
 \end{document}
+
+% LocalWords:  Coq Hoare Ynot checkable dereference ESC Concoqtion logics Coq's
