@@ -263,9 +263,7 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
       Else  fn <- ! hd ;
             if eqK k (key fn) 
             then {{ Return (Some (value fn)) }} 
-            else {{ self (next fn) (m ~~~ tail m) <@>  (m ~~ [head m = Some (key fn, value fn)] * 
-                                                              [lookup (tail m) (key fn) = None] 
-                                                              * hd --> fn  )  }})); pose lkup; try t'. Qed.  
+            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup; t'. Qed.
 
   Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
     STsep (m ~~ rep p m)

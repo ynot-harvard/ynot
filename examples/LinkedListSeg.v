@@ -476,6 +476,25 @@ Ltac simp_prem := discriminate || (repeat (ondemand_subst || unfolder || expande
 Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
 
+Ltac rsep expander tac := unfold llist; intros;
+  try equater; try inhabiter; expander; unpack_conc;
+    repeat match goal with
+             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
+               match CONC with
+                 | context[Z] =>
+                   let l := fresh "eq" in
+                     rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
+               end
+           end; ondemand_subst; canceler; 
+    solve [ sep fail idtac 
+          | sep fail tac; 
+            match goal with
+              | [ |- _ ==> ?CONC ] => 
+                match CONC with 
+                  | context [llseg _ _ (?X ++ _)] => destruct X
+                end
+            end; sep fail tac ].
+
 (********************)
 (** Implementation **)
 (********************)
@@ -511,38 +530,34 @@ Definition freeHead : forall (p : LinkedList) (q : [LinkedList]) (b : [A]) (ls :
   t.
 Qed.
 
-Ltac lp := idtac;
-  match goal with
-    | [ H : ?P |- ?PREM ==> ?CONC ] =>
-      match P with
-        | context [ [_]%inhabited ] => fail 1
-        | _ = _ => 
-          match PREM with
-            | context [ [P] ] => fail 1
-            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
-          end
-        | _ <> _ => 
-          match PREM with
-            | context [ [P] ] => fail 1
-            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
-          end
-        | _ = _ -> False => 
-          match PREM with
-            | context [ [P] ] => fail 1
-            | _ => apply (@himp_inj_prem_add P PREM CONC); [ assumption | ]
-          end
-        | _ => fail
-      end
-  end.
+Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
+  STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
+        (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
+  intros;
+  refine (Fix3
+    (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
+    (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
+    (fun self pr nde lsp =>
+      IfNull (next nde) As p
+      Then {{pr ::= node (data nde) q}}
+      Else nde' <- !p;
+           {{self p nde' (lsp ~~~ tail lsp) <@> _}}
+    ) pr' nde' lsp');
+  rsep simp_prem t.
+Qed.
 
-Ltac rect := 
-  intros; try equater; try inhabiter; simp_prem; unpack_conc;
-    repeat match goal with
-             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => idtac "recursion";
-               let l := fresh "eq" in
-               rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
-           end; ondemand_subst; print_goal;
-    try canceler; t.
+Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
+  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
+        (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
+  intros;
+  refine (
+    IfNull p As p'
+    Then {{Return q}}
+    Else nde <- !p';
+         append' p' nde q (lsp ~~~ tail lsp) lsq <@> _;;
+         {{Return p}});
+  rsep simp_prem t.
+Qed.
 
 Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T : Set) (vt : [T]),
   STsep (ls' ~~ vt ~~ llseg p' q ls' * q ~~> vt)
@@ -557,94 +572,65 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T 
       else
         IfNull p Then {{!!!}}
         Else nde <- !p;
-             rr <- self (next nde) (ls ~~~ tail ls) <@> _ (** (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]) **);
-             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> _ (** (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls)) **);
+             rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
+             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
              {{Return res}}) p' ls'); clear self.
-  rect.
-  rect.
-  rect.
-  rect.
-  rect.
-  rect.
-  rect.
-  rect.
-  intros; try equater; try inhabiter; simp_prem. unpack_conc.
-  repeat match goal with
-    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
-      let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l; clear l)
-    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => 
-
-        rewrite -> H1 in H2; simpl in H2
-  end. canceler. repeat lp. sep fail idtac.
-  intros; try equater. cbv beta. apply himp_refl.
-  canceler. try equater. apply himp_refl.
-
-  intros; try equater; try inhabiter; simp_prem. unpack_conc.
-  repeat match goal with
-    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
-      let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l; clear l)
-    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => 
-
-        rewrite -> H1 in H2; simpl in H2
-  end. canceler. repeat lp. sep fail idtac.
-
- try inhabiter. simp_prem. inhabiter. unpack_conc.
-  canceler. t.
-
-  rect.
-
-
-
-  match goal with
-    | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] => extend_eq X Y ltac:(pose (l := pack_injective H))
-    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => idtac "recursion";
-      let l := fresh "eq" in
-        rewrite -> H1 in H2; simpl in H2
-  end.
-
-
-
-  match goal with
-    | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- context[?Z] ] => idtac "recursion";
-      let l := fresh "eq" in
-        rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
-  end.
-  
-
-  rect. ondemand_subst. 
-  try match goal with 
-    | [ H : ?X = ?Y |- _ ] => idtac X Y; fail
-  end.
-
-
-rewrite -> eq0. canceler.
-  intros; try equater; try inhabiter; simp_prem. unpack_conc.
-  rect.
-  rect.
   t.
   t.
   t.
   t.
   t.
   t.
-  rect.  canceler.
-  (** instantiate (1:= ls ~~ [head ls = Some (data nde)] * p0 --> nde).**) 
-  intros. try equater. try inhabiter. simp_prem. unpack_conc. 
-
-  rewrite -> H in H2. simpl in H2. assert (tail x = x2). apply pack_injective; assumption. rewrite <- H5. 
-
-
-canceler. sep fail auto.
-  sep fail auto.
-
-
-
-t.
-  t.
-  (**instantiate (1 :=  ls ~~ [head ls = Some (data nde)] * llseg (next nde) q (tail ls) * p0 --> nde).**) t. 
   t.
   t.
-  t. 
+  rsep simp_prem t.
+  t.
+  t.
+  t.
+  sep simp_prem idtac.
+(**  
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  unfold llist; intros; print_goal;
+  try equater; try inhabiter; simp_prem; unpack_conc;
+    repeat match goal with
+             | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
+               let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l)
+             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
+               match CONC with
+                 | context[Z] =>
+                   let l := fresh "eq" in
+                     rewrite -> H1 in H2; simpl in H2
+               end
+           end.
+    ondemand_subst.
+    canceler. rewrite <- eq0. rewrite <- eq. sep fail idtac.
+unfold llist; intros; print_goal;
+  try equater; try inhabiter; simp_prem; unpack_conc;
+    repeat match goal with
+             | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
+               let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l)
+             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
+               match CONC with
+                 | context[Z] =>
+                   let l := fresh "eq" in
+                     rewrite -> H1 in H2; simpl in H2
+               end
+           end.
+    ondemand_subst.
+    canceler. rewrite <- eq0. rewrite <- eq. lsep fail simplr.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+  rsep simp_prem t.
+**)
 Qed.
 
 Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
@@ -675,7 +661,10 @@ Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
           {{p ::= node (data nde) (Some nelem)}};;
 (**          {{Return tt}} **)
         Else
-          {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self.
+          {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self;
+  solve [ t | match goal with 
+                | [ |- context[insertAt_model nil _ ?IDX] ] => destruct IDX; simpl
+              end; t ].
   t.
   t.
   t.
@@ -878,47 +867,6 @@ Section Remove.
   Qed.    
 
 End Remove.
-
-Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
-  STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
-        (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
-  intros;
-  refine (Fix3
-    (fun pr nde lsp => lsp ~~ lsq ~~ pr --> nde * llist (next nde) lsp * llist q lsq)
-    (fun pr nde lsp (_:unit) => lsp ~~ lsq ~~ Exists r :@ LinkedList, pr --> node (data nde) r * llist r (lsp ++ lsq))
-    (fun self pr nde lsp =>
-      IfNull (next nde) As p
-      Then {{pr ::= node (data nde) q}}
-      Else nde' <- !p;
-           {{self p nde' (lsp ~~~ tail lsp) <@> (lsp ~~ pr --> nde * [head lsp = Some (data nde')])}}
-    ) pr' nde' lsp').
-  t.
-  t.
-  t.
-  t.
-  t.
-  t. destruct x; t.
-Qed.
-
-Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
-  STsep (lsp ~~ lsq ~~ llist p lsp * llist q lsq)
-        (fun r:LinkedList => lsp ~~ lsq ~~ llist r (lsp ++ lsq)).
-  intros;
-  refine (
-    IfNull p As p'
-    Then {{Return q}}
-    Else nde <- !p';
-         append' p' nde q (lsp ~~~ tail lsp) lsq <@> (lsp ~~ [head lsp = Some (data nde)]);;
-         {{Return p}}).
-  t.
-  t.
-  t.
-  t.
-  t.
-  t.
-  t.
-  t; destruct x0; t.
-Qed.
 
 
 End LINKED_LIST_SEG.
