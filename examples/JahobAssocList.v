@@ -18,45 +18,34 @@ Module NondepAssocListModel(A : NONDEP_ASSOCIATION).
     the same list mutations that Jahob gets using set deletion 
     and union. *)  
 
- Fixpoint update l (k: K) (v: V)  :=
-   match l with
+ Fixpoint delete (l: list (prod K V)) (k: K) :=  
+   match l with  
      | nil => nil
-     | (k', v')::b => if eqK k k' then (k, v) :: b else (k', v') :: update b k v
+     | (k', v')::b => if eqK k k'  then delete b k  else (k',v') :: (delete b k)  
    end.
 
- Fixpoint delete (l: list (prod K V)) (k: K) :=
-  match l with
-    | nil => nil
-    | (k', v')::b => if eqK k k'  then b else (k',v') :: (delete b k)
-  end.
-
- Fixpoint insert l (k: K) (v: V)  :=
-   match l with
-     | nil => (k, v)::nil
-     | (k', v')::b => if eqK k k' then (k, v) :: b else (k', v') :: insert b k v
+ Fixpoint lookup l (k: K) : option V         :=  
+   match l with  
+     | nil => None
+     | (k', v)::b   => if eqK k k'  then Some v      else lookup b k               
    end.
 
- Fixpoint lookup l (k: K) : option V :=
-   match l with
-    | nil => None
-    | (k', v)::b => if eqK k k' then Some v else lookup b k
+ Definition head (ls : list (prod K V)) := 
+   match ls with 
+     | nil => None 
+     | x :: _ => Some x 
    end.
 
-Definition head (ls : list (prod K V)) :=
-  match ls with
-    | nil => None
-    | x :: _ => Some x
-  end.
-
- Definition tail (ls : list (prod K V)) :=
-  match ls with
-    | nil => nil
-    | _ :: ls' => ls'
-  end.
+ Definition tail (ls : list (prod K V)) := 
+   match ls with 
+     | nil => nil  
+     | _ :: ls' => ls'  
+   end.
 
 End NondepAssocListModel.
 
-(* This is the interface for the Jahob AssocList example. *)
+(* This is the interface for the Jahob AssocList example,
+   as expressed in Y0. *)
 Module Type JAHOB_ASSOC_LIST.
  Require Export List.
  Declare Module A  : NONDEP_ASSOCIATION.
@@ -67,53 +56,42 @@ Module Type JAHOB_ASSOC_LIST.
  Open Scope hprop_scope.
 
  Parameter t   : Set.
- Parameter rep : list (prod K V) -> t -> hprop.
+ Parameter rep : t -> list (prod K V) -> hprop.
 
- Parameter new : STsep __ (rep nil).
+ Parameter new : STsep __ (fun r => rep r nil).
  Parameter free: forall (p: t),
-   STsep (rep nil p) (fun _: unit => __).
-
- Parameter containsKey: forall k (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p)
-         (fun r:bool => m ~~ rep m p * if r then Exists v :@ V, [In (k,v) m] 
-                                            else [lookup m k = None]).
- (* todo: ~ Exists v, In (k,v) m] *)
+   STsep (rep p nil) (fun _: unit => __).
 
  Parameter add: forall k v (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * [forall v, ~ In (k,v) m])
-        (fun _:unit => m ~~ rep ((k,v)::m) p).
-
- Parameter replace: forall k v (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * Exists v0 :@ V, [In (k,v0) m] )
-        (fun r:V => m ~~ [In (k, r) m] * rep ((k,v)::(delete m k)) p).
+   STsep (m ~~ rep p m * [lookup m k = None])
+         (fun _:unit => m ~~ rep p ((k,v)::m)).
 
  Parameter put: forall k v (p: t) (m: [list (prod K V)]), 
-   STsep (m ~~ rep m p)
-         (fun r => m ~~ [r = lookup m k] * rep (insert m k v) p).
+   STsep (m ~~ rep p m)
+         (fun r => m ~~ [lookup m k = r] * rep p ((k,v)::(delete m k))).
 
  Parameter get: forall k   (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p)
-         (fun r => m ~~ rep m p * match r with
-                                    | None => [lookup m k = None]
-                                    | Some v => [In (k, v) m]
-                                  end).
-
-(* todo [~ Exists v @: V, In m (k, v) (maybe switch to forall v, ~ In k v ? *)
+   STsep (m ~~ rep p m)
+         (fun r:option V => m ~~ rep p m * [lookup m k = r] ).
 
  Parameter isEmpty: forall (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p) (fun r:bool => m ~~ rep m p * if r then [m = nil] else [m <> nil]).
+   STsep (m ~~ rep p m) (fun r:bool => m ~~ rep p m * if r then [m = nil] else [m <> nil]).
 
- Parameter remove: forall k (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * Exists v :@ V, [In (k,v) m])
-        (fun r:V => m ~~ [In (k, r) m] * rep (delete m k) p).
+ Parameter remove : forall k (p: t) (m: [list (prod K V)]),
+                     STsep (m ~~ rep p m * Exists v :@ V, [lookup m k = Some v]) 
+                (fun r:V => m ~~ rep p (delete m k) *     [lookup m k = Some r]).
 
-(* todo: classical logic -> proof irrelevence -> inconsistency *)
+ Parameter replace: forall k v (p: t) (m: [list (prod K V)]),
+  STsep (m ~~             rep p m * Exists v0 :@ V,     [lookup m k = Some v0] )
+        (fun r:V => m ~~  rep p ((k,v)::(delete m k)) * [lookup m k = Some r ] ).
 
 (* technically want rep -> uniq lemma *)
 
+(* drop contains key *)
+
 End JAHOB_ASSOC_LIST.
 
-(* This uses the same implementation code as Jahob *)
+(* This uses the same algorithms as Jahob *)
 Module JahobAssocList(A : NONDEP_ASSOCIATION) : JAHOB_ASSOC_LIST with Module A := A.
  Module A := A.
  Module AL := NondepAssocListModel(A).
@@ -132,276 +110,275 @@ Module JahobAssocList(A : NONDEP_ASSOCIATION) : JAHOB_ASSOC_LIST with Module A :
     next : option ptr
   }.
 
-  Fixpoint rep' m (op: option ptr) {struct m} :=
+  Fixpoint rep' (op: option ptr) m {struct m} :=
     match op with
       | None => [m = nil] 
       | Some h => match m with
                     | (k,v) :: b =>  Exists nxt :@ option ptr,
-                          h --> node k v nxt * rep' b nxt * [lookup b k = None]
+                          h --> node k v nxt * rep' nxt b * [lookup b k = None]
                     | nil => [False]
                    end
     end.
 
-  Definition rep m p : hprop :=
-    Exists n :@ option ptr, p --> n * rep' m n.
+  Definition rep p m : hprop :=
+    Exists n :@ option ptr, p --> n * rep' n m.
 
 (* Reasoning **************************************************)
 
-
- Lemma nilrep : forall m k, 
-  rep' m None ==> rep' m None * [lookup m k = None].
-   intros. destruct m. sep fail auto. simpl. assert (p :: m = nil -> False).
-   discriminate. sep fail auto. Defined.
-
- Hint Resolve nilrep.
-
- Lemma eta_node : forall fn, fn = node (key fn) (value fn) (next fn).
-   destruct fn; reflexivity.
-  Qed.
-  Hint Resolve eta_node.
-
-  Lemma eta_node2 : forall fn a b, 
-   Some (a, b) = Some (key fn, value fn) -> 
-   fn = node a b (next fn).
-    intros fn a b pf; assert (a = key fn); try congruence; 
-   assert (b = value fn); try congruence; subst; apply eta_node. 
-  Qed.
-  Hint Resolve eta_node2.
-
-  Ltac simplr := repeat (try discriminate;
+Ltac simplr := repeat (try discriminate;
   match goal with
     | [ H : head ?x = Some _ |- _ ] =>
       destruct x; simpl in *; [
         discriminate
         | injection H; clear H; intros; subst
       ]
-    | [ |- context[ match ?v with
+    | [ |- match ?v with
              | Some _ => _
-             | None   => _ 
-           end ==> _] ] => destruct v  
+             | None   => _
+           end ==> _] => destruct v
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
-    | [ |- context[ if (eqK ?v1 ?v2) then _ else _ ] ] => destruct (eqK v1 v2)
-    | [ H : Some ?a = Some ?b |- _ ] => assert (a = b); congruence; subst 
+    | [ H : next _ = _ |- _ ] => rewrite -> H
+    | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
+    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else None) = Some _  |- _ ] => destruct (eqK a b) ; [ contradiction | discriminate ] 
+    | [  HH : (if (eqK ?a ?b) then Some _ else _) = None  |- _ ] => destruct (eqK a b) ; [ discriminate | idtac ]
+    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else Some ?v1) = Some ?v  |- context[Some ?v1 = Some ?v] ] => 
+           destruct (eqK a b) ; [ try congruence | try contradiction ] 
+    | [ _ : ?a = ?b -> False ,  HH : (if (eqK ?a ?b) then _ else ?c) = ?d  |- _ ] => destruct (eqK a b) ; [ contradiction | idtac ]
+    | [ |- context[ if eqK ?a ?a then _ else _ ] ] => destruct (eqK a a) 
+    | [ H : ?a = ?b -> False |- context[ if eqK ?a ?b then _ else _ ] ] => destruct (eqK a b); [ contradiction | idtac ] 
+    | [  H : next ?nn = ?a |- ?n = node (key ?nn) (value ?nn) ?a ] => rewrite <- H; destruct n; reflexivity
+    | [ _ : (if eqK ?a ?b then Some _ else None) = Some _ |- _ ] => destruct (eqK a b); [ idtac | discriminate ] 
+    | [ _ : (if eqK ?a ?a then _ else _) = _ |- _ ] => destruct (eqK a a); [ idtac | intuition ] 
   end).
 
- Ltac printGoal := match goal with [ |- ?g ] => idtac g end.
+Ltac t := unfold rep; unfold rep'; sep fail simplr.
+Ltac f := fold rep'; fold rep.
 
- Ltac t := unfold rep; unfold rep'; try congruence; try subst; sep fail simplr.
- Ltac f := fold rep'; fold rep.
+Lemma eta_node : forall fn, fn = node (key fn) (value fn) (next fn).
+  destruct fn; reflexivity.
+Qed.
 
- Lemma reprev : forall hd0 m,
-   rep' m (Some hd0) ==> Exists n :@ Node,
-   [head m = Some (key n, value n)] * hd0 --> n *
-   rep' (tail m) (next n). 
- intros. destruct m. t. t. Defined.
+Hint Resolve eta_node.
 
- Lemma lkup : forall v k x, Some v = lookup x k -> In (k, v) x.
-  induction x; simpl; t. destruct a as [k0 v0]; destruct (eqK k k0); [ left; congruence | right; apply IHx; assumption ]. Qed.
-(*
- Lemma lkupNone : forall k v x,  ~ In (k, v) x -> lookup x k = None.
-  induction x; simpl; t. destruct a as [k0 v0]. destruct (eqK k k0). [ left; congruence | right; apply Ihx; assumption]. Qed.  
-*)
+Lemma ll_concat : forall nde a b c hd, Some (key nde, value nde) = head a ->
+  rep' (next nde) (tail a ++ b :: c) * hd --> nde * [lookup (tail a ++ b :: c) (key nde) = None] ==> rep' (Some hd) (a ++ b :: c)  .
+  induction a; t.
+Qed.
+
+Hint Resolve ll_concat.
+Lemma cons_nil : forall l2 x0 x, rep' l2 x0 * rep' None x ==> rep' l2 (x ++ x0).
+  destruct x; t.
+Qed.
+Lemma node_next : forall nde p,  next nde = p -> nde = node (key nde) (value nde) p.
+  destruct nde; simpl; congruence.
+Qed.
+
+Hint Resolve cons_nil.
+Hint Resolve node_next.
+
+Lemma lkup: forall m k x, 
+ lookup m x = None -> lookup (delete m k) x = None.
+  intros. induction m. trivial. simpl in *. destruct a. destruct (eqK x k0). discriminate. destruct (eqK k k0). apply IHm. assumption.
+   induction m. t. t. Qed.
+
+(* Hint Resolve lkup. *)
+
+Theorem rep'_None : forall ls,
+  rep' None ls ==> [ls = nil].
+  destruct ls; sep fail idtac.
+Qed.
+
+Theorem rep'_Some : forall ls hd,
+  rep' (Some hd) ls ==> Exists k :@ K, Exists v :@ V, Exists t :@ list (prod K V), Exists p :@ option ptr,
+  [ls = (k,v) :: t] * hd --> node k v p * [lookup t k = None] * rep' p t.
+  destruct ls; sep fail ltac:(try discriminate).
+Qed.
+
+Lemma node_eta : forall fn k v x,
+  [fn = node k v x] ==> [key fn = k] * [value fn = v] * [next fn = x].
+  destruct fn; sep fail ltac:(try congruence).
+Qed.
+
+Lemma cons_eta : forall x h t,
+  [x = h :: t] ==> [head x = Some h] * [tail x = t].
+  destruct x; sep fail ltac:(try congruence).
+Qed.
+
+Lemma rep'_eq : forall m x v0 v1 x0 fn,
+  m = [x]%inhabited
+  -> (m ~~~ tail m) = [x0]%inhabited
+  -> tail x = v0
+  -> next fn = v1
+  -> rep' v1 v0 ==> rep' (next fn) x0.
+  t.
+Qed.
+
+Hint Resolve rep'_eq.
+
+Theorem rep_rep' : forall m p, rep p m ==>
+  Exists n :@ option ptr, p --> n * rep' n m. t. Qed.
+
+Hint Resolve rep_rep'.
+
+Ltac simp_prem :=
+  simpl_IfNull;
+  repeat simpl_prem ltac:(apply rep'_None || apply rep'_Some || apply node_eta || apply cons_eta || apply rep_rep');
+    unpack_conc.
+
+Ltac destr := match goal with [ x : list (prod K V) |- context[rep' None ?x] ] => destruct x; try t end.
+
+Ltac t'' := unfold rep; fold rep'; sep simp_prem simplr.
+
+Ltac t' := match goal with
+             | [ |- _ ==> ?P ] =>
+               match P with
+                 | context[rep' (next _) _] =>
+                   inhabiter; simp_prem;
+                   intro_pure; simpl_prem ltac:(solve [ eauto ]); unintro_pure; canceler; t''
+               end
+             | _ => t''
+           end.
+
+Theorem lkup0 : forall ls k,
+  lookup ls k = None -> ls = delete ls k.
+ intros. induction ls. t. t. destruct a. destruct (eqK k k0). t. pose (IHls H). rewrite <- e. trivial. Qed.
+
+Lemma lkpdel : forall m k, lookup (delete m k) k = None.
+ intros. induction m. trivial. simpl. destruct a. destruct (eqK k k0). assumption. simpl. 
+ destruct (eqK k k0). contradiction. assumption. Qed.
+
+Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' ?x (delete ?ls ?n) ] =>  rewrite <- (lkup0 ls n H) ; t end. 
 
 (* Implementation ***************************************************)
 
   Open Scope stsepi_scope.
 
-  Definition new : STsep __ (rep nil).
+  Definition new : STsep __ (fun r => rep r nil).
     refine {{ New (@None ptr) }}; t. Qed.
 
-  Definition free  p: STsep (rep nil p) (fun _:unit => __).
-  intros; refine {{ Free p }}; t. Qed.  
+  Definition free  p: STsep (rep p nil) (fun _:unit => __).
+  intros; refine {{ Free p }}; t. Qed.   
 
-  (* This is get duplicated, so I'm going to defer until get is nicer *)
-  Parameter containsKey: forall k (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p)
-         (fun r:bool => m ~~ rep m p * if r then Exists v :@ V, [In (k,v) m] 
-                                            else [lookup m k = None]).
-
-  Definition add': forall k v (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p * [lookup m k = None])
-         (fun _:unit => m ~~ rep ((k,v)::m) p).
+  Definition add: forall k v (p: t) (m: [list (prod K V)]),
+   STsep (m ~~ rep p m * [lookup m k = None])
+         (fun _:unit => m ~~ rep p ((k,v)::m)).
    intros. refine ( op <- ! p ;
                     n  <- New (node k v op) ;
                     {{ p ::= (Some n) }} ); t. Qed.
 
-  Definition add: forall k v (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * [forall v0, ~ In (k,v0) m])
-        (fun _:unit => m ~~ rep ((k,v)::m) p). 
-  intros. refine ( {{ add' k v p m }}). hdestruct m. t. sep fail auto.
-   destruct (eqK k a). pose (H b). destruct f. subst. left. reflexivity.
-                       induction m. t. destruct a0. simpl. destruct (eqK k k0).
-   subst. pose (H v0). destruct f. right. simpl. left. reflexivity. apply (IHm).
-    intros. destruct H0. assert (a = k). congruence. subst. elim n. reflexivity.
-    pose (H v1). destruct f. right. simpl. right. assumption. t. Qed.
-
-(* Replace        **********)
-
- Parameter replace: forall k v (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * Exists v0 :@ V, [In (k,v0) m] )
-        (fun r:V => m ~~ [In (k, r) m] * rep ((k,v)::(delete m k)) p).
-
- (* Put           *********)
-
- Parameter put: forall k v (p: t) (m: [list (prod K V)]), 
-   STsep (m ~~ rep m p)
-         (fun r => m ~~ [r = lookup m k] * rep (insert m k v) p).
-
  (* Get           **********)
 
-  Definition get'' (k: K) (hd: option ptr) (m: [list (prod K V)]):
-    STsep (m ~~ rep' m hd) (fun r => m ~~ [r = lookup m k] * rep' m hd).
+ Definition get' (k: K) (hd: option ptr) (m: [list (prod K V)]):
+    STsep (m ~~ rep' hd m) (fun r => m ~~ [lookup m k = r] * rep' hd m).
   intro k.
   refine (Fix2
-    (fun hd m => m ~~ rep' m hd)
-    (fun hd m o => m ~~ [o = lookup m k] * rep' m hd)
-    (fun self : forall hd m, STsep (m ~~ rep' m hd) (fun r => m ~~ [r = lookup m k] * rep' m hd) => fun hd m => 
+    (fun hd m => m ~~ rep' hd m)
+    (fun hd m r => m ~~ [lookup m k = r] * rep' hd m)
+    (fun self hd m =>  
       IfNull hd
-      Then  Assert (m ~~ [m = nil]) ;;
-            {{ Return None }}
-      Else  fn <- SepRead hd (fun fn => m ~~  [head m = Some (key fn, value fn)] * 
-                                              rep' (tail m) (next fn) *
-                                              [lookup (tail m) (key fn) = None] *
-                                              [lookup m (key fn) = Some (value fn)] );
-            if eqK (key fn) k 
-            then {{ Return (Some (value fn)) 
-                     <@>              (hd --> fn * (m ~~ 
-                                              [head m = Some (key fn, value fn)] * 
-                                              rep' (tail m) (next fn)  *
-                                              [lookup (tail m) (key fn) = None] *    
-                                              [lookup m k = Some (value fn)] ))  }}  
-            else {{ self (next fn) (m ~~~ tail m) 
-                     <@>             (hd --> fn * (m ~~  
-                                              [head m = Some (key fn, value fn)] * 
-                                              [lookup (tail m) (key fn) = None] )) }} ));
-  try solve [ t | repeat (hdestruct m; t) ]. Qed.
+      Then  {{ Return None }}
+      Else  fn <- ! hd ;
+            if eqK k (key fn) 
+            then {{ Return (Some (value fn)) }} 
+            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup; t'. 
+  Qed.
 
-  Definition get' (k: K) (p: ptr) (m: [list (prod K V)]) :
-    STsep (m ~~ rep m p)
-          (fun r:option V => m ~~ rep m p * [r = lookup m k] ).
+  Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
+    STsep (m ~~ rep p m)
+          (fun r:option V => m ~~ rep p m * [lookup m k = r] ).
   intros; refine (hd <- !p;
-                  Assert (p --> hd * (m ~~ rep' m hd));;
-                  {{get'' k hd m <@> _}}); t. Qed.
-
-  Definition get: forall k   (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p)
-         (fun r => m ~~ rep m p * match r with
-                                    | None => [lookup m k = None]
-                                    | Some v => [In (k, v) m]
-                                  end).
-  intros; refine ( {{ get' k p m }} ); [ t | intro v; destruct v; pose lkup; t ]. Qed.
+                  {{ get' k hd m  <@> (p --> hd) }}); t. Qed.
 
  (* isEmpty         ********)
 
  Definition isEmpty: forall (p: t) (m: [list (prod K V)]),
-   STsep (m ~~ rep m p) (fun r:bool => m ~~ rep m p * if r then [m = nil] else [m <> nil]).
- intros; refine ( ohd <- ! p ;
-                   Assert (m ~~ p --> ohd * rep' m ohd) ;;
-                  {{ Return (match ohd with | None => true | Some _ => false end) }} );
- solve [ t | hdestruct m; t ]. Qed.
+   STsep (m ~~ rep p m) (fun r:bool => m ~~ rep p m * if r then [m = nil] else [m <> nil]).
+   intros; refine ( ohd <- SepRead p (fun ohd => m ~~ rep' ohd m)  ;
+                    IfNull ohd 
+                    Then  {{ Return true  }}
+                    Else  {{ Return false }} ); t'. 
+ Qed.
 
  (* Remove         *********)
 
- Parameter remove: forall k (p: t) (m: [list (prod K V)]),
-  STsep (m ~~ rep m p * Exists v :@ V, [In (k,v) m])
-        (fun r:V => m ~~ [In (k, r) m] * rep (delete m k) p).
 
-Parameter ff: False.
+Definition remove_pre k ls prev pn cur := (ls ~~ Exists t :@ list (K*V), Exists v :@ V, Exists n :@ Node, 
+ [lookup ((key n, value n)::t) k = Some v] * 
+ [ls = (key pn, value pn)::(key n, value n)::t] * [key pn <> k] *
+ prev --> pn * [next pn = Some cur] * [lookup ((key n, value n)::t) (key pn) = None] *
+ cur --> n * rep' (next n) t * [lookup t (key n) = None]).
 
-Definition cmp n m v k cur prev pn : STsep ([next pn = Some cur] * [key n = k] * [lookup m (key pn) = None] * cur --> n * [lookup m k = Some v] * [lookup (tail m) (key n) = None] * [head m = Some (key n, value n)] * prev --> pn * rep' (tail m) (next n))
-                                     (fun r:V => [next pn = Some cur] * [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev)).
- intros. refine ( Free cur ;; prev ::= node (key pn) (value pn) (next n) ;; {{ Return (value n) }} ). t. t. t. t. t. t. Defined.
+Definition remove_post k ls prev (pn:Node) (_:ptr) :=
+(fun r:V => ls ~~ Exists pk :@ K, Exists pv :@ V, Exists x :@ list (prod K V), 
+          [ls = (pk,pv) :: x] * rep' (Some prev) ((pk,pv)::(delete x k)) * [lookup x k = Some r]).
 
-Definition remove'' k v (prev: ptr) (pn: Node) (m: list (prod K V)) : STsep
-   ( Exists ck :@ K, Exists cv :@ V, [lookup m (key pn) = None] * [lookup m k = Some v] * [head m = Some (ck, cv)] * prev --> pn * rep' m (next pn) )
-   (fun r:V => [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev)).
-intros k v. refine (Fix3 (fun prev pn m => Exists ck :@ K, Exists cv :@ V,  [lookup m (key pn) = None] * [lookup m k = Some v] * [head m = Some (ck, cv)] * prev --> pn * rep' m (next pn) )
-                         (fun prev pn m r => [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev))
-                         (fun F prev (pn: Node) m => 
-{{  match next pn as nxt return STsep ([next pn = nxt] * Exists ck :@ K, Exists cv :@ V,  [lookup m (key pn) = None] * [lookup m k = Some v] * [head m = Some (ck, cv)] * prev --> pn * rep' m nxt)
-                                   (fun r:V => [next pn = nxt] * [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev)) with
-   | None => {{ !!! }}
-   | Some cur => Assert (Exists n :@ Node,   [next pn = Some cur] * cur --> n *  [lookup m (key pn) = None] * [lookup m k = Some v] * [lookup (tail m) (key n) = None] * [head m = Some (key n, value n)] * prev --> pn * rep' (tail m) (next n)) ;; 
-                 n <- ! cur ;
-                 match eqK (key n) k as eqx return STsep ([next pn = Some cur] * match eqx with
-                                                            | left  _ => [key n  = k] 
-                                                            | right _ => [key n <> k] 
-                                                              end  * [lookup m (key pn) = None] * cur --> n  * [lookup m k = Some v] * [lookup (tail m) (key n) = None] * [head m = Some (key n, value n)] * prev --> pn * rep' (tail m) (next n))
-                                            (fun r:V => [next pn = Some cur] * [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev)) with
-                   | left _ =>  cmp n m v k cur prev pn   
-                   | right _ => {{ match next n as nxt return STsep ([next pn = Some cur] * [next n = nxt] * [key n <> k] * [lookup m (key pn) = None] * cur --> n  * [lookup m k = Some v] * [lookup (tail m) (key n) = None] * [head m = Some (key n, value n)] * prev --> pn * rep' (tail m) nxt)
-                                            (fun r:V => [next pn = Some cur] * [lookup m (key pn) = None] * [Some r = lookup m k] * rep' ((key pn, value pn)::(delete m k)) (Some prev)) with
-                                  | None => {{ !!! }} 
-                                  | Some p => False_rect _ ff (* {{ F cur n (tail m) <@>  [next pn = Some cur] * [next n = Some p] * [key n <> k] * [lookup m (key pn) = None] * prev --> pn }} *) 
-                                 end }}
-                 end 
- end }})).  
- solve [ t | destruct m; t; destruct m; t ] . 
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] .
- solve [ t | destruct m; t; destruct m; t ] . Qed.
+Definition remove'' k ls prev pn cur : STsep (remove_pre k ls prev pn cur) (remove_post k ls prev pn cur).             
+intro k. refine (Fix4 (remove_pre k) (remove_post k)  
+ (fun self ls prev pn cur =>        
+  n <- SepRead cur (fun n => ls ~~ Exists t :@ list (prod K V), Exists v :@ V, [key pn <> k] * [lookup t (key pn) = None] * [next pn = Some cur] *
+                [ls = (key pn, value pn) :: (key n, value n) :: t] * [key pn <> key n] * [lookup t (key n) = None] * 
+                 prev --> node (key pn) (value pn) (Some cur) * rep' (next n) t * [lookup ((key n, value n)::t) k = Some v])  ; 
+  if eqK k (key n)  
+  then Free cur ;;
+        prev ::= node (key pn) (value pn) (next n) ;;  
+        {{ Return (value n) }}
+  else IfNull (next n) As nt 
+       Then  {{ !!! }} 
+       Else {{ self (ls ~~~ tail ls) cur n nt <@>  (ls ~~ Exists t :@ list (prod K V), [lookup t (key pn) = None] * 
+                                            [ls = (key pn, value pn) :: (key n, value n) :: t]  * [k <> key n] * 
+                                            [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur))  }})); 
+unfold remove_pre; unfold remove_post; pose lkup; pose lkup; 
+solve [ t | t' | sep fail auto; t'; tx | rewrite _0; t'; instantiate (1:=v0); t ]. Qed.
 
- Definition remove' : forall k v (p: t) (m: list (prod K V)),
-                     STsep (                        [lookup m k = Some v] * rep m p) 
-                         (fun r:V =>                [lookup m k = Some r] * rep (delete m k) p).
+
+ Definition remove : forall k (p: t) (m: [list (prod K V)]),
+                     STsep (m ~~ rep p m * Exists v :@ V, [lookup m k = Some v]) 
+                (fun r:V => m ~~ rep p (delete m k) *     [lookup m k = Some r]).
  intros. refine ( 
- ohdptr <- ! p ;
- match ohdptr with
-   | None => {{ !!! }}
-   | Some hdptr => hd <- ! hdptr ;
-                   match eqK (key hd) k with
-                     | left _  => p ::= None ;;
-                                  {{ Return (value hd) }}
-                     | right _ => {{ remove'' k v hdptr hd (tail m) }} 
-                   end
- end). Admitted.
-
-                
-
- (* The Jahob put operation traverses the list several times.  
-    This implements a faster, in-place put that isn't found in Jahob. *)
-(* This hasn't been updated for the uniqueness part of the invariant 
- Definition putFast' (k: K) (v: V) (hdptr: ptr) (m: [list (prod K V)]) :
-  STsep (m ~~ rep' m (Some hdptr))
-        (fun r => m ~~ [r = lookup m k] * rep' (insert m k v) (Some hdptr)).
-intros k v. 
-refine (Fix2 
-    (fun hdptr m => m ~~ rep' m (Some hdptr))
-    (fun hdptr m r => m ~~ [r = lookup m k] * rep' (insert m k v) (Some hdptr))
-    (fun F hdptr m => Assert (m ~~ Exists fn :@ Node, [head m = Some (key fn, value fn)] * hdptr --> fn * rep' (tail m) (next fn)) ;; 
-                      fn <- !hdptr ;     
-                      if eqK k (key fn) 
-                      then  hdptr ::= node k v (next fn)  ;;
-                           {{ Return Some (value fn) }} 
-                      else  IfNull (next fn) As nxt
-                           Then xx <- New (node k v None);
-                                hdptr ::= node (key fn) (value fn) (Some xx) ;; 
-                                {{ Return None }}
-                           Else {{ F nxt (m ~~~ tail m) <@> (m ~~ hdptr --> fn  * [head m = Some (key fn, value fn)]) }} )); 
- try solve [ t | progress (hdestruct m; t) | destruct fn; hdestruct m; t; destruct m; t; t ]. Defined. 
+  hdptr <- ! p ;
+  IfNull hdptr 
+  Then {{ !!! }} 
+  Else hd <- SepRead hdptr (fun hd => m ~~ Exists tl :@ list (prod K V), p --> Some hdptr * Exists v :@ V, [lookup m k = Some v] *
+                                       [m = (key hd, value hd)::tl] * rep' (next hd) tl * [lookup tl (key hd) = None])   ;
+          if eqK k (key hd)
+          then Free hdptr ;;
+               p ::= next hd ;; 
+               {{ Return (value hd) }}
+          else IfNull (next hd) As nt 
+               Then {{ !!! }}
+               Else {{ remove'' k m hdptr hd nt <@> (m ~~ p --> Some hdptr * [head m = Some (key hd, value hd)] ) }}
+  ); unfold remove_pre; unfold remove_post; pose lkup; pose lkup0; pose lkpdel.
+t. instantiate (1:=v0). t. t. instantiate (1:= v1). t. t'. t. t'. instantiate (1:=v0). t. t. instantiate (1:= v1). t.
+t. t. t. t. t. t'. tx. sep fail auto. t'. t. t'. instantiate (1:= v0). t. t. Qed.
 
 
-Definition putFast (k: K) (v: V) (p : ptr) (m : [list (prod K V)])  :
-  STsep (m ~~ rep m p)
-        (fun r => m ~~ [r = lookup m k] * rep (insert m k v) p ).
-intros; refine(
-   opthd <- !p ;
-   IfNull opthd
-   Then xx <- New (node k v None) ;
-        p ::= Some xx ;;
-        {{ Return None }}
-   Else {{ putFast' k v opthd m <@> _ }} );
- try solve [ t | progress (hdestruct m; t) | destruct fn; hdestruct m; t; destruct m; t; t ]. Defined.
+ (* Replace        **********)
 
-*)
+ Definition replace: forall k v (p: t) (m: [list (prod K V)]),
+  STsep (m ~~             rep p m * Exists v0 :@ V,    [lookup m k = Some v0] )
+        (fun r:V => m ~~  rep p ((k,v)::(delete m k)) * [lookup m k = Some r ]).
+ intros. refine ( x <- remove k p m ;
+                  add k v p (m ~~~ delete m k)  <@> (m ~~ [lookup m k = Some x]) ;;
+                  {{ Return x }} ); pose lkup; pose lkup0; pose lkpdel. 
+ sep fail auto. instantiate (1:=v0). t. t. t. t. t. t. Qed.
+
+ (* Put           *********)
+
+Definition put k v (p: t) (m: [list (prod K V)]):
+   STsep (m ~~ rep p m)
+         (fun r => m ~~ [lookup m k = r] * rep p ((k,v)::(delete m k))).
+intros.
+refine ( x <- get k p m ;
+          (match x as x0 return STsep (m ~~ rep p m * [x =lookup m k] * [x = x0])
+                                    (fun _:unit => m ~~ rep p (delete m k) * [x = lookup m k])  with
+             | Some xx =>  z <- remove k p m <@> (m ~~ [Some xx =lookup m k] * [x = Some xx]) ;
+                             {{ Return  tt  }}
+            | None => {{  Return tt }} 
+          end)  ;;
+          add k v p (m ~~~ delete m k) <@> (m ~~ [x = lookup m k]) ;;
+         {{ Return x }}
+         ); pose lkup; pose lkpdel; pose lkup0; try solve [ t | t' | sep fail auto; symmetry in H; t'; tx ].
+ sep fail auto. f. instantiate (1:=xx). t. t'. tx. Qed.
 
 End JahobAssocList.
 

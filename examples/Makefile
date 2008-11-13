@@ -1,5 +1,7 @@
-MODULES    := Counter Stack Queue Array Stream AssocListModel FiniteMap RefFiniteMap HashTable AssocListOrdModel BinarySearchTree JahobAssocList BinomialTree
+MODULES    := Counter Stack Queue Array Stream AssocListModel FiniteMap RefFiniteMap HashTable AssocListOrdModel BinarySearchTree JahobAssocList BinomialTree LinkedListSeg
 VS         := $(MODULES:%=%.v)
+
+.SUFFIXES: .v .vo
 
 .PHONY: coq clean
 
@@ -17,3 +19,6 @@ Makefile.coq: Makefile $(VS)
 clean:: Makefile.coq
 	make -f Makefile.coq clean
 	rm -f Makefile.coq .depend
+
+.v.vo: $.v
+	coqc -R ../src Ynot -R . Examples  -q  -I . $(<:.v=) > /dev/null

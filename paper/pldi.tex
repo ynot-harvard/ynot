@@ -6,6 +6,7 @@
 \usepackage{color}
 
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
+\newcommand{\hide}[1]{}
 
 \newcommand{\cd}[1]{\texttt{#1}}
 
@@ -45,7 +46,7 @@
   We present a new approach for constructing and verifying
   higher-order, imperative programs using the Coq proof assistant.
   Our approach is similar to the shallow embedding of Hoare Type
-  Theory (HTT) that was used in the Ynot project.  However, compared
+  Theory that was used in the Ynot project.  However, compared
   to Ynot, our new approach significantly reduces the burden on
   the programmer.  For example, in both systems we have constructed
   fully verified imperative data structures, such as hash-tables with
@@ -75,26 +76,119 @@
 %keyword1, keyword2
 
 \section{Introduction (GREG)}
-\begin{itemize}
-\item Want to verify imperative programs
-\item Higher-order functions
-\item modularity
-\item {\it mom and apple pie}
-\end{itemize}
 
-  Ynot is the right design from a modularity, re-use perspective.  Much of the success hinges on the use of a higher-order dependently-typed language (Coq) and the ability to smoothly integrate modeling (inductive definitions), domain-specific abstractions (e.g., STsep) and uniform abstraction (Pi). If Ynot is to succeed, need drastic improvements in automation.
+A key goal of type systems is to prevent ``bad states'' from arising
+in the execution of programs, but today's type systems fail to catch
+language-level errors, such as a null-pointer dereference or an
+out-of-bounds array index, much less library- and application-specific
+errors such as removing an element from an empty queue, failing to
+maintain the invariants of a balanced tree, or forgetting to release a
+critical resource such as a database connection.  For safety- and
+security-critical code, a type system should ideally rule out these
+problems and, in the limit, make it possible for programmers to verify
+that their code is correct.
 
+There are many recent attempts to extend the scope of type systems to
+address a wider range of safety properties.  Representative examples
+include ESC/Java~\cite{esc-java}, Spec\#~\cite{spec-sharp},
+ATS~\cite{ats}, Concoqtion~\cite{concoqtion}, Sage~\cite{sage}, and
+Ynot~\cite{ynot:icfp}.  Each of these systems integrates some form of
+specification logic into the type system in order to rule out a wider
+range of truly bad states.
 
-\section{Overview (GREG)}
-\begin{itemize}
-\item Features of Ynot
-\item problem with the proofs
-\end{itemize}
+However, in the case of ESC/Java, Spec\#, and Sage, the program logic
+is too weak to support full verification because these systems rely
+upon provers to automatically discharge verification conditions.
+While there have been great advances in the performance of automated
+provers, in practice, they can only handle relatively shallow
+fragments of first-order logic.  Thus, programmers are frustrated when
+code that is correct is rejected by the type-checker.  For example,
+none of these systems is able to prove that an array index is in
+bounds when the constraints involved step outside quantifier-free
+linear arithmetic.
 
+In contrast, ATS, Concoqtion, and Ynot use powerful, higher-order
+logics that support a much wider range of policies including (partial)
+correctness.  Furthermore, in the case of Ynot, programmers can define
+and use connectives in the style of separation logic~\cite{separation}
+to achieve simple, modular specifications of higher-order imperative
+programs.  For example, a recent paper describes how Ynot was used
+to construct fully-verified implementations of data structures such
+as queues, hash-tables, and splay-trees, including support for 
+iterators.  
+
+The price paid for these more powerful type systems is that, in
+general, programmers must provide explicit proofs to convince the
+type-checker that code is correct.  Unfortunately, explicit proofs can
+be quite large when compared to the code.  For example, in the Ynot
+module implementing a enqueue for a linked-list, requires 7 lines of code,
+whereas the proof of correctness is about 70 lines.
+
+This paper reports our experience re-designing and re-implementing
+Ynot to dramatically reduce the burden of writing and maintaining the
+necessary proofs for full verification.  Like the original Ynot, our
+system is based on the ideas of Hoare Type Theory~\cite{htt} and is
+realized as an axiomatic extension of the Coq proof
+assistant~\cite{CoqArt}.  This allows us to inherit the full power of
+Coq's dependent types for writing code, specifications, and proofs,
+and it allows us to use Coq's facility for extraction to executable ML
+code.  However, unlike the previous version, we have taken advantage
+of Coq's tactic language Ltac to implement a new set of parameterized
+semi-decision procedures for automatically discharging or at least
+simplifying the separation logic-style verification conditions.  The
+careful design of these procedures makes it possible for programmers
+to teach the prover about new domains as they arise.
+
+We describe this new implementation of Ynot and report on our
+experience implementing and verifying various imperative data
+structures including stacks, queues, hash tables, binomial trees, and
+binary search trees.  When compared with the previous version of Ynot,
+we observe roughly an order of magnitude reduction in proof size.  In
+most cases, to realize automation, programmers need only prove key
+lemmas regarding the abstractions used in their interfaces and plug
+these lemmas into our extensible tactics.  More importantly, we show
+that the tactics used to generate the proofs are robust to small
+changes in the code or specifications.
+
+We also provide a qualitative comparison of our approach to two other
+verification projects that have recently appeared in the literature,
+Jahob~\cite{jahob} and Smallfoot~\cite{smallfoot}.  To summarize,
+Jahob is based on the ideas of ESC/Java and Spec\# but aims for full
+verification of imperative data structures.  In general, we found that
+it requires many more annotations on the code because of its
+``large-footprint'' approach to specifications.  It also requires a
+much larger trusted computing base as it combines a number of external
+decision procedures, some of which do not generate
+separately-checkable proof witnesses justifying their conclusions.
+Smallfoot, like Ynot, is based on separation logic and requires many
+fewer annotations, but can only verify memory safety and not full
+correctness.  Furthermore, Smallfoot only understands a small set of
+hard-coded abstractions (linked list segments and tree segments),
+while our new system supports sound extension of the library of
+abstractions by programmers.
 
 \section{The Ynot Programming Environment}
 
-The axiomatic base of Ynot is a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
+To a first approximation, Coq can be thought of as a functional programing language like Haskell or ML, but with support for dependent types.  For instance, one can have types such as:
+\begin{verbatim}
+div : nat -> forall n : nat, n <> 0 -> nat
+\end{verbatim}
+and write functions like
+\begin{verbatim}
+Definition avg (x:list nat) : nat :=
+  let sum := fold plus 0 x in
+  let len := length x in
+  match eq_nat_dec len 0 with
+    | inl(pf1: len = 0) => 0
+    | inr(pf2: len <> 0) => div sum len pf2
+  end.
+\end{verbatim}
+
+This function averages the values in a list of natural numbers.  It has a normal type like you might find in ML, and its implementation begins in an ML-like way, using a higher-order \cd{fold} function.  The interesting part is the \cd{match} expression.  We match on the result of a call to \cd{eq\_nat\_dec}, a dependently-typed natural number comparison function.  That function returns more than just a boolean; it returns a sum type with equality proofs in one branch and inequality proofs in the other.  We bind a name for each proof explicitly in the pattern for each \cd{match} case.  The proof that \cd{len} is not zero is passed to \cd{div} to justify the safety of the operation.
+
+All Coq functions have to be pure -- terminating without side effects.  This is necessary to ensure that proofs really are proofs, with no spurious ``proofs by infinite loop.''  Ynot extends Coq with support for side-effecting computations.  Similar to Haskell, we introduce a monadic type constructor \cd{ST T} which describes computations that might diverge and that might have side effects, but that, if they do return, return values of type \cd{T}.  We can use \cd{ST} to safely keep the ``effectful'' computations separate from the pure computations.
+
+Unlike Haskell's \cd{IO} monad, the \cd{ST} type is parameterized by a pre- and post- condition, which can be used to describe the effects of the computation on a mutable store.  Alternatively, one can think of the axiomatic base of Ynot as a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands, hence the IO-monad-like presentation.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
 $$\{\lambda \_. \; \top\} \; \return{1} \; \{\lambda h, v, h'. \; h' = h \land v = 1\}$$
 and
 $$\begin{array}{c}
@@ -469,7 +563,7 @@ Parameter array_plus : array -> nat -> [ptr].
 
 The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
 
-With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
+With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde \; v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
 
 \begin{verbatim}
 Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
@@ -497,7 +591,7 @@ An example is a \cd{getElements} function, defined in terms of the list invarian
 
 \begin{verbatim}
 Definition getElements (hd : option ptr) (ls : [list A]) :
-  STsep (ls ~~ listRep m hd)
+  STsep (ls ~~ listRep ls hd)
         (fun res : list A => ls ~~ [res = ls]
           * listRep ls hd).
   refine (Fix2
@@ -518,6 +612,41 @@ The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2
 The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
 
 
+\subsection{A Dependently-Typed Memoizing Function}
+
+\begin{figure}
+  \begin{verbatim}
+Module Type MEMO.
+  Parameter T : Set.
+  Parameter t : forall (T' : T -> Set),
+    hprop
+    -> (forall x, T' x -> Prop)
+    -> Set.
+  Parameter rep : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop),
+    t inv fpost -> hprop.
+  Parameter create : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop),
+    (forall x, STsep inv
+      (fun y : T' x => [fpost _ y] * inv))
+    -> STsep __ (fun m : t inv fpost => rep m).
+  Parameter funcOf : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop)
+    (m : t inv fpost),
+    forall (x : T), STsep (rep m * inv)
+      (fun y : T' x => rep m * [fpost _ y] * inv).
+End MEMO.
+  \end{verbatim}
+  \caption{\label{memoize}Signature of a memoization module}
+\end{figure}
+
+As far as we have been able to determine, all previous tools for data structure verification lack either aggressive automation or support for higher-order features.  The original Ynot supported easy integration of higher-order functions and dependent types, but the very manual proof style became even more onerous for such uses.  Our reimplemented Ynot maintains the original's higher-order features, and our proof automation integrates very naturally with them.  This is a defining advantage of our new framework over all alternatives.
+
+For instance, it is easy to define a module supporting memoization of imperative functions.  Figure \ref{memoize} gives the signature of our implementation, which is actually an ML-style functor that produces implementations of this signature when passed appropriate input modules.  The type \cd{T} is the domain of memoizable functions, and types like \cd{t inv fpost} stand for memo tables.  The argument \cd{inv} is an assertion giving an invariant that the memoized function maintains, and the pure assertion \cd{fpost} gives a relation between inputs and outputs of the function.  The \cd{rep} predicate captures the heap invariants associated with a memo table.  The \cd{create} function produces a memo table when passed an imperative function with the proper specification.  Finally, the \cd{funcOf} function maps a memo table to a function that consults the table to avoid recomputation.
+
+We can implement a \cd{MEMO} functor in 50 lines when we use a memo table that only caches the most recent input-output pair.  Like in the previous examples, we build a specialized automation procedure with a one-line instantiation of library tactics.  We give a 7-line definition of \cd{rep}, give one one-liner proof of a lemma to use in proof search, and include two lines of annotations within the definition of \cd{funcOf}.  All of the rest of the development is no longer or more complicated than in ML.  Compared to ML, we have the great benefit of using types to control the behavior of functions to be memoized.  A function could easily thwart an ML memoizer by producing unexpected computational effects.
+
+  
 \section{Tactic Support}
 
 The examples from the last section show how much of the gory details of proofs can be hidden from programmers.  In actuality, every command triggers the addition of one or more proof obligations that cannot be discharged effectively by any of the built-in Coq automation tactics.  Not only is it hard to prove the obligations, it is also hard to infer the right intermediate specifications.  Our separation logic formulas range well outside the propositional fragment that automated tools tend to handle; specification inference and proving must deal with higher-order features.
@@ -633,399 +762,163 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 %%  where in the old Ynot. (provide numbers here)
 
 \section{Evaluation}
+
 \begin{figure*}
-\begin{center}
-\begin{tabular}{r | r | r | r | r | r | r | r}
- & lines of code & total  non-code & annotations & lemmas & proofs & aux. def & tactics\\\hline
-{\tt LL-ref} & AVI\\
-{\tt LL-Jahob} & RYAN\\
-{\tt LL-Smallfoot} & GREGORY\\
-{\tt Hashtable} & AVI\\
-{\tt Binary Heap} & RYAN\\
-{\tt BST} & ??\\
-{\tt Stack} & ADAM\\
-{\tt Queue} & ADAM\\
-\end{tabular}
-\end{center}
+  \begin{center}
+    \begin{tabular}{r | r | r | r | r | r | r | r | r}
+                                             & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics & Time (m:s) \\ \hline
+Stack                                        & 13      &    31             &   8   &    0        &  9         &  9     &  5      & 0:12 \\
+Queue                                        & 34      &    81             &  12   &    0        & 14         & 32     & 23      & 1:36 \\
+Ref to Functional Finite Map                 &   8     &    19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
+Hash Table                                   &  28     &   234             &  29   &   28        & 23         & 103    &  51     & 0:45 \\
+BST Finite Map                               &  17     &   160             &  18   &    4        & 51         & 63     & 24      & 1:35 \\
+Binomial tree                                &  17     &    44             &  14   &    7        & 13         &  0     & 10      & 2:33 \\
+Association List$^1$           &  43     &   174             &  33   &   14        & 16         & 63     & 42      & 3:10 \\
+Linked List$^2$                &  84     &   421             &  36   &    8        & 20         & 127    & 230     &  tbd \\
+    \end{tabular}
+  \end{center}
+\footnotesize
+$^1$ Jahob comparison, $^2$ Smallfoot comparison
+\normalsize
+  \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
+Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.  The count does not include code for pure functional models that are often shared between modules - for instance, the association list model contains 15 lines of aux defs, 35 lines of proof, and 15 lines of tactics.  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D with 1gb of memory.  We have made no effort to optimize our tactics for running time.
+
 \section{Related Work}
-\subsection{Jahob (RYAN)}
+\subsection{Jahob}
 
 The Jahob system~\cite{jahob} allows the specification and verification 
-of recursive, linked data structures in a fragment of Java.  Like ynot, 
-verified programs are correct up to termination.  
+of recursive, linked data structures in a fragment of Java.  Ynot and Jahob 
+both relate the abstract state of a data structure to its concrete heap representation
+using specification variables and pre-post conditions.  The systems 
+differ in their heap models and how verification conditions are discharged.
 
-Jahob specifications are written in classical higher order logic.  
-The abstract state of an object is given by s a collection of 
-programmer defined ``specvars'' which do not exist during program execution.
-Specvars are defined by Jahob formulae, which resemble formulae of set 
-theory in Isabelle/HOL.  Jahob formulae are simply typed with ground types
-bool, obj, and int, type constructors $\Rightarrow$ for total functions, * for tuples
-and set for sets.  The logic contains polymorphic equality, standard
-logical connectives $\wedge, \vee, \neg, \to, \forall, \exists$ and
-$\lambda$ binders, set comprehension, operations on sets ($\cup, \in$) 
-and transitive closure, finite set cardinality, and a tree function for indicating
-that a structure is a tree.  Here is the interface for a Jahob association list: 
-
-\begin{verbatim}
-class AssocList {
-//: public specvar content :: "(obj * obj) set
-public Object put(Object k0, Obkect v0)
-/*: requires "k0 <> null /\ v0 <> null"
-    modifies content
-    ensures  
-    "content = old content 
-               - {(k0, result)} U {(k0, v0)} 
-     /\ (result =  null -> 
-          ~ exists v, 
-             (k0, v) in old content) /\
-     /\ (result <> null -> 
-           (k0, result) in old content) */
-{...}
-public Object get(Object k0)
-/*: requires "k0 <> null"
-    ensures  
-    "result =  null -> 
-      ~ exists v, (k0, v) in content 
-      /\ result <> null -> 
-           (k0, result) in content" */
-}
-\end{verbatim}
-
-Like ynot, Jahob relates the abstract state of a data structure to its concrete heap representation.  
-One way to implement the association list with a singly linked list is to represent links between 
-nodes using an edge relation (vardef is a shorthand definition):
-
-\begin{verbatim}
-public /*: claimedBy AssocList */ 
-class Node {
-    public Object key; public Object value; 
-    public Node next;
-    //: public ghost specvar cnt 
-         :: "(obj * obj) set" = "{}"
-}
-private static specvar edge 
-  :: ``obj => obj => bool'';
-
-vardefs ``edge == (fun x y => 
-  (x in Node /\ y = x..next) \/
-  (x in AssocList /\ y = x..first))'';
-invariant InjInv: forall x1 x2 y,
-   y <> null /\ edge x1 y 
-   /\ edge x2 y -> x1 = x2'';
-\end{verbatim} 
-
-The (recursive) representation invariant defines the members of the abstract set 
-representing the linked list as the union of the element in the head node 
-and the members of the subsequent nodes.  It also ensures that keys only occur once in the list.
-
-\begin{verbatim}
-private Node first;
-
-vardefs "content == first..cnt";
-
-invariant CntDef:
-    ``forall x, x in Node /\ x in alloc 
-        /\ x <> null ->
-           x..cnt = {(x..key, x..value)} 
-              U x..next..cnt /\
-           (forall v, (x..key, v) 
-              notin x..next..cnd)'';
-invariant CntNull:
-    ``forall x, x in Node /\ x in Alloc 
-        /\ x = null -> x..cnt = {}'';
-\end{verbatim}
-
-Ynot's approach to specification and abstract state is similar in spirit to Jahob's but 
-feels more computational in practice.
-Because ynot is embedded in Coq, specifications and programs share a common language.
-This makes it possible to define specifications using programs with reduction behavior
-rather than with formulae of set theory; reasoning about such computational entities
-is at the core of ynot's proof automation.  In addition, ynot uses separation connectives
-to describe the heap.  For instance, the representation invariant rep for the ynot
-singly linked list implementation is defined as a Coq fixpoint of essentially a separation logic formula:
-
-\begin{verbatim}
-Variables K V: Set.
-Variable eqK : forall (k1 k2: K), {k1=k2} + {k1<>k2}.
-
-Record Node : Set := node {
-  key: K; value: V; next: option ptr
-}.
-
-Definition AssocList : Set := ptr.
-
-Fixpoint rep' (m : list (prod K V)) 
-(p : option ptr) {struct m} : hprop :=
-  match p with
-    | None => [m = nil]
-    | Some hd => 
-      match m with
-        | (k,v) :: b => Exists nxt :@ option ptr, 
-             hd --> node k v nxt * rep' b nxt
-        | nil => [False]
-      end
-  end.
-
-Definition rep (m: list (prod K V)) 
- (ll: AssocList) : hprop :=
-   Exists n :@ option ptr, 
-    ll --> n * rep' m n.
-\end{verbatim}
-
-The computational behavior of specification means, for instance, that the type of new
-\begin{verbatim}
-Definition new : STsep __ (rep nil).
-\end{verbatim}
-
-is definitionally equal to 
-\begin{verbatim}
-  STsep __ (fun p => match p with 
-                       | None => [nil = nil] 
-                       | Some hd => [False]
-                     end)
-\end{verbatim}
-
-and so it is easy to automate (using a tactic called t) the reasoning that proves
-the new association list allocator is correct:
-\begin{verbatim}
-Definition new : STsep __ (rep nil).
-  refine {{ New None }}; t. Qed.
-\end{verbatim}
-
-The specifications for put and lookup exploit other pure functional programs:
-
-\begin{verbatim}
-Fixpoint lookup (k: K) 
-  (l: list (prod K V)) : option V :=
- match l with
-  | nil => None
-  | (k', v)::b => if eqK k k' 
-                  then Some v 
-                  else lookup k b
- end.
-
-todo - change put 
-Definition put (ll : AssocList) 
- (m : [list (prod K V)]) (k : K) (v : V) :
-  STsep (m ~~ rep m ll)
-        (fun _:unit => m ~~ rep ((k,v)::m) ll ).
-
-Definition get'' (k: K) (hd: option ptr) 
- (m: [list (prod K V)]) : 
-  STsep (m ~~ rep' m hd)
-        (fun res:option V => m ~~ 
-           [res = lookup k m] * rep' m hd).
-\end{verbatim} 
-
-The actual implementations of get in ynot and jahob are essentially identical.
-In both cases annotations are required to guide the proving process.  (Add numbers here).
-In Jahob:
-
-\begin{verbatim}
-/*: requires ``k0 <> null''
-    ensures 
-      ``(result <> null -> 
-          (k0, result) in content 
-          /\ (result =  null -> 
-                ~exists v0, 
-                  (k0, v) in content)) */
-{
-  Node current = first;
-  while //: inv ``forall v, ((k0, v) in content) 
-                    = ((k0, v) in current..cnt)''
-   (current != null) {
-     if (current.key == k0) { 
-       return current.value; 
-     }
-     current = current.next
-  }
-  return null;
-}
-\end{verbatim}
-
-In ynot:
-
-\begin{verbatim}
-Definition get (k: K) 
- (hd: option ptr) (m: [list (prod K V)]):
-  STsep (m ~~ rep' m hd)
-        (fun res:option V => m ~~ 
-           [res = lookup k m] * rep' m hd).
-intro k.
-refine (Fix2
-    (fun hd m => m ~~ rep' m hd)
-    (fun hd m o => m ~~ 
-       [o = lookup k m] * rep' m hd)
-    (fun self hd m =>
-      IfNull hd
-      Then {{ Return None }}
-      Else fn <- hd !! fun fn => m ~~ 
-             [head m = Some (key fn, value fn)] 
-             * rep' (tail m) (next fn);
-           if eqK (key fn) k
-           then {{ Return (Some (value fn)) }}
-           else {{ 
-            self (next fn) (m ~~~ tail m) 
-              <@> (m ~~ hd --> fn * 
-                  [head m = Some (key fn, value fn)]) 
-           }}
-      )); try solve [ t | hdestruct m; t ].
-Defined.
-
-Definition get (k: K) 
- (ll: AssocList) (m: [list (prod K V)]) :
-   STsep (m ~~ rep m ll)
-         (fun r:option V => m ~~ 
-            rep m ll * [r = lookup k m]).
-intros; refine (hd <- !ll;
-    Assert (ll --> hd * (m ~~ rep' m hd));;
-    {{get'' k hd m <@> _}});
-  t.
-\end{verbatim}
-
-Whereas ynot's automated reasoning is completely captured by Coq tactics,
-Jahob programs are verified using a series of stages similar to 
-a compiler pipeline.  First, Jahob programs are translated into 
-an extended guarded command language.
-Then, Jahob generates verification conditions which are discharged 
-using a combination of theorem provers -- if one prover does not succeed 
+Jahob specifications are written in Java comments using classical higher order
+logic and set theory extended with useful operators over sets and heaps (e.g., 
+transitive-closure, is-tree).  Instead of using a fixed a set of operators and
+the low-level language of set theory, Ynot provides a separation logic layer that, 
+coupled with Coq, lets programmers build their own abstractions.  
+A slight modification of Coq is required for Ynot 
+to be consistent with the law of the 
+excluded middle (and proof irrelevence).   
+ 
+Jahob programs are verified by first being translated into an extended guarded command language.
+Then, Jahob generates verification conditions 
+ that are discharged using a combination of external theorem provers: if one prover does not succeed 
 on an obligation, another is tried.  This allows Jahob to run multiple
 provers in parallel.  Because provers are often specialized to particular
 classes of formulae, formula approximation techiques must be used to integrate them with
-a system using higher order logic. Jahob supports a number of 1st order and SMT provers, and also the 
-MONA prover for the monadic fragment of 2nd order logic and Isabelle and Coq. 
+a system using higher order logic. Jahob supports a number of first order and SMT provers,
+Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  In contrast, Ynot's automated reasoning is implemented completely in Coq.  Our approach is extremely lightweight: the entire Ynot codebase is smaller than just the Jahob-MONA interface.
 
- \subsection{Smallfoot (GREGORY)}
+ \subsection{Smallfoot}
 We conclude our comparison with alternative approaches by comparing
-our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot
-is on compltely automatic reasoning, and it's almost complete nature
-makes many correct programs go through with only the function level
-annotations, a goal, but not yet a complete reality in Ynot. In
-addition to the focus on automatic proofs, Smallfoot includes simple
-concurrency primitives, $||$ and $\mathsf{with}\,r\,\mathsf{when}(B)
-C$ with which they are able to implement a producer-consumer
-model. Based on these points, we will draw a comparison in two parts:
-the size of annotations and proof obligations and the expressivity of
-the logic.
+our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
+completely automatic reasoning and concurrency. Since the current
+version of Ynot does not address concurrency, we will not address this
+in our comparison. We draw a comparison in two parts: the size of
+annotations and proof obligations and the expressivity of the
+logic. We use the linked list as a running example.
 
-On the size of proof obligations, the Smallfoot system comes out
-ahead, requiring no user-constructed proofs. The drawback to this is
-that only inductive data of the following types are allowed: singly
-linked lists, doubly linked lists, trees and xor lists. This
-restriction is necessary to Smallfoot in order to make the proofs
-decidable.
+The Smallfoot system defines a segment of a linked list as the minimal
+predicate satisfying the following:
+$$
+ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
+$$
 
-The annotations in the example programs are small mainly because they
-use these. While the predicates are hard-coded in Smallfoot,
-predicates can be coded directly by the user in Ynot. The style of
-Ynot representations are to express data by mapping a ``ghost''
-representation into a heap representation. This approach allows
-stronger dependent types in the contracts for functions, requireing
-the accompanying proof to be a proof of partial correctness rather
-than simply of resource constraints. For example, consider the
-function to test whether a list is empty in Smallfoot and in Ynot.
+\hide{
+\noindent The definition is expressible in a similar manner to the
+queue representation fixpoint described previously. The notable
+difference being the addition of the inequality which is necessary to
+guarantee non-cycles. The only difficulty in reasoning comes from the
+fact that {\tt new} returns a pointer which is guaranteed distinct
+only from {\it currently allocated} pointers, not all previously
+allocated pointers. This means that Ynot functions which allocate
+require witnesses that the list ends at {\tt nil} or an allocated
+pointer. The type for {\it cons} shows the use of this condition.
 \begin{verbatim}
-is_empty(r;l) [l |-> t * list(t)] {
-  local p;
-  p = l->p;
-  if (p == NULL) { r = 1; } 
-  else { r = 0; }
-} [l|-> t * list(t)]
+cons :: forall (v : A) (r : LinkedList) 
+  (q : [LinkedList]) (m : [list A]) (T : Type)
+  (vt : [T]),
+  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
+    (fun r:LinkedList => q ~~ m ~~ vt ~~ 
+     llseg r q (v :: m) * q ~~> vt * [r <> None]).
 \end{verbatim}
+Where the {\tt ~~>} arrow denotes a option pointer (potentially null)
+pointing to {\it vt} if it is not {\tt null}. In the case of a
+complete list, {\it vt} is {\tt null} and any values of {\it T} and
+{\it vt} will suffice. Allocating a list, and then addressing only a
+prefix of the list creates a problem because the sentinal value could
+become a pointer in the middle of the list if the head of the
+remaining list is freed and memory is reclaimed and returned in a call
+to insert into the segment.
+}
 
-The following function also has the same type:
+For comparing annotatations, we consider {\tt append} function on
+lists as a representative example. In Smallfoot, the function is built
+using a {\tt while} loop, requires 14 lines, and three annotations:
+the pre- and post-conditions and the loop invariant. To maintain a
+close symmetry between the definitions, we break the {\it append}
+function into two pieces, one for the loop and the other for the main
+body. The two functions are, respectively, 4 and 5 lines long and
+require 2 lines of annotations for the fixpoint definition which
+corresponds to the Smallfoot loop invariant. As with all previous
+examples, the proof-automation tactics and lemmas used for this
+function apply to all functions dealing with linked lists in the same
+way that the linked list representation predicate is axiomatized in
+the Smallfoot system and is reused.
+
+While the Smallfoot system is faster and requires less verbose
+annotations, there are two primary advantages that Ynot has over
+it. The first is, as previously mentioned, Ynot functions use
+dependent types to represent partial correctness while Smallfoot
+guarantees only heap-safety. This is captured in the type of the {\it
+  cons} function:
 \begin{verbatim}
-is_empty(r;l) [l |-> t * list(t)] {
-  r = 1;
-} [l|-> t * list(t)]
+cons :: forall (v : A) (r : LL) (q : [LL])
+    (m : [list A]) (T : Type) (vt : [T]),
+  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
+        (fun r:LL => q ~~ m ~~ vt ~~ 
+                  llseg r q (v :: m) * q ~~> vt).
 \end{verbatim}
-In Ynot, the \verb|is_empty| function can be defined as follows:
-\begin{verbatim}
-Definition is_empty A (ll : LinkedList)
-  (m : [list A]) :
-  STsep (m ~~ rep m ll) 
-    (fun res:bool => m ~~ match res with
-                            | nil => [res = true]
-                            | _   => [res = false]
-                          end).
-  intros;
-  refine (hd <- !ll;
-          IfNull hd Then {{Return true}}
-          Else {{Return false}}); sep simpl.
-Qed.          
-\end{verbatim}
-The type guarantees that the function is implemented correctly with
-respect to the underlying list.
+In Smallfoot, the system can guarantee only that the returned list is
+valid. Thus, {\it cons}, {\it removeFirst}, etc. all have the same
+type despite the fact that they do different things.
 
-\todo{This is analagous to the implementation of llseg presented in
-  the smallfoot paper.}
-For example, the following fixpoint expresses the recursive definition
-of a linked list segement.  \todo{What is the best way to encode a
-  linked list segment?}
-\begin{verbatim}
-Fixpoint llseg A (hd tl : option ptr) 
-  (m : list A) {struct m} :=
-  match m with 
-    | nil => [hd = tl]
-    | a :: b => 
-      match hd with 
-        | None => [False]
-        | Some p => [hd <> tl] * 
-            Exists nxt :@ option ptr, 
-              hd --> node a nxt * llseg nxt tl b
-      end
-  end.
-\end{verbatim}
+The second advantage in Ynot is the ability to deal use higher-order
+logic to express properties. The ease of use in Smallfoot comes at the
+price of restricting programs to a small set of data structures
+(including linked lists, doubly linked lists, trees, and xor-lists)
+for which the definitions and corresponding inductive properties can
+be defined using predicate logic. The theory built for each data
+structure in Smallfoot plays the same roll as the unrolling lemmas for
+which counts are given in Figure \ref{loc}.
 
+\section{Other Related Work}
 
+The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
 
+A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic, making it much harder to write verified data structure implementations than in our system.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
 
-Comparison points
-\begin{itemize}
-\item The use of Coq allows quantifiers in formula. (makes inference
-  more difficult but allows more expressive types)
-\item Ynot is capble of arbitrary inductive predicates
-\item Ynot does not support concurrency which is a strength of
-  smallfoot (race detection)
-\item Smallfoot is very fast
-\item A lot of the ``parallel examples'' don't actually use
-  synchronization. These would be pretty trivial to implement in Ynot
-  with a function:
-\begin{verbatim}
-SepParallel (r1 r2 : Type) (P_i Q_i : hprop)
-  (P_e : r1 -> hprop) (Q_e : r2 -> hprop) :
-     STsep (P_i) (P_e) -> STsep (Q_i) (Q_e)
-  -> STsep (P_i * Q_i) (fun r:(r1 * r2) => 
-               (P_e (fst r)) * (Q_e (snd r)))
-\end{verbatim}
-the more interesting aspect of the parallelism comes from the locking
-mechanism, which could be encoded in Ynot but only after a little bit
-of hacking. (smallfoot uses resource invariants to control this)
-\end{itemize}
+There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories like arithmetic.
 
-Smallfoot examples:
-\begin{itemize}
-\item circular list
-\item doubly linked list
-\item merge sort
-\item ``memory manager'' (basically just a stack)
-\item queue
-\item tree
-\item xor linked list segment
-\item xdeq --- uses parallelism (reading and writing buffer)
-\end{itemize}
+The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users not just to define new inductive predicates, but also to extend a generic solver with arbitrary rules for simplifying uses of the predicates.
 
-\section{Other related work}
+In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order memoizer and iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
 
 
 \section{Conclusions \& Future Work}
-Irrelevance, concurrency, IO/effects
 
-automation/annotations (loop invariant inference)
+Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library, and we need to assume an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation; we hope for a future version of Coq or a related system to include general support for computationally-irrelevant values.
 
-Check that bibliography is working~\cite{htt}.
+Concurrency is another big area for future work.  Systems like Smallfoot\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
+
+The full potential of the Ynot approach also depends on explicit handling of other computational effects, like exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
+
+As with any project in automated theorem proving, there is always room for improvements to automation and inference.  Several tools have been successful at inferring separation logic invariants using abstract interpretation.  We have held off on such approaches so far, since it is easiest to implement a system like ours by phrasing inference as a theorem-proving problem.  A future version of Ynot could benefit greatly in usability by incorporating abstract interpretation somehow.
+
+Nonetheless, our current system already fills a crucial niche in the space of verification tools.  We have presented the first tool that performs well empirically in allowing mixes of manual and highly-automated reasoning about heap-allocated data structures, as well as the first tool to provide aggressive automation in proofs of higher-order, imperative programs.  We hope that this will form a significant step towards full functional verification of imperative programs with deep correctness theorems.
 
 %\bibliographystyle{plainnat}
 \bibliographystyle{plain}
@@ -1033,3 +926,5 @@ Check that bibliography is working~\cite{htt}.
 \bibliography{bib}
 
 \end{document}
+
+% LocalWords:  Coq Hoare Ynot checkable dereference ESC Concoqtion logics Coq's
