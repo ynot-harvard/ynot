@@ -1046,13 +1046,18 @@ The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based o
 In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order memoizer and iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
 
 
-
 \section{Conclusions \& Future Work}
-Irrelevance, concurrency, IO/effects
 
-automation/annotations (loop invariant inference)
+Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library, and we need to assume an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation; we hope for a future version of Coq or a related system to include general support for computationally-irrelevant values.
 
-Check that bibliography is working~\cite{htt}.
+Concurrency is another big area for future work.  Systems like Smallfoot\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
+
+The full potential of the Ynot approach also depends on explicit handling of other computational effects, like exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
+
+As with any project in automated theorem proving, there is always room for improvements to automation and inference.  Several tools have been successful at inferring separation logic invariants using abstract interpretation.  We have held off on such approaches so far, since it is easiest to implement a system like ours by phrasing inference as a theorem-proving problem.  A future version of Ynot could benefit greatly in usability by incorporating abstract interpretation somehow.
+
+Nonetheless, our current system already fills a crucial niche in the space of verification tools.  We have presented the first tool that performs well empirically in allowing mixes of manual and highly-automated reasoning about heap-allocated data structures, as well as the first tool to provide aggressive automation in proofs of higher-order, imperative programs.  We hope that this will form a significant step towards full functional verification of imperative programs with deep correctness theorems.
+
 
 %\bibliographystyle{plainnat}
 \bibliographystyle{plain}
