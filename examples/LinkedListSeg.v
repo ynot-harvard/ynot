@@ -573,7 +573,7 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T 
         IfNull p Then {{!!!}}
         Else nde <- !p;
              rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
-             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)] * llseg (next nde) q (tail ls));
+             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [head ls = Some (data nde)] * llseg (Some p) q ls);
              {{Return res}}) p' ls'); clear self.
   t.
   t.
@@ -583,54 +583,12 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T 
   t.
   t.
   t.
-  rsep simp_prem t.
+  t.
+  rsep simp_prem simplr.
   t.
   t.
   t.
   sep simp_prem idtac.
-(**  
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  unfold llist; intros; print_goal;
-  try equater; try inhabiter; simp_prem; unpack_conc;
-    repeat match goal with
-             | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
-               let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l)
-             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
-               match CONC with
-                 | context[Z] =>
-                   let l := fresh "eq" in
-                     rewrite -> H1 in H2; simpl in H2
-               end
-           end.
-    ondemand_subst.
-    canceler. rewrite <- eq0. rewrite <- eq. sep fail idtac.
-unfold llist; intros; print_goal;
-  try equater; try inhabiter; simp_prem; unpack_conc;
-    repeat match goal with
-             | [ H : [?X]%inhabited = [?Y]%inhabited |- _ ] =>
-               let l := fresh "eq" in extend_eq X Y ltac:(pose (l := pack_injective H); rewrite <- l)
-             | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
-               match CONC with
-                 | context[Z] =>
-                   let l := fresh "eq" in
-                     rewrite -> H1 in H2; simpl in H2
-               end
-           end.
-    ondemand_subst.
-    canceler. rewrite <- eq0. rewrite <- eq. lsep fail simplr.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-  rsep simp_prem t.
-**)
 Qed.
 
 Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
@@ -641,7 +599,7 @@ Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A 
                   | f :: r => f :: insertAt_model r a idx'
                 end
   end.
-
+(**
 Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
   STsep (ls' ~~ llist (Some p') ls')
         (fun _:unit => ls' ~~ llist (Some p') (insertAt_model ls' a (S idx'))).
@@ -653,18 +611,19 @@ Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) (ls' : [list A]),
       nde <- !p;
       if nat_eq 0 idx then
         nelem <- New (node a (next nde));
-        {{p ::= node (data nde) (Some nelem)}}
-(**        {{Return tt}} **)
+        p ::= node (data nde) (Some nelem);;
+        {{Return tt}}
       else
         IfNull next nde As nxt Then 
           nelem <- New (node a (next nde));
-          {{p ::= node (data nde) (Some nelem)}};;
-(**          {{Return tt}} **)
+          p ::= node (data nde) (Some nelem);;
+          {{Return tt}}
         Else
-          {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self;
-  solve [ t | match goal with 
+          {{self nxt (ls ~~~ tail ls) (pred idx) <@> (ls ~~ p --> nde * [head ls = Some (data nde)])}}) p' ls' idx'); clear self.
+(**  solve [ t | match goal with 
                 | [ |- context[insertAt_model nil _ ?IDX] ] => destruct IDX; simpl
               end; t ].
+**)
   t.
   t.
   t.
@@ -717,7 +676,7 @@ Definition insertAt : forall (p : LinkedList) (a : A) (idx : nat) (ls : [list A]
   destruct idx; t.
   destruct idx; t.
 Qed.
-
+**)
 Section Remove.
 
   Parameter eq_a : forall (a b : A), {a = b} + {a <> b}.
