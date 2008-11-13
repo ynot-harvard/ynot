@@ -785,6 +785,24 @@ $^1$ Jahob comparison, $^2$ Smallfoot comparison
 
 Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.  The count does not include code for pure functional models that are often shared between modules - for instance, the association list model contains 15 lines of aux defs, 35 lines of proof, and 15 lines of tactics.  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D with 1gb of memory.  We have made no effort to optimize our tactics for running time.
 
+While the statistics present quantitative measurements for a variety
+of examples, the importance of qualitative measurements should not be
+overlooked. Our experience with developing in Ynot have evolved both
+the tactics and the style of development. The first parameter to {\tt
+  sep} which performs definition unfolding was added specifically to
+allow, previously common, assertions for unfolding definitions to be
+eliminated. This requires relatively mechanical lemmas to be proved
+about definition unfolding, but developing without annotations has
+made modifying code much easier since annotations need not be kept in
+sync with variable names or the order of statements. Despite the
+occasionally, seemingly, obvious implications which automation fails
+to detect, development efforts are able to proceed quickly and
+automation is very much ``pay as you go.'' The \todo{binomial tree}
+sketching code with {\tt Assert} statements and then removing them
+though automation works well and, since tactics are reused, subsequent
+developments are faster and require fewer annotations during
+prototyping.
+
 \section{Related Work}
 \subsection{Jahob}
 
@@ -827,33 +845,10 @@ $$
 ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
 $$
 
-\hide{
-\noindent The definition is expressible in a similar manner to the
+\noindent The definition is expressible in the same manner as the
 queue representation fixpoint described previously. The notable
 difference being the addition of the inequality which is necessary to
-guarantee non-cycles. The only difficulty in reasoning comes from the
-fact that {\tt new} returns a pointer which is guaranteed distinct
-only from {\it currently allocated} pointers, not all previously
-allocated pointers. This means that Ynot functions which allocate
-require witnesses that the list ends at {\tt nil} or an allocated
-pointer. The type for {\it cons} shows the use of this condition.
-\begin{verbatim}
-cons :: forall (v : A) (r : LinkedList) 
-  (q : [LinkedList]) (m : [list A]) (T : Type)
-  (vt : [T]),
-  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
-    (fun r:LinkedList => q ~~ m ~~ vt ~~ 
-     llseg r q (v :: m) * q ~~> vt * [r <> None]).
-\end{verbatim}
-Where the {\tt ~~>} arrow denotes a option pointer (potentially null)
-pointing to {\it vt} if it is not {\tt null}. In the case of a
-complete list, {\it vt} is {\tt null} and any values of {\it T} and
-{\it vt} will suffice. Allocating a list, and then addressing only a
-prefix of the list creates a problem because the sentinal value could
-become a pointer in the middle of the list if the head of the
-remaining list is freed and memory is reclaimed and returned in a call
-to insert into the segment.
-}
+guarantee non-cycles.
 
 For comparing annotatations, we consider {\tt append} function on
 lists as a representative example. In Smallfoot, the function is built
