@@ -212,6 +212,15 @@ Qed.
 
    Ltac nr_perm := search_conc ltac:(search_prem ltac:(apply perm_node_swap_frame)) || auto.
 
+   Fixpoint find_max (l:alist_t) mk (mv:value_t mk) {struct l} :=
+     match l with
+       | nil => (mk,,mv)
+       | (k,,v)::l' => if mk <=! k then find_max l' v else find_max l' mv
+     end.
+
+(*   Definition delete_pred_t := forall (x : fmap_t) l, STsep (l ~~ rep x l * [l <> nil])
+     (fun d => (l ~~ Exists pf :@ _, rep x (remove (`(find_max l pf)) l) * [d = find_max l ])).
+*)
    Definition remove : T.remove.
    refine(Fix3 _ _ (fun (remove:T.remove) f k l =>
       n <- ! f 
@@ -239,7 +248,9 @@ Qed.
                           Then Free (node_right n)
                             ;; Free (node_left n)
                             ;; {{f ::= Some ln}}
-                          Else {{ remove f k l }}
+(*                          Else d <-- delete_pred (left_node node) l_left <@> _
+                             ; {{f ::= Some (Node (projT2 d) (left_node n) (right_node n))}}
+                             *)Else {{remove f k l}}
              WhenGt {{remove (node_right n) k l_right
                <@> (f --> Some n * 
                  (l_left ~~ rep' (node_left n) l_left) * 
@@ -295,7 +306,7 @@ Qed.
          ; nright <- New None(A:=node_t)
          ; {{ f ::= Some (Node v nleft nright) }}
       Else let l_left := (l ~~~ (filter_gte (node_key n) l)) in
-           Let l_right := (l ~~~ (filter_lte (node_key n) l)) in
+           let l_right := (l ~~~ (filter_lte (node_key n) l)) in
              Compare BT.key_cmp k (node_key n)
              WhenLt {{insert (node_left n) k v l_left
                <@> (f --> Some n * 
@@ -307,200 +318,5 @@ Qed.
                  (l_left ~~ rep' (node_left n) l_left) * 
                  (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}))
   ; t; intuition; t. Qed.
-
-
- (* debugging tools *)
- Ltac print_goal := idtac; 
-   match goal with
-     [|- ?g] => idtac g
-   end. 
-
-Ltac print_hyps := idtac; 
-  try match goal with
-        [H: ?g |- _] => idtac H ": " g; fail
-end.
-Ltac print_all := idtac ""; idtac "subgoal: "; print_hyps; idtac "========================="; print_goal.
-
-
-
-
-Ltac equate e1 e2 := not_eq e1 e2; idtac "noteq"; let H := fresh in assert (H : e1 = e2); [idtac "done1"; print_all; 
-  (reflexivity||
-    idtac; match goal with | [|- ?a = ?b] => reflexivity end ||
-idtac "reflexivity failed"; fail) | idtac "done2"; clear H]; idtac "done3". 
-
-
-Ltac equater := idtac "equater called"; force_unify;
-  match goal with
-    | [ |- ?p ==> ?q ] => equate p q || let q := deExist q in equate p q
-    | [ |- (_ _ * __)%hprop ==> _] => idtac "eqs"; apply himp_comm_prem; apply himp_empty_prem; idtac "eqe"; print_all; equater
-    | [ |- _ ==> (_ _ * __)%hprop ] => apply himp_comm_conc; apply himp_empty_conc; equater
-    | [ |- ?p ==> (?q * __)%hprop ] => equate p q || let q := deExist q in equate p q
-    | [ |- (?p * __)%hprop ==> ?q ] => equate p q || let q := deExist q in equate p q
-    | [ |- ?U ?X ==> ?p ] =>
-      let H := fresh in
-        (pose (H := p); pattern X in H;
-          assert (H' : H = H); [
-            cbv delta [H]; match goal with
-                             | [ |- ?F _ = _ ] => equate U F
-                           end; reflexivity
-            | idtac
-          ]; clear H H'); simpl; try apply himp_refl
-    | [ |- ?p ==> ?U ?X ] => idtac "in fun equater ";
-      let H := fresh in
-        (pose (H := p); print_all; pattern X in H; 
-          assert (H' : H = H); [ idtac "after pattern"; print_all;
-            cbv delta [H]; match goal with
-                             | [ |- ?F _ = _ ] => idtac "equater match"; idtac "U: " U "F: " F; equate U F
-                           end; reflexivity
-            | simpl; idtac "equator success"; try apply himp_refl
-          ]; clear H H')
-  end.
-
-Ltac sep stac tac :=
-  let s := repeat progress (simpler; tac; try search_prem premer) in
-    let concer := apply himp_empty_conc
-      || apply himp_ex_conc_trivial
-        || (apply himp_ex_conc; econstructor)
-          || (eapply himp_unpack_conc; [eassumption || reflexivity |])
-            || (apply himp_inj_conc; [s; fail | idtac]) in
-              (intros; equater || specFinder stac; tac;
-                repeat match goal with
-                         | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
-                       end;
-                intros; s;
-                  repeat ((
-                    search_prem ltac:(idtac;
-                      search_conc ltac:(
-                        (apply himp_frame; trivial; force_unify; idtac "himp_frame applied, trying to equate"; print_all; equater; idtac "equated!"; force_unify; print_goal) || (apply himp_frame_cell; trivial))) || search_conc concer); 
-                  s);
-                  try finisher).
-
-  Lemma rep2node_conc'(x:fmap_t)(l:AL.alist_t) P Q: 
-  P ==> rep' x l * Q -> P ==> (Exists n :@ option node_t, x --> n * node_rep n l * Q).
-  Proof. intros. eapply himp_trans. eexact H. t. Qed.
-
-  Lemma rep2node_conc''(x:fmap_t)(l:AL.alist_t) P: 
-  P ==> rep' x l -> P ==> (Exists n :@ option node_t, x --> n * node_rep n l).
-  Proof. intros. eapply himp_trans. eexact H. t. Qed.
-
-sep fail print_goal.
-
-assert (exists HH, (node_rep v x2 * (f --> Some n0 * rep' (node_right n0) x3) ==> HH v * __)). econstructor.
-sep fail auto.
-
-assert (exists FF, exists GG, exists HH, exists II, 
-  (node_left n0 --> v * ((f --> Some n0 * node_rep v HH) *
- rep' (node_right n0) GG)) ==>
- (Exists v :@ option FF, node_left n0 --> v * II v)).
-do 4 econstructor. 
-apply himp_empty_conc'. apply himp_ex_conc. econstructor.
-apply himp_assoc_conc1.
-apply himp_frame; equater.
-
-
-
-
-
-
-equater.
-
-
-Ltac equater2 := force_unify;
-  match goal with
-    | [ |- ?p ==> ?q ] => equate p q || let q := deExist q in equate p q
-    | [ |- ?p ==> (?q * __)%hprop ] => equate p q || let q := deExist q in equate p q
-    | [ |- (?p * __)%hprop ==> ?q ] => equate p q || let q := deExist q in equate p q
-    | [ |- ?U ?X ==> ?p ] =>
-      let H := fresh in
-        (pose (H := p); pattern X in H;
-          assert (H' : H = H); [
-            cbv delta [H]; match goal with
-                             | [ |- ?F _ = _ ] => equate U F
-                           end; reflexivity
-            | idtac
-          ]; clear H H')
-    | [ |- ?p ==> ?U ?X ] =>
-      let H := fresh in
-        (pose (H := p); pattern X in H;
-          assert (H' : H = H); [
-            cbv delta [H]; match goal with
-                             | [ |- ?F _ = _ ] => equate U F
-                           end; reflexivity
-            | simpl; try apply himp_refl
-          ]; clear H H')
-    | [ |- (_ _ * __)%hprop ==> _] => apply himp_comm_prem; apply himp_empty_prem; equater2
-    | [ |- _ ==> (_ * __)%hprop ] => idtac "equ"; apply himp_comm_conc; apply himp_empty_conc; idtac "equ2"; print_goal; equater2
-  end.
-
-
-
-
-
-Ltac equater3 := 
-  match goal with
-    | [ |- ?p ==> ?U ?X ] => idtac "eqpat"; idtac "p: " p " U: " U  " X: " X;
-      let H := fresh in
-        (pose (H := p); pattern X in H;
-          assert (H' : H = H); [idtac "solv_eq: "; idtac H; print_all;
-            cbv delta [H]; idtac "delta"; print_all; match goal with
-                             | [ |- ?F _ = _ ] => idtac "inrefl"; equate U F; idtac "end_refl"
-                           end; reflexivity
-            | idtac "after refl"; print_all; idtac; simpl; try apply himp_refl
-          ]; clear H H')
-  end.
-
-
-equater3.
-
-
-match goal with
-  | [ |- ?p ==> ?U ?X ] => idtac "eqpat"; idtac "p: " p " U: " U  " X: " X;
-    let H := fresh in
-      (pose (H := p); pattern X in H;
-        assert (H' : H = H); [idtac "solv_eq: "; idtac H; print_all;
-          cbv delta [H]; idtac "delta"; print_all; match goal with
-                                                     | [ |- ?F _ = _ ] => idtac "inrefl"; equate U F; idtac "end_refl"
-                                                   end; reflexivity
-            | idtac "after refl"; print_all; idtac; 
-        ]; clear H H')
-end.
-
-
-
-
-; ; force_unify; print_goal.
-
-match goal with 
-  [|- ?p * ?q1 ==> ?p * ?q2] => apply (@himp_frame p q1 q2)
-end.
-
-; print_goal; simpl; print_goal.
-
-
-
-pose (H8:=Some n0).
-pattern n0 in H8.
-          assert (H' : H = H); [
-            cbv delta [H]; match goal with
-                             | [ |- ?F _ = _ ] => equate U F
-                           end; reflexivity
-            | idtac
-          ]; clear H H')
-          
-(node_rep v ?7184 * (f --> Some n0 * rep' (node_right n0) ?7185) ==>
- ?3292 ?7378 * __)
-
-assert (exists HH, exists GG, (
-  (hprop_imp
-   (hprop_sep (node_rep v x)
-      (hprop_sep (@hprop_cell f (option node_t) (@Some node_t n0))
-         (rep' (node_right n0) x))) (hprop_sep (GG HH) hprop_empty)))).
-
-node_rep v HH * (f --> Some n0 * rep' (node_right n0) GG) ==>
- FF II * __)).
-
-
-subst n; simpl.
 
 End BinaryTree.
