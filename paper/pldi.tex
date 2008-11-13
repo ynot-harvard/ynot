@@ -729,24 +729,23 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 
 \begin{figure*}
   \begin{center}
-    \begin{tabular}{r | r | r | r | r | r | r | r}
-      & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics\\\hline
-      Linked list finite map & AVI\\
-      Association list Jahob comparison & RYAN\\
-      Linked list Smallfoot comparison & GREGORY\\
-      Hash table & AVI\\
-      Binomial tree & RYAN\\
-      Binary search tree finite map & AVI\\
-      Stack & 13 & 31 & 8 & 0 & 9 & 9 & 5 \\
-      Queue & 34 & 81 & 12 & 0 & 14 & 32 & 23 \\
+    \begin{tabular}{r | r | r | r | r | r | r | r | r}
+                                             & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics & Time (m:s) \\ \hline
+      ref         finite map                 &   8    &     19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
+      Association list Jahob comparison      &  43     &   174             &  33   &   20        & 16         & 63     & 42      & 3:10 \\
+      Linked list Smallfoot comparison       &                                                                                   &      \\
+      Hash table                             &  28     &   234             & 29    &   28        & 23         & 103    &  51     & 0:45 \\
+      Binomial tree                          &  17    &     44             & 14    &    7        & 13         &     0  & 10      & 2:33 \\
+      Binary search tree finite map          &  17    &     160            & 18    &    4        & 51         & 63     & 24      & 1:35 \\
+      Stack                                  & 13      &    31             &     8 & 0           &  9         &  9     &  5      & 0:12 \\
+      Queue                                  & 34      & 81                & 12    & 0           & 14         & 32     & 23      & 1:36 \\
     \end{tabular}
   \end{center}
 
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.
-
+Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.  The count does not include code for pure functional models that are often shared between modules - for instance, the association list model contains 15 lines of aux defs, 35 lines of proof, and 15 lines of tactics.  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D with 1gb of memory.  We have made no effort to optimize our tactics for running time.
 
 \section{Related Work}
 \subsection{Jahob (RYAN)}
@@ -783,7 +782,7 @@ In Jahob, an association list based can be given an interface that includes:
 \begin{verbatim}
 class AssocList {
 //: public specvar content :: "(obj * obj) set
-public Object put(Object k0, Obkect v0)
+public Object put(Object k0, Object v0)
 /*: requires "k0 <> null /\ v0 <> null"
     modifies content
     ensures  
@@ -1016,8 +1015,6 @@ In comparing the new Ynot environment to the above systems and all others that w
 Irrelevance, concurrency, IO/effects
 
 automation/annotations (loop invariant inference)
-
-Check that bibliography is working~\cite{htt}.
 
 %\bibliographystyle{plainnat}
 \bibliographystyle{plain}
