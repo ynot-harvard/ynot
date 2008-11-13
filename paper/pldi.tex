@@ -611,6 +611,41 @@ The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2
 The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
 
 
+\subsection{A Dependently-Typed Memoizing Function}
+
+\begin{figure}
+  \begin{verbatim}
+Module Type MEMO.
+  Parameter T : Set.
+  Parameter t : forall (T' : T -> Set),
+    hprop
+    -> (forall x, T' x -> Prop)
+    -> Set.
+  Parameter rep : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop),
+    t inv fpost -> hprop.
+  Parameter create : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop),
+    (forall x, STsep inv
+      (fun y : T' x => [fpost _ y] * inv))
+    -> STsep __ (fun m : t inv fpost => rep m).
+  Parameter funcOf : forall (T' : T -> Set)
+    (inv : hprop) (fpost : forall x, T' x -> Prop)
+    (m : t inv fpost),
+    forall (x : T), STsep (rep m * inv)
+      (fun y : T' x => rep m * [fpost _ y] * inv).
+End MEMO.
+  \end{verbatim}
+  \caption{\label{memoize}Signature of a memoization module}
+\end{figure}
+
+As far as we have been able to determine, all previous tools for data structure verification lack either aggressive automation or support for higher-order features.  The original Ynot supported easy integration of higher-order functions and dependent types, but the very manual proof style became even more onerous for such uses.  Our reimplemented Ynot maintains the original's higher-order features, and our proof automation integrates very naturally with them.  This is a defining advantage of our new framework over all alternatives.
+
+For instance, it is easy to define a module supporting memoization of imperative functions.  Figure \ref{memoize} gives the signature of our implementation, which is actually an ML-style functor that produces implementations of this signature when passed appropriate input modules.  The type \cd{T} is the domain of memoizable functions, and types like \cd{t inv fpost} stand for memo tables.  The argument \cd{inv} is an assertion giving an invariant that the memoized function maintains, and the pure assertion \cd{fpost} gives a relation between inputs and outputs of the function.  The \cd{rep} predicate captures the heap invariants associated with a memo table.  The \cd{create} function produces a memo table when passed an imperative function with the proper specification.  Finally, the \cd{funcOf} function maps a memo table to a function that consults the table to avoid recomputation.
+
+We can implement a \cd{MEMO} functor in 50 lines when we use a memo table that only caches the most recent input-output pair.  Like in the previous examples, we build a specialized automation procedure with a one-line instantiation of library tactics.  We give a 7-line definition of \cd{rep}, give one one-liner proof of a lemma to use in proof search, and include two lines of annotations within the definition of \cd{funcOf}.  All of the rest of the development is no longer or more complicated than in ML.  Compared to ML, we have the great benefit of using types to control the behavior of functions to be memoized.  A function could easily thwart an ML memoizer by producing unexpected computational effects.
+
+  
 \section{Tactic Support}
 
 The examples from the last section show how much of the gory details of proofs can be hidden from programmers.  In actuality, every command triggers the addition of one or more proof obligations that cannot be discharged effectively by any of the built-in Coq automation tactics.  Not only is it hard to prove the obligations, it is also hard to infer the right intermediate specifications.  Our separation logic formulas range well outside the propositional fragment that automated tools tend to handle; specification inference and proving must deal with higher-order features.
@@ -1008,7 +1043,7 @@ There is closely related work in the field of shape analysis.  The TVLA system~\
 
 The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users not just to define new inductive predicates, but also to extend a generic solver with arbitrary rules for simplifying uses of the predicates.
 
-In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
+In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order memoizer and iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
 
 
 
