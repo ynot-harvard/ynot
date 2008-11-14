@@ -684,46 +684,91 @@ This program repeats a pattern-matching process until it fails.  Each iteration 
 
 \medskip
 
-As we have seen, \cd{sep} takes two arguments, which we will call \cd{unfolder} and \cd{solver}.  The task of \cd{unfolder} is to simplify premises before specification inference, usually by unfolding definitions of recursive predicates, based on known facts about their arguments.  The task of \cd{solver} is to solve all of the goals that remain after generic separation logic reasoning is applied.
+As we have seen, \cd{sep} takes two arguments, which we will call \cd{unfolder} and \cd{solver}.  The task of \cd{unfolder} is to simplify goals before specification inference, usually by unfolding definitions of recursive predicates, based on known facts about their arguments.  The task of \cd{solver} is to solve all of the goals that remain after generic separation logic reasoning is applied.
 
 Coq comes with the standard tactic \cd{tauto}, for proving propositional tautologies.  There is a more general version of \cd{tauto} called \cd{intuition}, which will apply a user-supplied tactic to finish off sub-proofs, while taking responsibility for handling propositional structure on its own.  The \cd{intuition} tactic also has the helpful property of leaving for the user any subgoals that it could not establish.  \cd{sep} is meant to be an analogue of \cd{intuition} for separation logic.  We also want it to handle easy instantiation of existential quantifiers, since they appear so often in our specifications.
 
-This is the procedure that \cd{sep} follows:
+We can divide the operation of \cd{sep} into five main phases.  We will sketch the workings of each phase separately.
 
-\begin{enumerate}
-\item Look for an easy case of specification inference.
-  \begin{enumerate}
-  \item If a unification variable $U$ appears alone in the implication conclusion, set $U$ equal to the premise.
-  \item If the conclusion is a unification variable $U$ applied to a program variable $x$, set $U$ equal to a function that abstracts over the occurrences of $x$ in the premise.
-  \item Apply similar logic for cases like the above where extra $\emp$s appear as conjuncts around the main conclusion formula.
-  \end{enumerate}
-\item If this was not an easy case, try harder.
-  \begin{enumerate}
-  \item Introduce names for all existentially-quantified variables in the premise.
-  \item Introduce names for the values hidden inside of all computationally-irrelevant variables in scope.
-  \item Try applying \cd{unfolder}.  If it succeeds, repeat from the introduction of names.
-  \item Check if the conclusion matches the precondition of the rule for memory reads, with a unification variable $U$ appearing for the frame assertion.  If so, pick out from the conclusion the pointer $p$ that is being read.  Search syntactically in the premise for a points-to fact $\pts{p}{v}$.  ``Cross out'' that fact, and set $U$ equal to a function that abstracts over all occurrences of $v$ in what remains of the premise.  The function must additionally re-quantify any variables coming from existential quantifiers, and it must explicitly unpack any computationally-irrelevant variables that appear.
-  \item If the last rule did not match, check if the conclusion matches the precondition of the rule for memory writes for some pointer $p$, with an extra unification variable $U$ added as a frame assertion.  Like in the last case, pick out a premise assertion $\pts{p}{v}$ and remove it.  Set $U$ equal to everything that remains of the premise, modulo the same re-quantification as in the last case.
-  \item If the previous two rules did not match, cancel out equal subformulas on both sides of the implication.  If only a unification variable $U$ remains in the conclusion, set it equal to the remaining premise, after re-quantification.
-  \end{enumerate}
-\item Loop through attempting the following premise-oriented simplifications, until no more apply.
-  \begin{enumerate}
-  \item Apply standard Coq automation tactics, covering propositional structure and simplification of pattern-matching and calls to recursive functions.
-  \item Apply \cd{solver}.
-  \item Remove an occurrence of $\emp$ from the premise.
-  \item Remove a pure fact $[p]$ from the premise, adding it as a hypothesis to the normal proof context.
-  \end{enumerate}
-\item Loop through attempting the following conclusion-oriented simplifications, until no more apply.  Try the first two steps of the last loop after each simplification.
-  \begin{enumerate}
-  \item Replace an existentially-quantified formula with its body, where the bound variable is replaced by a fresh unification variable.
-  \item Cancel out a pair of occurrences of the same subformula on both sides of the implication.  The unification that occurs in this step can induce settings for unification variables introduced by the previous rule.
-  \item Remove an occurrence of $\emp$ from the conclusion.
-  \item Find an occurrence of a pure fact $[p]$ in the conclusion, prove it with \cd{solver}, and remove it from the conclusion.
-  \end{enumerate}
-\item If the sides of the implication match, finish the proof by reflexivity.
-\end{enumerate}
+\subsection{Simple Constraint Solving}
 
-Every step of this process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
+It is trivial to determine the proper value for any unification variable appearing alone on one side of the implication.  For instance, given the goal
+\begin{verbatim}
+p --> x * q --> y ==> ?123
+\end{verbatim}
+we simply set \cd{?123} to \cd{p --> x * q --> y}.  Given the slightly more complicated goal
+\begin{verbatim}
+p --> x * q --> y ==> ?123 x
+\end{verbatim}
+we set \cd{?123} to \cd{fun x' => p --> x' * q --> y}.
+
+\subsection{Intermediate Constraint Solving}
+
+When the trivial unification rules are not sufficient, we need to do more work.  We introduce names for all existential quantifiers and computationally-irrelevant variables in the premise.  For instance, starting with
+\begin{verbatim}
+m ~~ Exists v :@ T, p --> v * rep m v
+==> ?123 * Exists x :@ T, p --> x
+\end{verbatim}
+we introduce names to simplify the premise, leading to this goal:
+\begin{verbatim}
+p --> v' * rep m' v' ==> ?123 * Exists x :@ T, p --> x
+\end{verbatim}
+Now we run the user's \cd{unfolder} tactic, which might simplify some use of a definition.  Let us assume that no such simplification occurs for this example.  We notice that the points-to fact on the right mentions the same pointer as a fact on the left, so these two facts may be unified, implying \cd{x = v'}.  Canceling this known information, we are left with
+\begin{verbatim}
+rep m' v' ==> ?123
+\end{verbatim}
+which is resolvable almost trivially.  We cannot give \cd{?123} a value that mentions the variables \cd{m'} and \cd{v'}, since we introduced them locally, placing them out of the scope where the specification is needed.  Instead, we remember how each local variable was introduced and ``re-quantify'' at the end, like this:
+\begin{verbatim}
+m ~~ Exists v :@ T, rep m v ==> ?123
+\end{verbatim}
+Now the trivial unification is valid.  The crucial part of this process was the matching of the two points-two facts.  We have special-case rules for matching conclusion facts under quantifiers, for conclusions that match the preconditions of the read, write, and free rules.  Beyond that, we apply cancelation of identical terms on the two sides of the implication, when those terms do not fall under the scope of quantifiers.  These simple rules seem to serve well in practice.
+
+\subsection{Premise Simplification}
+
+After specification inference, the next step is to simplify the premise of the implication.  Any $\emp$ in the premise may be removed, and any lifted pure formula $[p]$ may be removed from the implication and added instead to the normal proof context.  We also remove existential quantifiers and irrelevant variable unpackings in the same way as in the previous phase.
+
+\subsection{Conclusion Simplification}
+
+The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We remove occurrences of $\emp$, and we remove any pure formula $[p]$ that the user's \cd{solver} tactic is able to prove.  An existential formula \cd{Exists x :@ T, P(x)} in the conclusion is replaced by \cd{P(?456)}, for a fresh unification variable \cd{?456}.  When no more of these rules apply, we look for a pair of unifiable subformulas on the sides of the implication.  All such pairs are unified and crossed out.  This may determine the value of a variable introduced for an existential quantifier.  For instance, if we started with \cd{Exists x :@ T, p --> x} on the righthand side and replaced that formula with \cd{p --> ?456}, and if a formula \cd{p --> y} appears on the lefthand side, then we would unify these new formulas, deducing that \cd{?456} must be \cd{y}.
+
+% \begin{enumerate}
+% \item Look for an easy case of specification inference.
+%   \begin{enumerate}
+%   \item If a unification variable $U$ appears alone in the implication conclusion, set $U$ equal to the premise.
+%   \item If the conclusion is a unification variable $U$ applied to a program variable $x$, set $U$ equal to a function that abstracts over the occurrences of $x$ in the premise.
+%   \item Apply similar logic for cases like the above where extra $\emp$s appear as conjuncts around the main conclusion formula.
+%   \end{enumerate}
+% \item If this was not an easy case, try harder.
+%   \begin{enumerate}
+%   \item Introduce names for all existentially-quantified variables in the premise.
+%   \item Introduce names for the values hidden inside of all computationally-irrelevant variables in scope.
+%   \item Try applying \cd{unfolder}.  If it succeeds, repeat from the introduction of names.
+%   \item Check if the conclusion matches the precondition of the rule for memory reads, with a unification variable $U$ appearing for the frame assertion.  If so, pick out from the conclusion the pointer $p$ that is being read.  Search syntactically in the premise for a points-to fact $\pts{p}{v}$.  ``Cross out'' that fact, and set $U$ equal to a function that abstracts over all occurrences of $v$ in what remains of the premise.  The function must additionally re-quantify any variables coming from existential quantifiers, and it must explicitly unpack any computationally-irrelevant variables that appear.
+%   \item If the last rule did not match, check if the conclusion matches the precondition of the rule for memory writes for some pointer $p$, with an extra unification variable $U$ added as a frame assertion.  Like in the last case, pick out a premise assertion $\pts{p}{v}$ and remove it.  Set $U$ equal to everything that remains of the premise, modulo the same re-quantification as in the last case.
+%   \item If the previous two rules did not match, cancel out equal subformulas on both sides of the implication.  If only a unification variable $U$ remains in the conclusion, set it equal to the remaining premise, after re-quantification.
+%   \end{enumerate}
+% \item Loop through attempting the following premise-oriented simplifications, until no more apply.
+%   \begin{enumerate}
+%   \item Apply standard Coq automation tactics, covering propositional structure and simplification of pattern-matching and calls to recursive functions.
+%   \item Apply \cd{solver}.
+%   \item Remove an occurrence of $\emp$ from the premise.
+%   \item Remove a pure fact $[p]$ from the premise, adding it as a hypothesis to the normal proof context.
+%   \end{enumerate}
+% \item Loop through attempting the following conclusion-oriented simplifications, until no more apply.  Try the first two steps of the last loop after each simplification.
+%   \begin{enumerate}
+%   \item Replace an existentially-quantified formula with its body, where the bound variable is replaced by a fresh unification variable.
+%   \item Cancel out a pair of occurrences of the same subformula on both sides of the implication.  The unification that occurs in this step can induce settings for unification variables introduced by the previous rule.
+%   \item Remove an occurrence of $\emp$ from the conclusion.
+%   \item Find an occurrence of a pure fact $[p]$ in the conclusion, prove it with \cd{solver}, and remove it from the conclusion.
+%   \end{enumerate}
+% \item If the sides of the implication match, finish the proof by reflexivity.
+% \end{enumerate}
+
+\subsection{Standard Coq Automation}
+
+When \cd{sep} has run out of rules to apply, the remaining subgoal is subjected to standard Coq automation.  Propositional structure and calls to recursive functions are simplified where possible.  \cd{sep} ends by running a loop over those simplifications and the simplifications performed by the user's \cd{solver} tactic, until no further progress can be made.  Finally, \cd{sep} discharges every remaining goal of the form \cd{P ==> P}, by reflexivity.
+
+Every step of the overall process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true, no matter which customization the programmer provides.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
@@ -951,7 +996,7 @@ In comparing the new Ynot environment to the above systems and all others that w
 
 Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library, and we need to assume an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation; we hope for a future version of Coq or a related system to include general support for computationally-irrelevant values.
 
-Concurrency is another big area for future work.  Systems like Smallfoot\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
+Concurrency is another big area for future work.  Systems like Smallfoot~\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
 
 The full potential of the Ynot approach also depends on explicit handling of other computational effects, like exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
 
