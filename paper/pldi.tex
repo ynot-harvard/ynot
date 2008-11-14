@@ -885,7 +885,7 @@ defined in the module.  The core of a Ynot module consists of heap representatio
 (e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
 (e.g. {\cd{simp\_prem}) dealing with these representations.
 The annotations column counts the number of lines of
-programmer specified annotations (e.g. \cd{<@>}, and \cd{Assert}).  The total
+programmer specified annotations (e.g. \cd{<@>}).  The total
 overhead column sums proofs, tactics, and annotations.
 
 %Canonical Ynot modules in the new system have a particular structure
@@ -942,13 +942,13 @@ required around 320 explicit Coq tactic invocations.  Each tactic
 invocation (the ``.'' of Coq) represents a manual intervention by the
 Ynot programmer.  These invocations tended to be low level steps, like
 choosing which branch of a disjunction to prove.  As such, these
-proofs are brittle to be brittle to minor changes.  In some previous
+proofs are brittle to minor changes.  In some previous
 Ynot developments, the ratio of manual proof to program text is over
 10 to 1. For comparison, a large scale compiler certification
 effort~\cite{leroy} has reported a proof-to-code ratio of roughly 6 to
 1.
 
-In contrast, our new hastable requires only about 70 explicit tactic invocations. 
+In contrast, our new hashtable requires only about 70 explicit tactic invocations. 
 These invocations tend to be high level steps, like performing induction or
 invoking the {\texttt sep} tactic.  We have observed that tactic based proofs
 are significantly easier to maintain.  
@@ -995,7 +995,7 @@ uses explicit framing conditions in
 places where Jahob does not, but we speculate that we can probably
 remove these annotations with additional, custom automation.
 
-Verifying the Ynot association list takes ten times longer than in Jahob.
+Verifying the Ynot association list takes over ten times longer than in Jahob.
 However, Jahob verification times depend crucially on the underlying
 provers used.  For the association list example, Jahob is able to prove
 all obligations using the optimized SPASS prover.  Another Jahob example,
