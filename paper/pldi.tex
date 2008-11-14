@@ -75,7 +75,7 @@
 %\keywords
 %keyword1, keyword2
 
-\section{Introduction (GREG)}
+\section{Introduction}
 
 A key goal of type systems is to prevent ``bad states'' from arising
 in the execution of programs, but today's type systems fail to catch
@@ -167,7 +167,7 @@ hard-coded abstractions (linked list segments and tree segments),
 while our new system supports sound extension of the library of
 abstractions by programmers.
 
-\section{The Ynot Programming Environment}
+\section{\label{tutorial}The Ynot Programming Environment}
 
 To a first approximation, Coq can be thought of as a functional
 programing language like Haskell or ML, but with support for dependent
@@ -829,39 +829,88 @@ Every step of the overall process is implemented in Ltac, so that only a bug in 
 
 \section{Evaluation}
 
-We have implemented several data structures using a variety of techniques.  The Ref to Functional Finite Map module implements a finite map by storing a pointer to a pure functional finite map in the heap.  The Stack and Queue are fully automated examples built from the ground up using the principles in this paper.  The Hashtable and Binary Search Tree implement a dependently typed (i.e., heterogenous) finite map and are adapted from the previous version of Ynot; we also include statistics for the older versions.  The hashtable is the only example to use arrays (todo check).  The binomial tree uses strong heap update to merge trees and exploits dependent types to compute an equivalent pure functional binary tree using a terminating Coq fixpoint.  The last two examples are the Ynot equivalents of examples from two related systems which are discussed later.
+We have used our environment to implement and verify a several data
+structures, including the Stack and Queue examples that appeared in
+Section \ref{tutorial}.  We also follow the prior Ynot system in
+implementing a generic signature of imperative finite maps.  We built
+three very different implementations of that signature: a trivial
+implementation based on pointers to heap-allocated functional
+association lists, an implementation based on binary search trees, and
+an implementation based on hash tables.  Any of the implementations
+can be used interchangeably via ML-style functors, and their shared
+signature is phrased in terms of dependently-typed maps, where the
+type of data associated with a key may be calculated from an arbitrary
+Coq function over that key.
 
-Our experience developing Ynot has resulted in hard won
-practical lessons about proof engineering and Coq pragmatics.
-Our Coq tactics and development methodology are directly
-based on this experience.  For instance, the first parameter to {\tt
-  sep}, which performs definition unfolding, was specifically added to
-abstract a common, natural design pattern.  
+We also verified one more exotic data structure: binomial trees, which
+are tree structures with a non-trivial rule for determining how many
+pointers are stored at each node.  This data structure is often
+applied in implementing priority queues.  Our implementation is
+interesting in its use of a dependently-typed recursive function to
+characterize functional models of such trees.
 
-This automation requires the programmer to prove relatively
-mechanical lemmas about definition unfolding.  Instead,
-a ynot programmer may use explicit framing and assertion annotations.  
-Even at the level of our examples, we have found that annotations tend to
-hinder reusability.  However, they are indispensible
-for the occasional, seemingly obvious heap implications 
-which automation fails to detect.  In addition, it is sometimes convenient
-to separate the programming 
-and automation aspects of development, and
-sketching code with assertions to be removed later
-lets Ynot programmers do exactly that.  
+Finally, we chose representative examples from two competing data
+structure verification systems, Smallfoot~\cite{smallfoot} and
+Jahob~\cite{jahob}, and reimplemented those examples in our new Ynot.
+For Smallfoot, we worked with one of their example inputs that gives
+10 functions over imperative linked list segments, with enough
+specifications to enable memory safety verification.  Our alternative
+version goes further and verifies functional correctness.  We have a
+more direct comparison with the Jahob example of an association list
+class, where we again reimplement all of their methods in the new Ynot
+style.
 
-Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  Ynot modules have a particular structure which is reflected in the column headings: specifications, heap representation, proofs, tactics, and program code.  Ynot modules
-begin with two sections that we ignore in our statistics: first, an ADT module type is defined, and then a pure functional model, 
-including proofs and tactics, is defined or imported.  We ignore the module type definitions because they would be double counted 
-in the specifications column, which includes the pre and post conditions of every function defined in the module.  Because some 
-equivalent of a functional model is required for verification in any system, and functional models vary widely in their state of 
-development, we do not include such functional code in the statistics.  The core of a ynot module then consists of heap representation
- code (e.g. {\texttt rep}), and proofs (e.g. {\texttt push\_list}) and tactics (e.g. {\texttt simp\_prem}) about the representation; 
- these three columns, plus the annotations column, are totaled in the overhead column.  The annotations column counts the number of lines of
- programmer specified annotations (e.g. \texttt{<@>}). Program code (e.g. getElements) is code that is preserved by extraction. 
-  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D 
- with 1gb of memory.   We have made no effort to optimize our tactics for running time.  We have also made no effort to share overhead code between related examples. 
+Our experience developing Ynot has resulted in hard-won practical
+lessons about proof engineering and Coq pragmatics.  Our Coq tactics
+and development methodology are directly based on this experience.
+For instance, the first parameter to {\tt sep}, which performs
+definition unfolding, was specifically added to abstract a common,
+natural design pattern.
 
+Our automation requires the programmer to prove relatively mechanical
+lemmas about definition unfolding.  Instead, a Ynot programmer may use
+explicit annotations, in the form of framing conditions and C-style
+``asserts.''  Even in our examples, we have found that annotations
+tend to hinder reusability.  However, it is generally possible to
+trade off effort between annotation-writing and automation
+construction.  It is sometimes convenient to separate the programming
+and automation aspects of development, sketching code with assertions
+that will be removed later as the programmer discovers which
+automation would be effective.
+
+Figure \ref{loc} presents code size statistics for our case studies.
+For comparison to the original, manual-proof-oriented Ynot system, we
+provide code size statistics for two of our examples as they were
+implemented in that system.
+
+Canonical Ynot modules in the new system have a particular structure
+which is reflected in the column headings: specifications, heap
+representation, proofs, tactics, and program code.  Ynot modules begin
+with two sections that we ignore in our statistics: first, an ADT
+module type is defined, and then a pure functional model, including
+proofs and tactics, is defined or imported.  We ignore the module type
+definitions because they would be double counted in the specifications
+column, which includes the pre and post conditions of every function
+defined in the module.  We do not include such functional code in the
+statistics, because it is generally unsurprising that particular
+theorems about pure functions are provable easily in modern proof
+assistants; the overhead for these theorems will tend to remain
+constant, no matter which approach one adopts to imperativity.  The
+core of a Ynot module, then, consists of heap representation code
+(e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
+(e.g. {\cd{simp\_prem}) dealining with these representations; these
+three columns, plus the annotations column, are totaled in the
+overhead column.  The annotations column counts the number of lines of
+programmer specified annotations (e.g. \cd{<@>}). Program code
+(e.g. \cd{getElements}) is code that is preserved by extraction.  Coq
+type-checking and proving times (in minutes and seconds) were measured
+on a 2.8 GHz Pentium D with 1 GB of memory.  So far, we have not
+optimized our tactics for running time; they are executed by direct
+interpretation of source code in a dynamically-typed language, so
+there is much opportunity for improvement there.  Some of our examples
+also contains formalizations of similar data structures that could
+profitably share representation and tactic code, though we have not
+taken advantage of that opportunity yet.
 
 \begin{figure*}
   \begin{center}
@@ -884,9 +933,7 @@ Linked List Segments                         &         &       &     &        & 
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single method verification times.  The linked list segments example suggests that our techniques can be made to scale linearly.   To qualitatively evaluate Ynot we have compared it against two 
-similar, related systems, Jahob~\cite{jahob} and Smallfoot, by implementing in Ynot
-one example from each other system.
+Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to our two comparison studies.
 
 \subsection{Jahob}
 
