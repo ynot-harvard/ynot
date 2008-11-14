@@ -249,9 +249,7 @@ It is worth pointing out that we simplify the assertion language substantially b
 
 We can write much more expressive formulas than in most systems based on separation logic.  Not only can any pure proposition be injected with $[\cdot]$, but we can also use arbitrary Coq computation to build impure assertions.  For instance, we can include calls to custom recursive functions that return assertions.  We need no special support in the assertion language to accommodate this, and Coq's theorem-proving support for reasoning about pattern-matching recursive functions can be brought to bear without modification.
 
-This automatic importation of Coq features has some surprising and pleasant consequences.  We literally need no more of the standard separation logic connectives to verify a wide variety of data structures.  For instance, separation logic proofs often use several kinds of disjunction.  In our setting, we reduce this disjunction to pattern matching over datatypes.  We take advantage of Coq's computational rules for simplifying pattern matches, which need not mention heaps, making them easier to think about and promoting easier proof automation.
-
-We do need a notion of implication, though we do not need to include it in assertions.  There is no need to introduce the ``magic wand'' of separation logic.  Rather, we just define an almost trivial operator $\himp$, which appears only at the top level of individual proof obligations.  The meaning of $p \himp q$ is that any heap satisfying $p$ also satisfies $q$.  The relevant aspects of the usual ``magic wand'' connective are built into the definition of what a valid program derivation is in the separation logic.
+Perhaps surprisingly, we have general success in implementing realistic examples using just these connectives.  Standard uses of other connectives can often be replaced by uses of higher-order features, and the connectives that we \emph{do} use are particularly amenable to automation.  Fully-automated systems like Smallfoot build in similar restrictions, but it surprised us that we needed little more to do functional verification.
 
 \medskip
 
