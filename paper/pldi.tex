@@ -121,8 +121,9 @@ The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
 type-checker that code is correct.  Unfortunately, explicit proofs can
 be quite large when compared to the code.  For example, in the Ynot
-module implementing a enqueue for a linked-list, requires 7 lines of code,
-whereas the proof of correctness is about 70 lines.
+module implementing ``push'' and ``pop'' for linked lists, only 7
+lines of program code are required, whereas the proof of correctness
+is about 70 lines.
 
 This paper reports our experience re-designing and re-implementing
 Ynot to dramatically reduce the burden of writing and maintaining the
