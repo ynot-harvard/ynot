@@ -662,3 +662,28 @@ Ltac sep_change2 F :=
           end
       end
   end.
+
+Lemma himp_prop_imp : forall (P Q : Prop) H, 
+  (P -> Q)
+  -> H * [P] ==> H * [Q].
+  sep fail auto.
+Qed.
+
+Lemma himp_prop_conc : forall (P : Prop) H1 H2,
+  P -> (H1 ==> H2) -> (H1 ==> [P] * H2).
+  sep fail auto.
+Qed.
+
+Theorem himp_disjoint : forall S T p1 p2 (a1:S) (a2:T), 
+  p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
+  intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
+  exists ((x * x0)%heap). exists empty. sep fail auto. exists x. exists x0. sep fail auto. split_prover'. compute.
+  split. apply ext_eq. auto. intros. subst.
+  compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. 
+Qed.
+
+
+Theorem himp_disjoint' : forall  h S T p (a1:S) (a2:T), 
+  (p --> a1 * p --> a2)%hprop h -> False.
+  intros; unfold hprop_imp; intros. repeat (destruct H). destruct H0. destruct H0. destruct H3. unfold disjoint1 in *. pose (H p). rewrite H0 in y. rewrite H3 in y. trivial.
+Qed.
