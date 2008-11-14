@@ -860,7 +860,7 @@ development, we do not include such functional code in the statistics.  The core
  these three columns, plus the annotations column, are totaled in the overhead column.  The annotations column counts the number of lines of
  programmer specified annotations (e.g. \texttt{<@>}). Program code (e.g. getElements) is code that is preserved by extraction. 
   Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D 
- with 1gb of memory.   We have made no effort to optimize our tactics for running time.  
+ with 1gb of memory.   We have made no effort to optimize our tactics for running time.  We have also made no effort to share overhead code between related examples. 
 
 
 \begin{figure*}
@@ -884,7 +884,7 @@ Linked List Segments                         &         &       &     &        & 
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Our examples indicate that a variety of tradeoffs between columns are possible, and the linked list segments example suggests that our techniques can be made to scale linearly.   To qualitatively evaluate Ynot we have compared it against two 
+Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single method verification times.  The linked list segments example suggests that our techniques can be made to scale linearly.   To qualitatively evaluate Ynot we have compared it against two 
 similar, related systems, Jahob~\cite{jahob} and Smallfoot, by implementing in Ynot
 one example from each other system.
 
