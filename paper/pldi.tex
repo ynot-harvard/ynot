@@ -763,7 +763,7 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 
 \section{Evaluation}
 
-We have implemented several data structures using a variety of techniques.  The Ref to Functional Finite Map module implements a finite map by storing a pointer to a pure functional finite map in the heap.  The Stack and Queue are fully automated examples built from the ground up using the principles in this paper.  The Hashtable and Binary Search Tree implement a dependently typed (i.e., the type of a value depends on its key) finite map and are adapted from the previous version of Ynot; the hashtable uses arrays (todo check).  The binomial tree has no proofs, uses strong heap update to merge trees and exploits dependent types to compute an equivalent pure functional binary tree using a terminating Coq fixpoint.  The last two examples were used in comparisons with tools similar to Ynot and are discussed later.
+We have implemented several data structures using a variety of techniques.  The Ref to Functional Finite Map module implements a finite map by storing a pointer to a pure functional finite map in the heap.  The Stack and Queue are fully automated examples built from the ground up using the principles in this paper.  The Hashtable and Binary Search Tree implement a dependently typed (i.e., heterogenous) finite map and are adapted from the previous version of Ynot; we also include statistics for the older versions.  The hashtable is the only example to use arrays (todo check).  The binomial tree uses strong heap update to merge trees and exploits dependent types to compute an equivalent pure functional binary tree using a terminating Coq fixpoint.  The last two examples are the Ynot equivalents of examples from two related systems which are discussed later.
 
 Our experience developing Ynot has resulted in hard won
 practical lessons about proof engineering and Coq pragmatics.
@@ -772,55 +772,55 @@ based on this experience.  For instance, the first parameter to {\tt
   sep}, which performs definition unfolding, was specifically added to
 abstract a common, natural design pattern.  
 
-Of course, using a pattern requires overhead, and
-for us this overhead is the need to prove 
-relatively mechanical lemmas 
-about definition unfolding.  Ynot aims to be a pay as you go
-system, and Ynot programs can 
-use assertions rather than integrate with the
-sep tactic.  Assertions are also indispensible
-for the occasional, seemingly obvious implications 
-which automation fails to detect.  Even at the 
-level of our examples, we have found that assertions
-hinder reusability.  Nevertheless, it is sometimes convenient
-to separate the programming
+This automation requires the programmer to prove relatively
+mechanical lemmas about definition unfolding.  Instead,
+a ynot programmer may use assertion annotations.  Even at the 
+level of our examples, we have found that assertions tend to
+hinder reusability.  However, assertions are indispensible
+for the occasional, seemingly obvious heap implications 
+which automation fails to detect.  In addition, it is sometimes convenient
+to separate the programming 
 and automation aspects of development, and
 sketching code with assertions to be removed later
 lets Ynot programmers do exactly that.  
 
-Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  Each Ynot module begins with ADT specifications.  This plumbing code is not included in the statistics.  Each module 
-then defines or imports a pure functional model, which is also not counted in the statistics.
-
-The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, .  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.  The count does not include code for pure functional models that are often shared between modules - for instance, the association list model contains 15 lines of aux defs, 35 lines of proof, and 15 lines of tactics.  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D with 1gb of memory.  We have made no effort to optimize our tactics for running time.
-
-To qualitatively evaluate Ynot we have compared it against two 
-similar, related systems, Jahob~\cite{jahob} and Smallfoot, by implementing in Ynot
-one example from the other system.
+Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  Ynot modules have a particular structure which is reflected in the column headings: specifications, heap representation, proofs, tactics, and program code.  Ynot modules
+begin with two sections that we ignore in our statistics: first, an ADT module type is defined, and then a pure functional model, 
+including proofs and tactics, is defined or imported.  We ignore the module type definitions because they would be double counted 
+in the specifications column, which includes the pre and post conditions of every function defined in the module.  Because some 
+equivalent of a functional model is required for verification in any system, and functional models vary widely in their state of 
+development, we do not include such functional code in the statistics.  The core of a ynot module then consists of heap representation
+ code (e.g. {\texttt rep}), and proofs (e.g. {\texttt push\_list}) and tactics (e.g. {\texttt simp\_prem}) about the representation; 
+ these three columns are totaled in the overhead column.  Program code (e.g. getElements) is code that is preserved by extraction. 
+ The annotations column counts the number of lines of
+ programmer specified annotations (e.g. \texttt{<@>}).  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D 
+ with 1gb of memory.   We have made no effort to optimize our tactics for running time.  
 
 
 \begin{figure*}
   \begin{center}
     \begin{tabular}{r | r | r | r | r | r | r | r | r}
-                                             & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics & Time (m:s) \\ \hline
-Stack                                        & 13      &    31             &   8   &    0        &  9         &  9     &  5      & 0:12 \\
-Queue                                        & 34      &    81             &  12   &    0        & 14         & 32     & 23      & 1:36 \\
-Ref to Functional Finite Map                 &   8     &    19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
-Hash Table                                   &  28     &   234             &  29   &   28        & 23         & 103    &  51     & 0:45 \\
-Hash Table (old) \\
-BST Finite Map                               &  17     &   160             &  18   &    4        & 51         & 63     & 24      & 1:35 \\
-BST Finite Map  (old)                        &  17     &   160             &  18   &    4        & 51         & 63     & 24      & 1:35 \\
-Binomial Tree                                &  17     &    44             &  14   &    7        & 13         &  0     & 10      & 2:33 \\
-Association List$^1$           &  43     &   174             &  33   &   14        & 16         & 63     & 42      & 3:10 \\
-Linked List$^2$                &  84     &   421             &  36   &    8        & 20         & 127    & 230     &  tbd \\
+                                             & Program & Specs & Rep & Proofs & Tactics &  Total Overhead & Annotations & Time (m:s) \\ \hline
+Stack                                        &         &       &     &        &         &                 &             & 0:12 \\
+Queue                                        &         &       &     &        &         &                 &             & 1:36 \\
+Ref to Functional Finite Map                 &         &       &     &        &         &                 &             & 0:05 \\
+Hash Table                                   &         &       &     &        &         &                 &             & 0:45 \\
+Hash Table (old)                             &         &       &     &        &         &                 &             &      \\
+BST Finite Map                               &         &       &     &        &         &                 &             & 1:35 \\
+BST Finite Map  (old)                        &         &       &     &        &         &                 &             & 1:35 \\
+Binomial Tree                                &         &       &     &        &         &                 &             & 2:33 \\
+Association List                             &         &       &     &        &         &                 &             & 3:10 \\
+Linked List Segments                         &         &       &     &        &         &                 &             &      \\
     \end{tabular}
   \end{center}
 \footnotesize
-$^1$ Jahob comparison, $^2$ Smallfoot comparison
 \normalsize
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-
+Our examples indicate that a variety of tradeoffs between columns are possible, and the linked list segments example suggests that our techniques can be made to scale linearly.   To qualitatively evaluate Ynot we have compared it against two 
+similar, related systems, Jahob~\cite{jahob} and Smallfoot, by implementing in Ynot
+one example from each other system.
 
 \subsection{Jahob}
 
@@ -934,7 +934,7 @@ be defined using predicate logic. The theory built for each data
 structure in Smallfoot plays the same roll as the unrolling lemmas for
 which counts are given in Figure \ref{loc}.
 
-\section{Other Related Work}
+\section{Related Work}
 
 The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
 
