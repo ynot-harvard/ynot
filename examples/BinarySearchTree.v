@@ -248,6 +248,11 @@ Qed.
                           Then Free (node_right n)
                             ;; Free (node_left n)
                             ;; {{f ::= Some ln}}
+                          Else rln <- ! (node_right ln)
+                             ; IfNull rln
+                               Then Free (node_left n)
+                                 ;; Free (node_right ln)
+                                 ;; {{f ::= Some (Node (node_value ln) (node_left ln) (node_right n))}}
 (*                          Else d <-- delete_pred (left_node node) l_left <@> _
                              ; {{f ::= Some (Node (projT2 d) (left_node n) (right_node n))}}
                              *)Else {{remove f k l}}
@@ -274,6 +279,28 @@ Qed.
  rewrite (lookup_dis_perm' (node_key ln0) p (distinct_remove (node_key n0) _ H)). auto.
  sep fail auto.
 
+ subst ln rn.
+ sep unfolder idtac. subst ln rn; simpl. sep unfolder idtac.
+
+(* debugging tools *)
+Ltac print_goal := idtac; 
+  match goal with
+    [|- ?g] => idtac g
+  end. 
+
+Ltac print_hyps := idtac; 
+  try match goal with
+        [H: ?g |- _] => idtac H ": " g; fail
+end.
+Ltac print_all := idtac ""; idtac "subgoal: "; print_hyps; idtac "========================="; print_goal.
+
+search_prem ltac:(apply rep2node_prem). sep fail idtac.
+search_prem ltac:(apply rep2node_prem). sep fail idtac.
+search_prem ltac:(apply rep2node_prem). sep fail idtac.
+search_prem ltac:(apply rep2node_prem). sep fail idtac.
+
+ subst ln rn. sep unfolder idtac. simpl. sep fail auto.
+ 
  t. t. t. t.
  Qed.
 
