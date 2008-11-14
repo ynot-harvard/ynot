@@ -169,11 +169,15 @@ abstractions by programmers.
 
 \section{The Ynot Programming Environment}
 
-To a first approximation, Coq can be thought of as a functional programing language like Haskell or ML, but with support for dependent types.  For instance, one can have types such as:
+To a first approximation, Coq can be thought of as a functional
+programing language like Haskell or ML, but with support for dependent
+types.  For instance, one can have operations with types such as:
 \begin{verbatim}
 div : nat -> forall n : nat, n <> 0 -> nat
 \end{verbatim}
-and write functions like
+which uses dependency to capture the fact that the function can only
+be called when a proof can be supplied that the second argument is
+non-zero.  One can also write functions such as:
 \begin{verbatim}
 Definition avg (x:list nat) : nat :=
   let sum := fold plus 0 x in
@@ -233,7 +237,7 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
   \caption{\label{STsep}The main rules of the derived separation logic}
 \end{figure*}
 
-Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
+Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The previous Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
 $$\begin{array}{rcl}
   P &::=& [p] \mid \emp \mid \pts{x}{y} \mid P \sep P \mid \exists x, P
 \end{array}$$
@@ -250,7 +254,12 @@ We do need a notion of implication, though we do not need to include it in asser
 
 \medskip
 
-What we have described so far is the same as in the original Ynot work, with the exception that that work used some additional separation connectives that we no longer need.  The big departure of our new system is that we define a more standard separation logic.  The old Ynot's separation logic included ``binary postcondtions'' that may refer to both the initial and final heaps.  This is in stark contrast to traditional separation logics, where all assertions are simple separation formulas, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+What we have described so far is the same as in the original Ynot
+work.  The big departure of our new system is that we define a more
+standard separation logic.  The old Ynot separation logic included
+``binary postcondtions'' that may refer to both the initial and final
+heaps.  This is in stark contrast to traditional separation logics,
+where all assertions are simple separation formulas over a single heap, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
 
 Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
 
@@ -294,7 +303,19 @@ End STACK.
   \caption{\label{Stack}The signature of an imperative stack module}
 \end{figure}
 
-Figure \ref{Stack} shows the signature of a Ynot implementation of the stack ADT.  The signature is expressed in Coq's ML-like module system.  Each implementation contains a type family \cd{t}, where, for any type \cd{T}, a value of \cd{t(T)} represents a stack storing values of \cd{T}.  An abstract type in ML can be thought of as ``standing for the underlying invariant.''  For Ynot, this is true for ``pure'' invariants only.  We need to add an additional ``impure'' invariant explicitly.  The type \cd{hprop} stands for assertions, and the parameter \cd{rep} is an assertion-valued function over a stack and a \emph{functional model} of the stack.  Each stack can be thought of as standing for a particular pure list, and the \cd{rep} predicate formalizes this connection.
+Figure \ref{Stack} shows the signature of a Ynot implementation of the
+stack ADT.  The signature is expressed in Coq's ML-like module system.
+Each implementation contains a type family \cd{t}, where, for any
+type \cd{T}, a value of \cd{t(T)} represents a stack storing elements
+of \cd{T}.  The \cd{rep} component of the interface relates an
+imperative stack \cd{s} to a functional list \cd{ls} in a
+particular state.  Thus, \cd{rep s ls} is a predicate on heaps
+(\cd{hprop}) which can be read as ``\cd{s} represents the list \cd{ls}'' in the
+current state.  Just as abstraction over the type family \cd{t} allows
+an implementation to choose different data structures to encode the
+stack, abstraction over the assertion \cd{rep} allows an
+implementation to choose different invariants connecting the concrete
+representation to an idealized model.  
 
 The type of the \cd{new} operation tells us that it expects an empty heap on input, and on output the heap contains just whatever mappings are needed to satisfy the representation invariant between the function return value and the empty list.  The ASCII notation \cd{\_\_} stands for the $\emp$ of usual pencil-and-paper separation logics.  The \cd{free} operation takes a stack \cd{s} as an argument, and it expects the heap to satisfy \cd{rep} on \cd{s} and the empty list.  The post state shows that all heap values associated with \cd{s} are freed.
 
