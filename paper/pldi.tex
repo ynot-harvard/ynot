@@ -193,7 +193,7 @@ This function averages the values in a list of natural numbers.  It has a normal
 
 All Coq functions have to be pure -- terminating without side effects.  This is necessary to ensure that proofs really are proofs, with no spurious ``proofs by infinite loop.''  Ynot extends Coq with support for side-effecting computations.  Similar to Haskell, we introduce a monadic type constructor \cd{ST T} which describes computations that might diverge and that might have side effects, but that, if they do return, return values of type \cd{T}.  We can use \cd{ST} to safely keep the ``effectful'' computations separate from the pure computations.
 
-Unlike Haskell's \cd{IO} monad, the \cd{ST} type is parameterized by a pre- and post- condition, which can be used to describe the effects of the computation on a mutable store.  Alternatively, one can think of the axiomatic base of Ynot as a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands, hence the IO-monad-like presentation.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a postcondition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
+Unlike Haskell's \cd{IO} monad, the \cd{ST} type is parameterized by a pre- and post-condition, which can be used to describe the effects of the computation on a mutable store.  Alternatively, one can think of the axiomatic base of Ynot as a fairly standard Hoare logic.  The main difference of our logic from usual presentations is that it is designed to integrate well with Coq's functional programming language, so that we formalize a language of expressions instead of commands, hence the IO-monad-like presentation.  A program derivation is of the form $\{P\} \; e \: \{Q\}$, where $P$ is a precondition predicate over heaps, and $Q$ is a post-condition predicate over initial heaps, functional values of $e$, and final heaps.  For instance, we can derive
 $$\{\lambda \_. \; \top\} \; \return{1} \; \{\lambda h, v, h'. \; h' = h \land v = 1\}$$
 and
 $$\begin{array}{c}
@@ -256,13 +256,13 @@ Perhaps surprisingly, we have general success in implementing realistic examples
 What we have described so far is the same as in the original Ynot
 work.  The big departure of our new system is that we use a more
 standard separation logic.  The old Ynot separation logic used
-``binary postcondtions'' that may refer to both the initial and final
+``binary post-condtions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
 where all assertions are separation formulas over a single heap, and
 all verification proof obligations are implications between such
 assertions.  The utility of this formalism has been born out in the
 wealth of tools that have used separation logic for automated
-verification.  In contrast, proofs of the binary postconditions in the
+verification.  In contrast, proofs of the binary post-conditions in the
 old Ynot tended to involve at least tens of steps of manual proof per
 line of program code.
 
@@ -326,7 +326,7 @@ The specification for \cd{push} says that it expects any valid stack as input an
 
 For an assertion \cd{P} that mentions the irrelevant variable \cd{x}, the notation \cd{x \textasciitilde\textasciitilde \; P} must be used to explicitly ``unpack'' \cd{x}.  The type of the unpack operation is such that it may only be applied to assertions and may not be used to allow an irrelevant variable's value to ``leak into'' the computational part of a program.
 
-The type of \cd{pop} showcases how we avoid the disjunctive connectives of separation logic.  The function returns an optional \cd{T} value, which will be \cd{None} when the stack is empty and will be \cd{Some x} when \cd{x} is at the top of the stack.  We use a Coq \cd{match} expression to give a different postcondition for each case.
+The type of \cd{pop} showcases how we avoid the disjunctive connectives of separation logic.  The function returns an optional \cd{T} value, which will be \cd{None} when the stack is empty and will be \cd{Some x} when \cd{x} is at the top of the stack.  We use a Coq \cd{match} expression to give a different post-condition for each case.
 
 \medskip
 
@@ -606,7 +606,7 @@ We suggest a hint based on commutativity of separating conjunction, state the in
 
 \subsection{Loops}
 
-Like with many semi-automated verification systems, we require annotations that are equivalent to ``loop invariants.''  Since Coq's programming language is functional, it is more natural to write ``loops'' as recursive functions, and the ``loop invariants'' become the pre- and postconditions of these functions.
+Like with many semi-automated verification systems, we require annotations that are equivalent to ``loop invariants.''  Since Coq's programming language is functional, it is more natural to write ``loops'' as recursive functions, and the ``loop invariants'' become the pre- and post-conditions of these functions.
 
 We support general recursion with a primitive fixpoint operator in the base program logic, and it is easy to build a separation logic version on top of that.  We can also build multiple-argument recursive function forms on top of the single-argument form.
 
@@ -630,7 +630,7 @@ Definition getElements (hd : option ptr) (ls : [list A]) :
 Qed.
 \end{verbatim}
 
-The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2}.  Of the three arguments that we pass, the first two give the precondition and postcondition in terms of the two ``real'' arguments (and, for the postcondition, the return value).  The third argument is the function body.  It takes a recursive self-reference as its first argument, followed by the two ``real'' arguments.
+The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2}.  Of the three arguments that we pass, the first two give the precondition and post-condition in terms of the two ``real'' arguments (and, for the post-condition, the return value).  The third argument is the function body.  It takes a recursive self-reference as its first argument, followed by the two ``real'' arguments.
 
 The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
 
@@ -892,7 +892,7 @@ with two sections that we ignore in our statistics: first, an ADT
 module type is defined, and then a pure functional model, including
 proofs and tactics, is defined or imported.  We ignore the module type
 definitions because they would be double counted in the specifications
-column, which includes the pre and post conditions of every function
+column, which includes the pre- and post-conditions of every function
 defined in the module.  We do not include such functional code in the
 statistics, because it is generally unsurprising that particular
 theorems about pure functions are provable easily in modern proof
@@ -991,10 +991,10 @@ of the Jahob interface.
 
 Our second comparison is against the Smallfoot~\cite{smallfoot}
 system, which focuses on completely automatic reasoning and
-concurrency.  We have not yet tackled concurrency in our system, so
+concurrency.  We have not address concurrency in our system, so
 our comparison focuses on automatic reasoning about sequential
 programs.  We compare two aspects of the systems: the size of
-annotations and proof obligations and the expressivity of the
+annotations and the expressivity of the
 logics. We use linked list segments as a running example.
 
 The Smallfoot system defines a segment of a linked list as the minimal
@@ -1005,14 +1005,14 @@ $$
 This is almost the same definition as we gave earlier in the Queue example, with different notational conventions.  The notable difference is that we add the pointer inequality, which is necessary to guarantee lack of cycles.
 
 To compare annotatation burden, we consider an {\tt append} function
-on lists as a representative example. In Smallfoot, the function is
-built using a {\tt while} loop and requires 14 lines and three
+on lists. In Smallfoot, the function is
+built using a {\tt while} loop and requires 14 lines of code and three
 annotations: the pre- and post-conditions and the loop invariant. To
 maintain a close symmetry between the definitions, we break the {\it
 append} function into two pieces, one for the loop and the other for
 the main body. Our two Ynot functions for these pieces are,
-respectively, 4 and 5 lines long and require 2 lines of annotations
-for the fixpoint definition, corresponding to the Smallfoot loop
+respectively, 4 and 5 lines of code and require 2 lines of annotations
+for the fixpoint definition which correspond to the Smallfoot loop
 invariant. As with all previous examples, the tactics and lemmas used
 for this function apply to all functions dealing with linked lists, in
 the same way that the linked list representation predicate is
@@ -1031,10 +1031,10 @@ fact that they are meant to do different things.
 The second advantage in Ynot is the ability to express properties in
 higher-order logic. Smallfoot's ease of use comes at the price of
 restricting programs to a small set of data structures (including
-linked lists, doubly linked lists, trees, and xor-lists) for which the
+linked lists, doubly linked lists, binary trees, and xor-lists) for which the
 definitions and corresponding inductive properties can be defined
 using predicate logic. The theory built for each data structure in
-Smallfoot plays the same roll as the unfolding lemmas that any user of
+Smallfoot plays the same roll as the lemmas that any user of
 Ynot may prove for new data structures.  Figure \ref{loc} includes the
 size of the lemmas and proofs of that kind that we wrote for this
 example and the others.
@@ -1072,3 +1072,4 @@ Nonetheless, our current system already fills a crucial niche in the space of ve
 \end{document}
 
 % LocalWords:  Coq Hoare Ynot checkable dereference ESC Concoqtion logics Coq's
+% LocalWords:  dequeue Ltac parameterized Jahob Smallfoot
