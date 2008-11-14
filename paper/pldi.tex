@@ -791,16 +791,16 @@ in the specifications column, which includes the pre and post conditions of ever
 equivalent of a functional model is required for verification in any system, and functional models vary widely in their state of 
 development, we do not include such functional code in the statistics.  The core of a ynot module then consists of heap representation
  code (e.g. {\texttt rep}), and proofs (e.g. {\texttt push\_list}) and tactics (e.g. {\texttt simp\_prem}) about the representation; 
- these three columns are totaled in the overhead column.  Program code (e.g. getElements) is code that is preserved by extraction. 
- The annotations column counts the number of lines of
- programmer specified annotations (e.g. \texttt{<@>}).  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D 
+ these three columns, plus the annotations column, are totaled in the overhead column.  The annotations column counts the number of lines of
+ programmer specified annotations (e.g. \texttt{<@>}). Program code (e.g. getElements) is code that is preserved by extraction. 
+  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D 
  with 1gb of memory.   We have made no effort to optimize our tactics for running time.  
 
 
 \begin{figure*}
   \begin{center}
     \begin{tabular}{r | r | r | r | r | r | r | r | r}
-                                             & Program & Specs & Rep & Proofs & Tactics &  Total Overhead & Annotations & Time (m:s) \\ \hline
+                                             & Program & Specs & Rep & Proofs & Tactics &  Annotations    & Total Overhead & Time (m:s) \\ \hline
 Stack                                        &         &       &     &        &         &                 &             & 0:12 \\
 Queue                                        &         &       &     &        &         &                 &             & 1:36 \\
 Ref to Functional Finite Map                 &         &       &     &        &         &                 &             & 0:05 \\
