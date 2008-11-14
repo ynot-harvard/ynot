@@ -112,7 +112,7 @@ logics that support a much wider range of policies including (partial)
 correctness.  Furthermore, in the case of Ynot, programmers can define
 and use connectives in the style of separation logic~\cite{separation}
 to achieve simple, modular specifications of higher-order imperative
-programs.  For example, a recent paper describes how Ynot was used
+programs.  For example, a recent paper~\cite{ynot:icfp} describes how Ynot was used
 to construct fully-verified implementations of data structures such
 as queues, hash-tables, and splay-trees, including support for 
 iterators.  
@@ -835,13 +835,13 @@ We have used our environment to implement and verify several data
 structures, including the Stack and Queue examples that appeared in
 Section \ref{tutorial}.  We also follow the prior Ynot system in
 implementing a generic signature of imperative finite maps.  We built
-three very different implementations of that signature: a trivial
+three very different implementations: a trivial
 implementation based on pointers to heap-allocated functional
 association lists, an implementation based on binary search trees, and
 an implementation based on hash tables.  Any of the implementations
 can be used interchangeably via ML-style functors, and their shared
 signature is phrased in terms of dependently-typed maps, where the
-type of data associated with a key may be calculated from an arbitrary
+type of data associated with a key is calculated from an arbitrary
 Coq function over that key.
 
 We also verified one more exotic data structure: binomial trees, which
@@ -870,7 +870,7 @@ definition unfolding, was specifically added to abstract a common,
 natural design pattern.
 
 Our automation requires the programmer to prove relatively mechanical
-lemmas about definition unfolding.  Instead, a Ynot programmer may use
+lemmas about definition unfolding.  Alternatively, a Ynot programmer may use
 explicit annotations, in the form of framing conditions and C-style
 ``asserts.''  Even in our examples, we have found that annotations
 tend to hinder reusability.  However, it is generally possible to
@@ -878,16 +878,16 @@ trade off effort between annotation-writing and automation
 construction.  It is sometimes convenient to separate the programming
 and automation aspects of development, sketching code with assertions
 that will be removed later as the programmer discovers which
-automation would be effective.
+automation will be most effective.
 
 Figure \ref{loc} presents code size statistics for our case studies.
-Program code (e.g. \cd{getElements}) is code that is preserved by extraction.
-Specifications are the pre and post conditions of every function
+Program code is code that is preserved by extraction.
+Specifications are the pre and post-conditions of every function
 defined in the module.  The core of a Ynot module consists of heap representation code
 (e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
 (e.g. {\cd{simp\_prem}) dealing with these representations.
 The annotations column counts the number of lines of
-programmer specified annotations (e.g. \cd{<@>}).  The total
+programmer specified annotations (e.g. \cd{<@>}, and \cd{Assert}).  The total
 overhead column sums proofs, tactics, and annotations.
 
 %Canonical Ynot modules in the new system have a particular structure
@@ -913,7 +913,7 @@ interpretation of source code in a dynamically-typed language, so
 there is much opportunity for improvement there.  Some of our examples
 also contains formalizations of similar data structures that could
 profitably share representation and tactic code, though we have not
-taken advantage of that opportunity yet.
+taken advantage of this opportunity yet.
 
 \begin{figure*}
   \begin{center}
@@ -934,16 +934,21 @@ Linked List Segments                         &   84    &  34   &  19 &  91   &  
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to a comparison with the previous Ynot and two related systems.
+Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to a comparison with the previous Ynot as well as the Jahob and Smallfoot systems described previously.
 
 \subsection{Previous Ynot}
 
-The previous version of Ynot placed a significant interactive proof burden on the programmer.  
-The previous Ynot hashtable, for instance, required around 320 explicit Coq tactic invocations.
-Each tactic invocation (the ``.'' of Coq) represents a manual invervention by the
-Ynot programmer.  These invocations tended to be low level steps, like choosing which
-branch of a disjunction to prove.  As such, these proofs tended to be brittle to minor changes.
-In some previous Ynot developments, the ratio of manual proof to program text is over 10 to 1.
+The previous version of Ynot placed a significant interactive proof
+burden on the programmer.  The previous Ynot hashtable, for instance,
+required around 320 explicit Coq tactic invocations.  Each tactic
+invocation (the ``.'' of Coq) represents a manual intervention by the
+Ynot programmer.  These invocations tended to be low level steps, like
+choosing which branch of a disjunction to prove.  As such, these
+proofs are brittle to be brittle to minor changes.  In some previous
+Ynot developments, the ratio of manual proof to program text is over
+10 to 1. For comparison, a large scale compiler certification
+effort~\cite{leroy} has reported a proof-to-code ratio of roughly 6 to
+1.
 
 In contrast, our new hastable requires only about 70 explicit tactic invocations. 
 These invocations tend to be high level steps, like performing induction or
@@ -955,7 +960,7 @@ are significantly easier to maintain.
 The Jahob system allows the specification and verification 
 of recursive, linked data structures in a fragment of Java.  Ynot and Jahob 
 both relate the abstract state of a data structure to its concrete heap representation
-using specification variables and pre-post conditions; both systems use
+using specification variables and pre-post conditions. Both systems also use
 programmer supplied annotations to guide the verification process.  The systems 
 differ in their heap models and how verification conditions are discharged.
 
@@ -966,7 +971,7 @@ the low-level language of set theory, Ynot's separation logic layer lets
 programmers build their own abstractions using the full expressiveness of Coq.  
  
 Jahob programs are verified by first being translated into an extended guarded command language.
-Then, Jahob generates verification conditions 
+From this, Jahob generates verification conditions 
  that are discharged using a combination of external theorem provers: if one prover does not succeed 
 on an obligation, another is tried.  This allows Jahob to run multiple
 provers in parallel.  It also means that practically speaking, verification 
@@ -987,10 +992,10 @@ is implemented by the Jahob backend.  Modulo this difference,
 the Jahob and Ynot examples are quite similar.  For instance, they 
 both require around twenty lines of heap representation code,
 and they both require about a dozen lines of code for the
-get function's loop invariant.  Our Ynot implementation 
+\cd{get} function's loop invariant.  Our Ynot implementation 
 uses explicit framing conditions in
 places where Jahob does not, but we speculate that we can probably
-remove these annotations with some additional custom automation.
+remove these annotations with additional, custom automation.
 
 Verifying the Ynot association list takes ten times longer than in Jahob.
 However, Jahob verification times depend crucially on the underlying
@@ -1010,7 +1015,7 @@ of the Jahob interface.
 
 Our second comparison is against the Smallfoot~\cite{smallfoot}
 system, which focuses on completely automatic reasoning and
-concurrency.  We have not address concurrency in our system, so
+concurrency.  We have not addressed concurrency in our system, so
 our comparison focuses on automatic reasoning about sequential
 programs.  We compare two aspects of the systems: the size of
 annotations and the expressivity of the
@@ -1062,22 +1067,22 @@ example and the others.
 
 The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
 
-A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic, making it much harder to write verified data structure implementations than in our system.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
+A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic. This makes it much harder to write verified data structure implementations than in Ynot.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
 
-There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories like arithmetic.
+There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories such as arithmetic.
 
-The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users not just to define new inductive predicates, but also to extend a generic solver with arbitrary rules for simplifying uses of the predicates.
+The Xisa system~\cite{xisa} uses an approach similar to ours, as Xisa is based on user specification of inductive characterizations of shape invariants.  Xisa builds this inductive definition mechanism into its framework, while we inherit a more general mechanism from Coq.  Xisa is based on hardcoded algorithms for analyzing inductive definitions and determining when and how they should be unfolded.  Such heuristics lack theoretical guarantees about how broadly they apply.  In the design of our system, we recognize this barrier and allow users to extend the generic solver with custom rules for dealing with custom inductive predicates.
 
 In comparing the new Ynot environment to the above systems and all others that we are aware of, there are a number of common advantages.  No other system supports both highly-automated proofs based on separation logic (when they work) and highly human-guided proofs (when they are needed), let alone combinations of the two.  None of the systems with significant automation support the combination of imperative and higher-order features, like we handle in the example of our higher-order memoizer and iterators.  We also find no automated systems that deal with dependent types in programs.  The first of these advantages seems critical in the verification of imperative programs that would be difficult to prove correct even if refactored to be purely functional.  For instance, it seems plausible that our environment could be used eventually to build a verified compiler that uses imperative data structures for efficient dataflow analysis, unification in type inference, and so on.  None of the purely-automated tools that we have surveyed could be applied to that purpose without drastic redesign.  We are not aware of any previous toolkit for manual proof about imperative programs in proof assistants that would make the task manageable; the manual reasoning about state would overwhelm ``the interesting parts'' of compiler verification.
 
 
 \section{Conclusions \& Future Work}
 
-Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library, and we need to assume an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation; we hope for a future version of Coq or a related system to include general support for computationally-irrelevant values.
+Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library. This formulation requires an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation and we hope that a future version of Coq or a related system will include general support for computationally-irrelevant values.
 
 Concurrency is another big area for future work.  Systems like Smallfoot~\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
 
-The full potential of the Ynot approach also depends on explicit handling of other computational effects, like exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
+The full potential of the Ynot approach also depends on explicit handling of other computational effects, such as exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
 
 As with any project in automated theorem proving, there is always room for improvements to automation and inference.  Several tools have been successful at inferring separation logic invariants using abstract interpretation.  We have held off on such approaches so far, since it is easiest to implement a system like ours by phrasing inference as a theorem-proving problem.  A future version of Ynot could benefit greatly in usability by incorporating abstract interpretation somehow.
 
