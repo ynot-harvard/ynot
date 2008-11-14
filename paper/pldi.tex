@@ -254,7 +254,7 @@ Perhaps surprisingly, we have general success in implementing realistic examples
 What we have described so far is the same as in the original Ynot
 work.  The big departure of our new system is that we use a more
 standard separation logic.  The old Ynot separation logic used
-``binary post-condtions'' that may refer to both the initial and final
+``binary post-conditions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
 where all assertions are separation formulas over a single heap, and
 all verification proof obligations are implications between such
@@ -742,7 +742,7 @@ which is resolvable almost trivially.  We cannot give \cd{?123} a value that men
 \begin{verbatim}
 m ~~ Exists v :@ T, rep m v ==> ?123
 \end{verbatim}
-Now the trivial unification is valid.  The crucial part of this process was the matching of the two points-two facts.  We have special-case rules for matching conclusion facts under quantifiers, for conclusions that match the preconditions of the read, write, and free rules.  Beyond that, we apply cancelation of identical terms on the two sides of the implication, when those terms do not fall under the scope of quantifiers.  These simple rules seem to serve well in practice.
+Now the trivial unification is valid.  The crucial part of this process was the matching of the two points-two facts.  We have special-case rules for matching conclusion facts under quantifiers, for conclusions that match the preconditions of the read, write, and free rules.  Beyond that, we apply cancellation of identical terms on the two sides of the implication, when those terms do not fall under the scope of quantifiers.  These simple rules seem to serve well in practice.
 
 \subsection{Premise Simplification}
 
@@ -937,7 +937,7 @@ Our examples indicate that Ynot compiles quickly enough to be useful in practice
 \subsection{Previous Ynot}
 
 The previous version of Ynot placed a significant interactive proof
-burden on the programmer.  The previous Ynot hashtable, for instance,
+burden on the programmer.  The previous Ynot hash table, for instance,
 required around 320 explicit Coq tactic invocations.  Each tactic
 invocation (the ``.'' of Coq) represents a manual intervention by the
 Ynot programmer.  These invocations tended to be low level steps, like
@@ -948,7 +948,7 @@ Ynot developments, the ratio of manual proof to program text is over
 effort~\cite{leroy} has reported a proof-to-code ratio of roughly 6 to
 1.
 
-In contrast, our new hashtable requires only about 70 explicit tactic invocations. 
+In contrast, our new hash table requires only about 70 explicit tactic invocations. 
 These invocations tend to be high level steps, like performing induction or
 invoking the {\texttt sep} tactic.  We have observed that tactic based proofs
 are significantly easier to maintain.  
@@ -976,7 +976,7 @@ provers in parallel.  It also means that practically speaking, verification
 and development are not programmer-interactive.
 
 Because provers are often specialized to particular
-classes of formulas, formula approximation techiques must be used to integrate them with
+classes of formulas, formula approximation techniques must be used to integrate them with
 a system using higher order logic. Jahob supports a number of first order and SMT provers,
 Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  
 In contrast, Ynot's automated reasoning is implemented completely in Coq.  
@@ -1026,7 +1026,7 @@ ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exist
 $$
 This is almost the same definition as we gave earlier in the Queue example, with different notational conventions.  The notable difference is that we add the pointer inequality, which is necessary to guarantee lack of cycles.
 
-To compare annotatation burden, we consider an {\tt append} function
+To compare the annotatation burden, we consider an {\tt append} function
 on lists. In Smallfoot, the function is
 built using a {\tt while} loop and requires 14 lines of code and three
 annotations: the pre- and post-conditions and the loop invariant. To
@@ -1065,7 +1065,7 @@ example and the others.
 
 The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
 
-A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithetic. This makes it much harder to write verified data structure implementations than in Ynot.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
+A number of systems have been proposed recently to support dependently-typed programming in a setting oriented more towards traditional software development than Coq is.  ATS~\cite{ats} includes novel means for dealing with imperative state, but it includes no proof automation beyond decision procedures for simple base theories like linear arithmetic. This makes it much harder to write verified data structure implementations than in Ynot.  Concoqtion~\cite{concoqtion} allows the use of Coq for reasoning about segments of general OCaml programs.  While those programs may use imperativity, the Coq reasoning is restricted to pure ``index terms.''  Sage~\cite{sage} supports ``hybrid type-checking,'' where typing invariants may be specified with boolean-valued program functions and checked at runtime.  This approach generally does not enable full static correctness verification.
 
 There is closely related work in the field of shape analysis.  The TVLA system~\cite{tvla} models heap shapes with a first-order logic with a built-in transitive closure operation.  With the right choices of predicates that may appear in inferred specifications, TVLA is able to verify automatically many programs that involve both heap shape reasoning and reasoning in particular decidable theories such as arithmetic.
 
