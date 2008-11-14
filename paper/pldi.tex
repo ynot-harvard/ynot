@@ -258,11 +258,15 @@ work.  The big departure of our new system is that we define a more
 standard separation logic.  The old Ynot separation logic used
 ``binary postcondtions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
-where all assertions are separation formulas over a single heap, and all verification proof obligations are implications between such assertions.  The utility of this formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, proofs for the binary postconditions in the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+where all assertions are separation formulas over a single heap, and
+all verification proof obligations are implications between such
+assertions.  The utility of this formalism has been born out in the
+wealth of tools that have used separation logic for automated
+verification.  In contrast, proofs of the binary postconditions in the
+old Ynot tended to involve at least tens of steps of manual proof per
+line of program code.
 
-Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to relate pre- and post-conditions ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
-
-The final output of a Ynot program is an executable piece of OCaml or Haskell code, produced with Coq's program extraction facility.  We can use standard Coq variables as specification variables, but, by default, they will remain at runtime, reducing the efficiency of programs.  One of the main innovations of the new work we present involves a new way of encoding specification variables in Coq, such that they will be erased by the standard program extraction facility.  This makes it possible to use a more standard separation logic, with the corresponding decrease in the difficulty of automating proofs.  We will present this new technique by example in later subsections.
+The key innovation that lets us use a more standard formulation is the feature of \emph{computationally-irrelevant variables}, which correspond to specification variables in standard separation logic.  The old Ynot system has no counterpart feature; it is not immediately clear how to achieve this kind of functionality in a system not based on a first-order axiomatization of all program syntax.  Our reimplementation uses the trick of representing specification variables in types that are marked as ``proofs'' instead of ``programs,'' such that we can take advantage of Coq's standard restrictions on ``information flow'' from proofs to programs.
 
 Figure \ref{STsep} presents the main rules of our separation logic.  The notable divergence from common formulations is in the use of existential quantifiers in the rules for freeing, reading, and writing.  These differences make sense because Ynot is implemented within a constructive logic.  A more standard, ``classical'' separation logic would, for instance, require that, in the rule for $\coq{free}$, the value $v$ pointed to by $p$ be provided as an argument to the proof rule.  In constructive logic, such a value can only be produced when it can be computed by an algorithm.  Not only that, but we would not be able to use any facts implied by the current heap assertion to build one of these witnesses, and perhaps the witness can only be proved to exist using such facts.  The explicit existential quantifier frees us to reason ``inside the assertion language'' in finding the witness.
 
