@@ -24,7 +24,7 @@
 
 \begin{document}
 
-%\conferenceinfo{PLDI ’09}{ todo }
+%\conferenceinfo{PLDI ï¿½09}{ todo }
 
 %\copyrightyear{2005}
 
@@ -249,9 +249,7 @@ It is worth pointing out that we simplify the assertion language substantially b
 
 The embedding in Coq provides much more expressive formulas than in most systems based on separation logic.  Not only can any pure proposition be injected with $[\cdot]$, but we can also use arbitrary Coq computation to build impure assertions.  For instance, we can include calls to custom recursive functions that return assertions.  We need no special support in the assertion language to accommodate this, and Coq's theorem-proving support for reasoning about pattern-matching recursive functions can be used without modification.
 
-This automatic importation of Coq features has some surprising and pleasant consequences.  We literally need no more of the standard separation logic connectives to verify a wide variety of data structures.  For instance, separation logic proofs often use several kinds of disjunction.  In our setting, we reduce this disjunction to pattern matching over datatypes.  We take advantage of Coq's computational rules for simplifying pattern matches, which need not mention heaps, making them easier to reason about and promoting easier proof automation.
-
-We do need a notion of implication, though we do not need to include it in assertions.  There is no need to introduce the ``magic wand'' of separation logic.  Rather, we just define an almost trivial operator $\himp$, which appears only at the top level of individual proof obligations.  The meaning of $p \himp q$ is that any heap satisfying $p$ also satisfies $q$.  The relevant aspects of the usual ``magic wand'' connective are built into the definition of what a valid program derivation is in the separation logic.
+Perhaps surprisingly, we have general success in implementing realistic examples using just these connectives.  Standard uses of other connectives can often be replaced by uses of higher-order features, and the connectives that we \emph{do} use are particularly amenable to automation.  Fully-automated systems like Smallfoot build in similar restrictions, but it surprised us that we needed little more to do functional verification.
 
 \medskip
 
@@ -260,11 +258,15 @@ work.  The big departure of our new system is that we use a more
 standard separation logic.  The old Ynot separation logic used
 ``binary postcondtions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
-where all assertions are separation formulas over a single heap, and all proof obligations are implications between such assertions.  The utility of this formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, proofs for the binary postconditions in the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+where all assertions are separation formulas over a single heap, and
+all verification proof obligations are implications between such
+assertions.  The utility of this formalism has been born out in the
+wealth of tools that have used separation logic for automated
+verification.  In contrast, proofs of the binary postconditions in the
+old Ynot tended to involve at least tens of steps of manual proof per
+line of program code.
 
-Why did the original Ynot use this nonstandard program logic?  The answer is the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to relate precondition and postcondition.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
-
-The final output of a Ynot program is an executable piece of OCaml or Haskell code, produced with Coq's program extraction facility.  We can use standard Coq variables as specification variables, but, by default, they will remain at runtime, reducing the efficiency of programs.  One of the main innovations of the new work we present involves a new way of encoding specification variables in Coq, such that they will be erased by the standard program extraction facility.  This makes it possible to use a more standard separation logic, with the corresponding decrease in the difficulty of automating proofs.  We will present this new technique by example in later subsections.
+The key innovation that lets us use a more standard formulation is the feature of \emph{computationally-irrelevant variables}, which correspond to specification variables in standard separation logic.  The old Ynot system has no counterpart feature; it is not immediately clear how to achieve this kind of functionality in a system not based on a first-order axiomatization of all program syntax.  Our reimplementation uses the trick of representing specification variables in types that are marked as ``proofs'' instead of ``programs,'' such that we can take advantage of Coq's standard restrictions on ``information flow'' from proofs to programs.
 
 Figure \ref{STsep} presents the main rules of our separation logic.  The notable divergence from common formulations is in the use of existential quantifiers in the rules for freeing, reading, and writing.  These differences make sense because Ynot is implemented within a constructive logic.  A more standard, ``classical'' separation logic would, for instance, require that, in the rule for $\coq{free}$, the value $v$ pointed to by $p$ be provided as an argument to the proof rule.  In constructive logic, such a value can only be produced when it can be computed by an algorithm.  Not only that, but we would not be able to use any facts implied by the current heap assertion to build one of these witnesses, and perhaps the witness can only be proved to exist using such facts.  The explicit existential quantifier frees us to reason ``inside the assertion language'' in finding the witness.
 
@@ -572,34 +574,34 @@ Qed.
 We suggest a hint based on commutativity of separating conjunction, state the inductive structure of the proof, and discharge the two cases with our specialized \cd{t}.  This is an instance of a common pattern, where lemmas requiring inductive proofs must be stated explicitly, while most other separation facts are proved automatically by \cd{sep}.
 
 
-\subsection{Arrays}
+%% \subsection{Arrays}
 
-It is also easy to support arrays within our framework.  We can define suitable constants in the base program logic:
+%% It is also easy to support arrays within our framework.  We can define suitable constants in the base program logic:
 
-\begin{verbatim}
-Parameter array : Set.
-Parameter array_length : array -> nat.  
-Parameter array_plus : array -> nat -> [ptr].
-\end{verbatim}
+%% \begin{verbatim}
+%% Parameter array : Set.
+%% Parameter array_length : array -> nat.  
+%% Parameter array_plus : array -> nat -> [ptr].
+%% \end{verbatim}
 
-The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
+%% The \cd{array\_plus} function is for computing a pointer to a particular cell of an array.  Note how the type of this function forces the resulting pointer to be treated in a computationally irrelevant way.  That is, it is easy to reason about the separate cells of an array with the separation logic connectives we already introduced, but client code cannot actually calculate pointers from arrays ``at runtime.''  This makes it possible to represent Ynot arrays with OCaml arrays.
 
-With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde \; v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
+%% With an infix notation \cd{@+} defined for \cd{array\_plus}, it is easy to write a type for array update.  We use the notation \cd{x :\textasciitilde\textasciitilde \; v in P} to bind \cd{x} to the hidden value of specification value \cd{v} within the assertion \cd{P}.  We use the shorthand \cd{p -->?} to indicate that \cd{p} points to some unknown value of unknown type.
 
-\begin{verbatim}
-Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
-  STsep (p :~~ a @+ i in p -->?)
-        (fun _ : unit =>
-               p :~~ a @+ i in p --> v).
-\end{verbatim}
+%% \begin{verbatim}
+%% Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
+%%   STsep (p :~~ a @+ i in p -->?)
+%%         (fun _ : unit =>
+%%                p :~~ a @+ i in p --> v).
+%% \end{verbatim}
 
-The type of the array allocation operation indicates that every pointer within the array is initialized to some unknown value.  The notation \cd{\{@ e | i <- min + len\}} denotes an iterated separating conjunction where the variable \cd{i} ranges from \cd{min} to \cd{min + len - 1}.
+%% The type of the array allocation operation indicates that every pointer within the array is initialized to some unknown value.  The notation \cd{\{@ e | i <- min + len\}} denotes an iterated separating conjunction where the variable \cd{i} ranges from \cd{min} to \cd{min + len - 1}.
 
-\begin{verbatim}
-Parameter new_array (n:nat) :
-  STsep __ (fun a : array => [array_length a = n]
-    * {@ p :~~ a @+ i in p -->? | i <- 0 + n}.
-\end{verbatim}
+%% \begin{verbatim}
+%% Parameter new_array (n:nat) :
+%%   STsep __ (fun a : array => [array_length a = n]
+%%     * {@ p :~~ a @+ i in p -->? | i <- 0 + n}.
+%% \end{verbatim}
 
 
 \subsection{Loops}
