@@ -256,12 +256,12 @@ We do need a notion of implication, though we do not need to include it in asser
 
 What we have described so far is the same as in the original Ynot
 work.  The big departure of our new system is that we define a more
-standard separation logic.  The old Ynot separation logic included
+standard separation logic.  The old Ynot separation logic used
 ``binary postcondtions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
-where all assertions are simple separation formulas over a single heap, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+where all assertions are separation formulas over a single heap, and all verification proof obligations are implications between such assertions.  The utility of this formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, proofs for the binary postconditions in the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
 
-Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
+Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to relate pre- and post-conditions ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
 
 The final output of a Ynot program is an executable piece of OCaml or Haskell code, produced with Coq's program extraction facility.  We can use standard Coq variables as specification variables, but, by default, they will remain at runtime, reducing the efficiency of programs.  One of the main innovations of the new work we present involves a new way of encoding specification variables in Coq, such that they will be erased by the standard program extraction facility.  This makes it possible to use a more standard separation logic, with the corresponding decrease in the difficulty of automating proofs.  We will present this new technique by example in later subsections.
 
@@ -364,7 +364,7 @@ Definition rep (s : stack) (ls : list T) : hprop :=
   Exists po :@ option ptr, s --> po * listRep ls po.
 \end{verbatim}
 
-Before we start implementing the ADT methods, we should set up some proof automation machinery.  Systems like Smallfoot~\cite{smallfoot} have hardcoded support for particular heap predicates like acyclic linked list-ness, cyclic linked list-ness, and so on.  These systems perform ad-hoc simplifications on formulas that mention the predicates that they understand.  In contrast, with Ynot, the programmer can define his own new predicates, as we have just done.  Not only that, but he can also prove lemmas that correspond with the simplification rules built into automated tools, and he can plug his lemmas into a general separation logic solver.  All of this is done with no risk that a mistake by the programmer will lead to a faulty verification; every lemma must be proved from first principles.
+Before we start implementing the ADT methods, we should set up some proof automation machinery.  Systems like Smallfoot~\cite{smallfoot} have hardcoded support for particular heap predicates like acyclic linked list-ness, cyclic linked list-ness, and so on.  These systems perform simplifications on formulas that mention the predicates that they understand.  In contrast, with Ynot, the programmer can define his own new predicates, as we have just done.  Not only that, but he can also prove lemmas that correspond with the simplification rules built into automated tools, and he can plug his lemmas into a general separation logic solver.  All of this is done with no risk that a mistake by the programmer will lead to a faulty verification; every lemma must be proved from first principles.
 
 For the current example, we need two lemmas for ``unfolding'' the definition of \cd{listRep} at points where we know for sure whether or not the pointer argument is null.
 
@@ -387,8 +387,7 @@ The proofs are given in Coq's tactic language.  We ask to do a case analysis on 
 Now we can plug our two unfolding rules into the separation solver.  We define a local procedure for simplifying separation implications.
 
 \begin{verbatim}
-Ltac simp_prem :=
-  simpl_IfNull;
+Ltac simp_prem := simpl_IfNull;
   simpl_prem ltac:(apply listRep_None
                    || apply listRep_Some).
 \end{verbatim}
@@ -593,7 +592,7 @@ Parameter upd_array (A:Type)(a:array)(i:nat)(v:A) :
                p :~~ a @+ i in p --> v).
 \end{verbatim}
 
-The type of the array allocation operation indicates that every pointer within the array is initialized to some unknown value.  The notation \cd{\{@ e | i <- min + len\}} is inspired by standard set comprehension notations, and it denotes an iterated separating conjunction where the variable \cd{i} ranges from \cd{min} to \cd{min + len - 1}.
+The type of the array allocation operation indicates that every pointer within the array is initialized to some unknown value.  The notation \cd{\{@ e | i <- min + len\}} denotes an iterated separating conjunction where the variable \cd{i} ranges from \cd{min} to \cd{min + len - 1}.
 
 \begin{verbatim}
 Parameter new_array (n:nat) :
@@ -721,7 +720,7 @@ we simply set \cd{?123} to \cd{p --> x * q --> y}.  Given the slightly more comp
 \begin{verbatim}
 p --> x * q --> y ==> ?123 x
 \end{verbatim}
-we set \cd{?123} to \cd{fun x' => p --> x' * q --> y}.
+we abstract the lefthand side to produce\cd{fun x' => p --> x' * q --> y}.
 
 \subsection{Intermediate Constraint Solving}
 
@@ -750,7 +749,7 @@ After specification inference, the next step is to simplify the premise of the i
 
 \subsection{Conclusion Simplification}
 
-The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We remove occurrences of $\emp$, and we remove any pure formula $[p]$ that the user's \cd{solver} tactic is able to prove.  An existential formula \cd{Exists x :@ T, P(x)} in the conclusion is replaced by \cd{P(?456)}, for a fresh unification variable \cd{?456}.  When no more of these rules apply, we look for a pair of unifiable subformulas on the sides of the implication.  All such pairs are unified and crossed out.  This may determine the value of a variable introduced for an existential quantifier.  For instance, if we started with \cd{Exists x :@ T, p --> x} on the righthand side and replaced that formula with \cd{p --> ?456}, and if a formula \cd{p --> y} appears on the lefthand side, then we would unify these new formulas, deducing that \cd{?456} must be \cd{y}.
+The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We remove occurrences of $\emp$, and we remove any pure formula $[p]$ that the user's \cd{solver} tactic is able to prove.  An existential formula \cd{Exists x :@ T, P(x)} in the conclusion is replaced by \cd{P(?456)}, for a fresh unification variable \cd{?456}.  When no more of these rules apply, we look for a pair of unifiable subformulas on the sides of the implication.  All such pairs are unified and crossed out.  This may determine the value of a variable introduced for an existential quantifier.  For instance, if we started with \cd{Exists x :@ T, p --> x} on the righthand side and replaced that formula with \cd{p --> ?456}, then if a formula \cd{p --> y} appears on the lefthand side, we would unify these new formulas, deducing that \cd{?456} must be \cd{y}.
 
 % \begin{enumerate}
 % \item Look for an easy case of specification inference.
@@ -787,9 +786,9 @@ The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We r
 
 \subsection{Standard Coq Automation}
 
-When \cd{sep} has run out of rules to apply, the remaining subgoal is subjected to standard Coq automation.  Propositional structure and calls to recursive functions are simplified where possible.  \cd{sep} ends by running a loop over those simplifications and the simplifications performed by the user's \cd{solver} tactic, until no further progress can be made.  Finally, \cd{sep} discharges every remaining goal of the form \cd{P ==> P}, by reflexivity.
+When \cd{sep} has run out of rules to apply, the remaining subgoal is subjected to standard Coq automation.  Propositional structure and calls to recursive functions are simplified where possible.  \cd{sep} ends by running a loop over those simplifications and the simplifications performed by the user's \cd{solver} tactic, until no further progress can be made.  Finally, \cd{sep} discharges all goals of the form \cd{P ==> P}, by reflexivity.
 
-Every step of the overall process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true, no matter which customization the programmer provides.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
+Every step of the overall process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true, no matter which customization the programmer provides.  By construction, every step builds an explicit proof term, which we can be validated afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
