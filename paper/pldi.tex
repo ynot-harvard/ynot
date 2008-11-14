@@ -75,7 +75,7 @@
 %\keywords
 %keyword1, keyword2
 
-\section{Introduction (GREG)}
+\section{Introduction}
 
 A key goal of type systems is to prevent ``bad states'' from arising
 in the execution of programs, but today's type systems fail to catch
@@ -121,8 +121,9 @@ The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
 type-checker that code is correct.  Unfortunately, explicit proofs can
 be quite large when compared to the code.  For example, in the Ynot
-module implementing a enqueue for a linked-list, requires 7 lines of code,
-whereas the proof of correctness is about 70 lines.
+code implementing dequeue for imperative queues, only 7 lines of
+program code are required, whereas the proof of correctness is about
+70 lines.
 
 This paper reports our experience re-designing and re-implementing
 Ynot to dramatically reduce the burden of writing and maintaining the
@@ -167,13 +168,17 @@ hard-coded abstractions (linked list segments and tree segments),
 while our new system supports sound extension of the library of
 abstractions by programmers.
 
-\section{The Ynot Programming Environment}
+\section{\label{tutorial}The Ynot Programming Environment}
 
-To a first approximation, Coq can be thought of as a functional programing language like Haskell or ML, but with support for dependent types.  For instance, one can have types such as:
+To a first approximation, Coq can be thought of as a functional
+programing language like Haskell or ML, but with support for dependent
+types.  For instance, one can have operations with types such as:
 \begin{verbatim}
 div : nat -> forall n : nat, n <> 0 -> nat
 \end{verbatim}
-and write functions like
+which uses dependency to capture the fact that the function can only
+be called when a proof can be supplied that the second argument is
+non-zero.  One can also write functions such as:
 \begin{verbatim}
 Definition avg (x:list nat) : nat :=
   let sum := fold plus 0 x in
@@ -233,7 +238,7 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
   \caption{\label{STsep}The main rules of the derived separation logic}
 \end{figure*}
 
-Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The old Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
+Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The previous Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
 $$\begin{array}{rcl}
   P &::=& [p] \mid \emp \mid \pts{x}{y} \mid P \sep P \mid \exists x, P
 \end{array}$$
@@ -250,7 +255,12 @@ We do need a notion of implication, though we do not need to include it in asser
 
 \medskip
 
-What we have described so far is the same as in the original Ynot work, with the exception that that work used some additional separation connectives that we no longer need.  The big departure of our new system is that we define a more standard separation logic.  The old Ynot's separation logic included ``binary postcondtions'' that may refer to both the initial and final heaps.  This is in stark contrast to traditional separation logics, where all assertions are simple separation formulas, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+What we have described so far is the same as in the original Ynot
+work.  The big departure of our new system is that we define a more
+standard separation logic.  The old Ynot separation logic included
+``binary postcondtions'' that may refer to both the initial and final
+heaps.  This is in stark contrast to traditional separation logics,
+where all assertions are simple separation formulas over a single heap, and all verification proof obligations are simple implications between such assertions.  The utility of that formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, verifications with the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
 
 Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
 
@@ -294,7 +304,19 @@ End STACK.
   \caption{\label{Stack}The signature of an imperative stack module}
 \end{figure}
 
-Figure \ref{Stack} shows the signature of a Ynot implementation of the stack ADT.  The signature is expressed in Coq's ML-like module system.  Each implementation contains a type family \cd{t}, where, for any type \cd{T}, a value of \cd{t(T)} represents a stack storing values of \cd{T}.  An abstract type in ML can be thought of as ``standing for the underlying invariant.''  For Ynot, this is true for ``pure'' invariants only.  We need to add an additional ``impure'' invariant explicitly.  The type \cd{hprop} stands for assertions, and the parameter \cd{rep} is an assertion-valued function over a stack and a \emph{functional model} of the stack.  Each stack can be thought of as standing for a particular pure list, and the \cd{rep} predicate formalizes this connection.
+Figure \ref{Stack} shows the signature of a Ynot implementation of the
+stack ADT.  The signature is expressed in Coq's ML-like module system.
+Each implementation contains a type family \cd{t}, where, for any
+type \cd{T}, a value of \cd{t(T)} represents a stack storing elements
+of \cd{T}.  The \cd{rep} component of the interface relates an
+imperative stack \cd{s} to a functional list \cd{ls} in a
+particular state.  Thus, \cd{rep s ls} is a predicate on heaps
+(\cd{hprop}) which can be read as ``\cd{s} represents the list \cd{ls}'' in the
+current state.  Just as abstraction over the type family \cd{t} allows
+an implementation to choose different data structures to encode the
+stack, abstraction over the assertion \cd{rep} allows an
+implementation to choose different invariants connecting the concrete
+representation to an idealized model.  
 
 The type of the \cd{new} operation tells us that it expects an empty heap on input, and on output the heap contains just whatever mappings are needed to satisfy the representation invariant between the function return value and the empty list.  The ASCII notation \cd{\_\_} stands for the $\emp$ of usual pencil-and-paper separation logics.  The \cd{free} operation takes a stack \cd{s} as an argument, and it expects the heap to satisfy \cd{rep} on \cd{s} and the empty list.  The post state shows that all heap values associated with \cd{s} are freed.
 
@@ -684,46 +706,91 @@ This program repeats a pattern-matching process until it fails.  Each iteration 
 
 \medskip
 
-As we have seen, \cd{sep} takes two arguments, which we will call \cd{unfolder} and \cd{solver}.  The task of \cd{unfolder} is to simplify premises before specification inference, usually by unfolding definitions of recursive predicates, based on known facts about their arguments.  The task of \cd{solver} is to solve all of the goals that remain after generic separation logic reasoning is applied.
+As we have seen, \cd{sep} takes two arguments, which we will call \cd{unfolder} and \cd{solver}.  The task of \cd{unfolder} is to simplify goals before specification inference, usually by unfolding definitions of recursive predicates, based on known facts about their arguments.  The task of \cd{solver} is to solve all of the goals that remain after generic separation logic reasoning is applied.
 
 Coq comes with the standard tactic \cd{tauto}, for proving propositional tautologies.  There is a more general version of \cd{tauto} called \cd{intuition}, which will apply a user-supplied tactic to finish off sub-proofs, while taking responsibility for handling propositional structure on its own.  The \cd{intuition} tactic also has the helpful property of leaving for the user any subgoals that it could not establish.  \cd{sep} is meant to be an analogue of \cd{intuition} for separation logic.  We also want it to handle easy instantiation of existential quantifiers, since they appear so often in our specifications.
 
-This is the procedure that \cd{sep} follows:
+We can divide the operation of \cd{sep} into five main phases.  We will sketch the workings of each phase separately.
 
-\begin{enumerate}
-\item Look for an easy case of specification inference.
-  \begin{enumerate}
-  \item If a unification variable $U$ appears alone in the implication conclusion, set $U$ equal to the premise.
-  \item If the conclusion is a unification variable $U$ applied to a program variable $x$, set $U$ equal to a function that abstracts over the occurrences of $x$ in the premise.
-  \item Apply similar logic for cases like the above where extra $\emp$s appear as conjuncts around the main conclusion formula.
-  \end{enumerate}
-\item If this was not an easy case, try harder.
-  \begin{enumerate}
-  \item Introduce names for all existentially-quantified variables in the premise.
-  \item Introduce names for the values hidden inside of all computationally-irrelevant variables in scope.
-  \item Try applying \cd{unfolder}.  If it succeeds, repeat from the introduction of names.
-  \item Check if the conclusion matches the precondition of the rule for memory reads, with a unification variable $U$ appearing for the frame assertion.  If so, pick out from the conclusion the pointer $p$ that is being read.  Search syntactically in the premise for a points-to fact $\pts{p}{v}$.  ``Cross out'' that fact, and set $U$ equal to a function that abstracts over all occurrences of $v$ in what remains of the premise.  The function must additionally re-quantify any variables coming from existential quantifiers, and it must explicitly unpack any computationally-irrelevant variables that appear.
-  \item If the last rule did not match, check if the conclusion matches the precondition of the rule for memory writes for some pointer $p$, with an extra unification variable $U$ added as a frame assertion.  Like in the last case, pick out a premise assertion $\pts{p}{v}$ and remove it.  Set $U$ equal to everything that remains of the premise, modulo the same re-quantification as in the last case.
-  \item If the previous two rules did not match, cancel out equal subformulas on both sides of the implication.  If only a unification variable $U$ remains in the conclusion, set it equal to the remaining premise, after re-quantification.
-  \end{enumerate}
-\item Loop through attempting the following premise-oriented simplifications, until no more apply.
-  \begin{enumerate}
-  \item Apply standard Coq automation tactics, covering propositional structure and simplification of pattern-matching and calls to recursive functions.
-  \item Apply \cd{solver}.
-  \item Remove an occurrence of $\emp$ from the premise.
-  \item Remove a pure fact $[p]$ from the premise, adding it as a hypothesis to the normal proof context.
-  \end{enumerate}
-\item Loop through attempting the following conclusion-oriented simplifications, until no more apply.  Try the first two steps of the last loop after each simplification.
-  \begin{enumerate}
-  \item Replace an existentially-quantified formula with its body, where the bound variable is replaced by a fresh unification variable.
-  \item Cancel out a pair of occurrences of the same subformula on both sides of the implication.  The unification that occurs in this step can induce settings for unification variables introduced by the previous rule.
-  \item Remove an occurrence of $\emp$ from the conclusion.
-  \item Find an occurrence of a pure fact $[p]$ in the conclusion, prove it with \cd{solver}, and remove it from the conclusion.
-  \end{enumerate}
-\item If the sides of the implication match, finish the proof by reflexivity.
-\end{enumerate}
+\subsection{Simple Constraint Solving}
 
-Every step of this process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
+It is trivial to determine the proper value for any unification variable appearing alone on one side of the implication.  For instance, given the goal
+\begin{verbatim}
+p --> x * q --> y ==> ?123
+\end{verbatim}
+we simply set \cd{?123} to \cd{p --> x * q --> y}.  Given the slightly more complicated goal
+\begin{verbatim}
+p --> x * q --> y ==> ?123 x
+\end{verbatim}
+we set \cd{?123} to \cd{fun x' => p --> x' * q --> y}.
+
+\subsection{Intermediate Constraint Solving}
+
+When the trivial unification rules are not sufficient, we need to do more work.  We introduce names for all existential quantifiers and computationally-irrelevant variables in the premise.  For instance, starting with
+\begin{verbatim}
+m ~~ Exists v :@ T, p --> v * rep m v
+==> ?123 * Exists x :@ T, p --> x
+\end{verbatim}
+we introduce names to simplify the premise, leading to this goal:
+\begin{verbatim}
+p --> v' * rep m' v' ==> ?123 * Exists x :@ T, p --> x
+\end{verbatim}
+Now we run the user's \cd{unfolder} tactic, which might simplify some use of a definition.  Let us assume that no such simplification occurs for this example.  We notice that the points-to fact on the right mentions the same pointer as a fact on the left, so these two facts may be unified, implying \cd{x = v'}.  Canceling this known information, we are left with
+\begin{verbatim}
+rep m' v' ==> ?123
+\end{verbatim}
+which is resolvable almost trivially.  We cannot give \cd{?123} a value that mentions the variables \cd{m'} and \cd{v'}, since we introduced them locally, placing them out of the scope where the specification is needed.  Instead, we remember how each local variable was introduced and ``re-quantify'' at the end, like this:
+\begin{verbatim}
+m ~~ Exists v :@ T, rep m v ==> ?123
+\end{verbatim}
+Now the trivial unification is valid.  The crucial part of this process was the matching of the two points-two facts.  We have special-case rules for matching conclusion facts under quantifiers, for conclusions that match the preconditions of the read, write, and free rules.  Beyond that, we apply cancelation of identical terms on the two sides of the implication, when those terms do not fall under the scope of quantifiers.  These simple rules seem to serve well in practice.
+
+\subsection{Premise Simplification}
+
+After specification inference, the next step is to simplify the premise of the implication.  Any $\emp$ in the premise may be removed, and any lifted pure formula $[p]$ may be removed from the implication and added instead to the normal proof context.  We also remove existential quantifiers and irrelevant variable unpackings in the same way as in the previous phase.
+
+\subsection{Conclusion Simplification}
+
+The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We remove occurrences of $\emp$, and we remove any pure formula $[p]$ that the user's \cd{solver} tactic is able to prove.  An existential formula \cd{Exists x :@ T, P(x)} in the conclusion is replaced by \cd{P(?456)}, for a fresh unification variable \cd{?456}.  When no more of these rules apply, we look for a pair of unifiable subformulas on the sides of the implication.  All such pairs are unified and crossed out.  This may determine the value of a variable introduced for an existential quantifier.  For instance, if we started with \cd{Exists x :@ T, p --> x} on the righthand side and replaced that formula with \cd{p --> ?456}, and if a formula \cd{p --> y} appears on the lefthand side, then we would unify these new formulas, deducing that \cd{?456} must be \cd{y}.
+
+% \begin{enumerate}
+% \item Look for an easy case of specification inference.
+%   \begin{enumerate}
+%   \item If a unification variable $U$ appears alone in the implication conclusion, set $U$ equal to the premise.
+%   \item If the conclusion is a unification variable $U$ applied to a program variable $x$, set $U$ equal to a function that abstracts over the occurrences of $x$ in the premise.
+%   \item Apply similar logic for cases like the above where extra $\emp$s appear as conjuncts around the main conclusion formula.
+%   \end{enumerate}
+% \item If this was not an easy case, try harder.
+%   \begin{enumerate}
+%   \item Introduce names for all existentially-quantified variables in the premise.
+%   \item Introduce names for the values hidden inside of all computationally-irrelevant variables in scope.
+%   \item Try applying \cd{unfolder}.  If it succeeds, repeat from the introduction of names.
+%   \item Check if the conclusion matches the precondition of the rule for memory reads, with a unification variable $U$ appearing for the frame assertion.  If so, pick out from the conclusion the pointer $p$ that is being read.  Search syntactically in the premise for a points-to fact $\pts{p}{v}$.  ``Cross out'' that fact, and set $U$ equal to a function that abstracts over all occurrences of $v$ in what remains of the premise.  The function must additionally re-quantify any variables coming from existential quantifiers, and it must explicitly unpack any computationally-irrelevant variables that appear.
+%   \item If the last rule did not match, check if the conclusion matches the precondition of the rule for memory writes for some pointer $p$, with an extra unification variable $U$ added as a frame assertion.  Like in the last case, pick out a premise assertion $\pts{p}{v}$ and remove it.  Set $U$ equal to everything that remains of the premise, modulo the same re-quantification as in the last case.
+%   \item If the previous two rules did not match, cancel out equal subformulas on both sides of the implication.  If only a unification variable $U$ remains in the conclusion, set it equal to the remaining premise, after re-quantification.
+%   \end{enumerate}
+% \item Loop through attempting the following premise-oriented simplifications, until no more apply.
+%   \begin{enumerate}
+%   \item Apply standard Coq automation tactics, covering propositional structure and simplification of pattern-matching and calls to recursive functions.
+%   \item Apply \cd{solver}.
+%   \item Remove an occurrence of $\emp$ from the premise.
+%   \item Remove a pure fact $[p]$ from the premise, adding it as a hypothesis to the normal proof context.
+%   \end{enumerate}
+% \item Loop through attempting the following conclusion-oriented simplifications, until no more apply.  Try the first two steps of the last loop after each simplification.
+%   \begin{enumerate}
+%   \item Replace an existentially-quantified formula with its body, where the bound variable is replaced by a fresh unification variable.
+%   \item Cancel out a pair of occurrences of the same subformula on both sides of the implication.  The unification that occurs in this step can induce settings for unification variables introduced by the previous rule.
+%   \item Remove an occurrence of $\emp$ from the conclusion.
+%   \item Find an occurrence of a pure fact $[p]$ in the conclusion, prove it with \cd{solver}, and remove it from the conclusion.
+%   \end{enumerate}
+% \item If the sides of the implication match, finish the proof by reflexivity.
+% \end{enumerate}
+
+\subsection{Standard Coq Automation}
+
+When \cd{sep} has run out of rules to apply, the remaining subgoal is subjected to standard Coq automation.  Propositional structure and calls to recursive functions are simplified where possible.  \cd{sep} ends by running a loop over those simplifications and the simplifications performed by the user's \cd{solver} tactic, until no further progress can be made.  Finally, \cd{sep} discharges every remaining goal of the form \cd{P ==> P}, by reflexivity.
+
+Every step of the overall process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true, no matter which customization the programmer provides.  By construction, every step builds an explicit proof term, and we can validate all proof terms afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
 
 
 %% \section{Comparison to Previous Ynot (AVI)}
@@ -763,139 +830,215 @@ Every step of this process is implemented in Ltac, so that only a bug in Coq wou
 
 \section{Evaluation}
 
+We have used our environment to implement and verify a several data
+structures, including the Stack and Queue examples that appeared in
+Section \ref{tutorial}.  We also follow the prior Ynot system in
+implementing a generic signature of imperative finite maps.  We built
+three very different implementations of that signature: a trivial
+implementation based on pointers to heap-allocated functional
+association lists, an implementation based on binary search trees, and
+an implementation based on hash tables.  Any of the implementations
+can be used interchangeably via ML-style functors, and their shared
+signature is phrased in terms of dependently-typed maps, where the
+type of data associated with a key may be calculated from an arbitrary
+Coq function over that key.
+
+We also verified one more exotic data structure: binomial trees, which
+are tree structures with a non-trivial rule for determining how many
+pointers are stored at each node.  This data structure is often
+applied in implementing priority queues.  Our implementation is
+interesting in its use of a dependently-typed recursive function to
+characterize functional models of such trees.
+
+Finally, we chose representative examples from two competing data
+structure verification systems, Smallfoot~\cite{smallfoot} and
+Jahob~\cite{jahob}, and reimplemented those examples in our new Ynot.
+For Smallfoot, we worked with one of their example inputs that gives
+10 functions over imperative linked list segments, with enough
+specifications to enable memory safety verification.  Our alternative
+version goes further and verifies functional correctness.  We have a
+more direct comparison with the Jahob example of an association list
+class, where we again reimplement all of their methods in the new Ynot
+style.
+
+Our experience developing Ynot has resulted in hard-won practical
+lessons about proof engineering and Coq pragmatics.  Our Coq tactics
+and development methodology are directly based on this experience.
+For instance, the first parameter to {\tt sep}, which performs
+definition unfolding, was specifically added to abstract a common,
+natural design pattern.
+
+Our automation requires the programmer to prove relatively mechanical
+lemmas about definition unfolding.  Instead, a Ynot programmer may use
+explicit annotations, in the form of framing conditions and C-style
+``asserts.''  Even in our examples, we have found that annotations
+tend to hinder reusability.  However, it is generally possible to
+trade off effort between annotation-writing and automation
+construction.  It is sometimes convenient to separate the programming
+and automation aspects of development, sketching code with assertions
+that will be removed later as the programmer discovers which
+automation would be effective.
+
+Figure \ref{loc} presents code size statistics for our case studies.
+For comparison to the original, manual-proof-oriented Ynot system, we
+provide code size statistics for two of our examples as they were
+implemented in that system.
+
+Canonical Ynot modules in the new system have a particular structure
+which is reflected in the column headings: specifications, heap
+representation, proofs, tactics, and program code.  Ynot modules begin
+with two sections that we ignore in our statistics: first, an ADT
+module type is defined, and then a pure functional model, including
+proofs and tactics, is defined or imported.  We ignore the module type
+definitions because they would be double counted in the specifications
+column, which includes the pre and post conditions of every function
+defined in the module.  We do not include such functional code in the
+statistics, because it is generally unsurprising that particular
+theorems about pure functions are provable easily in modern proof
+assistants; the overhead for these theorems will tend to remain
+constant, no matter which approach one adopts to imperativity.  The
+core of a Ynot module, then, consists of heap representation code
+(e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
+(e.g. {\cd{simp\_prem}) dealining with these representations; these
+three columns, plus the annotations column, are totaled in the
+overhead column.  The annotations column counts the number of lines of
+programmer specified annotations (e.g. \cd{<@>}). Program code
+(e.g. \cd{getElements}) is code that is preserved by extraction.  Coq
+type-checking and proving times (in minutes and seconds) were measured
+on a 2.8 GHz Pentium D with 1 GB of memory.  So far, we have not
+optimized our tactics for running time; they are executed by direct
+interpretation of source code in a dynamically-typed language, so
+there is much opportunity for improvement there.  Some of our examples
+also contains formalizations of similar data structures that could
+profitably share representation and tactic code, though we have not
+taken advantage of that opportunity yet.
+
 \begin{figure*}
   \begin{center}
     \begin{tabular}{r | r | r | r | r | r | r | r | r}
-                                             & Program & Total Non-Program & Specs & Annotations & Aux. Defs. & Proofs & Tactics & Time (m:s) \\ \hline
-Stack                                        & 13      &    31             &   8   &    0        &  9         &  9     &  5      & 0:12 \\
-Queue                                        & 34      &    81             &  12   &    0        & 14         & 32     & 23      & 1:36 \\
-Ref to Functional Finite Map                 &   8     &    19             &  15   &    0        &  0         &  2     & 2       & 0:05 \\
-Hash Table                                   &  28     &   234             &  29   &   28        & 23         & 103    &  51     & 0:45 \\
-BST Finite Map                               &  17     &   160             &  18   &    4        & 51         & 63     & 24      & 1:35 \\
-Binomial tree                                &  17     &    44             &  14   &    7        & 13         &  0     & 10      & 2:33 \\
-Association List$^1$           &  43     &   174             &  33   &   14        & 16         & 63     & 42      & 3:10 \\
-Linked List$^2$                &  84     &   421             &  36   &    8        & 20         & 127    & 230     &  tbd \\
+                                             & Program & Specs & Rep & Proofs & Tactics &  Annotations    & Total Overhead & Time (m:s) \\ \hline
+Stack                                        &         &       &     &        &         &                 &             & 0:12 \\
+Queue                                        &         &       &     &        &         &                 &             & 1:36 \\
+Ref to Functional Finite Map                 &         &       &     &        &         &                 &             & 0:05 \\
+Hash Table                                   &         &       &     &        &         &                 &             & 0:45 \\
+Hash Table (old)                             &         &       &     &        &         &                 &             &      \\
+BST Finite Map                               &         &       &     &        &         &                 &             & 1:35 \\
+BST Finite Map  (old)                        &         &       &     &        &         &                 &             & 1:35 \\
+Binomial Tree                                &         &       &     &        &         &                 &             & 2:33 \\
+Association List                             &         &       &     &        &         &                 &             & 3:10 \\
+Linked List Segments                         &         &       &     &        &         &                 &             &      \\
     \end{tabular}
   \end{center}
 \footnotesize
-$^1$ Jahob comparison, $^2$ Smallfoot comparison
 \normalsize
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Figure \ref{loc} presents code size statistics for the case studies that we have completed in our new system.  The column ``Program'' counts the number of lines that have equivalents in extracted ML programs, ignoring module system plumbing.  ``Total Non-Program'' gives the sum of all columns that follow it.  ``Specs'' includes type signatures and pre- and postconditions for the methods.  ``Annotations'' includes additional annotations within function definitions, included only for proof purposes.  ``Aux. Defs.'' covers auxiliary definitions of notions like representation predicates.  ``Proofs'' includes statements and proofs of example-specific lemmas, and ``Tactics'' includes example-specific coding of Ltac semi-decision procedures.  The count does not include code for pure functional models that are often shared between modules - for instance, the association list model contains 15 lines of aux defs, 35 lines of proof, and 15 lines of tactics.  Coqc compilation times (in minutes:seconds) were taken on a 2.8ghz Pentium D with 1gb of memory.  We have made no effort to optimize our tactics for running time.
+Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to our two comparison studies.
 
-\section{Related Work}
 \subsection{Jahob}
 
-The Jahob system~\cite{jahob} allows the specification and verification 
+The Jahob system allows the specification and verification 
 of recursive, linked data structures in a fragment of Java.  Ynot and Jahob 
 both relate the abstract state of a data structure to its concrete heap representation
-using specification variables and pre-post conditions.  The systems 
+using specification variables and pre-post conditions; both systems use
+programmer supplied annotations to guide the verification process.  The systems 
 differ in their heap models and how verification conditions are discharged.
 
 Jahob specifications are written in Java comments using classical higher order
 logic and set theory extended with useful operators over sets and heaps (e.g., 
 transitive-closure, is-tree).  Instead of using a fixed a set of operators and
-the low-level language of set theory, Ynot provides a separation logic layer that, 
-coupled with Coq, lets programmers build their own abstractions.  
-A slight modification of Coq is required for Ynot 
-to be consistent with the law of the 
-excluded middle (and proof irrelevence).   
+the low-level language of set theory, Ynot's separation logic layer lets 
+programmers build their own abstractions using the full expressiveness of Coq.  
  
 Jahob programs are verified by first being translated into an extended guarded command language.
 Then, Jahob generates verification conditions 
  that are discharged using a combination of external theorem provers: if one prover does not succeed 
 on an obligation, another is tried.  This allows Jahob to run multiple
-provers in parallel.  Because provers are often specialized to particular
-classes of formulae, formula approximation techiques must be used to integrate them with
-a system using higher order logic. Jahob supports a number of first order and SMT provers,
-Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  In contrast, Ynot's automated reasoning is implemented completely in Coq.  Our approach is extremely lightweight: the entire Ynot codebase is smaller than just the Jahob-MONA interface.
+provers in parallel.  It also means that practically speaking, verification 
+and development are not programmer-interactive.
 
- \subsection{Smallfoot}
-We conclude our comparison with alternative approaches by comparing
-our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
-completely automatic reasoning and concurrency. Since the current
-version of Ynot does not address concurrency, we will not address this
-in our comparison. We draw a comparison in two parts: the size of
+Because provers are often specialized to particular
+classes of formulas, formula approximation techiques must be used to integrate them with
+a system using higher order logic. Jahob supports a number of first order and SMT provers,
+Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  
+In contrast, Ynot's automated reasoning is implemented completely in Coq.  
+The ``toolchain overhead'' of using external provers is high: the 
+entire Ynot codebase is smaller than just the Jahob-MONA interface.
+
+We have compared the Jahob association list example with an equivalent
+in Ynot.  The Ynot program is X larger, but it not only contains
+functionality that is implemented by the Jahob backend, it also
+contains reasoning code that can presumably be shared with similar
+datastructures.  Modulo these differences, the Jahob and Ynot examples
+are, perhaps unsurprisingly, quite similar.  For instance, they both
+require large specifications for loop invariants -- in the remove
+method, for instance, Jahob uses X lines of such specs and Ynot uses Y
+lines.  Our Ynot implementation uses explicit framing conditions in
+places where Jahob does not, but we speculate that we can probably
+remove these annotations with some additional custom automation.
+
+In practice, specifications have a different feel in Ynot than in Jahob.  One of
+the hard lessons we have learned is that for our purposes, in Coq, 
+it is more effective to reason ``by computation'' about inductive objects like lists
+than to reason ``by logic'' about extensional objects like sets.  For this reason,
+our equivalent Ynot implementation
+uses lists with a uniqueness invariant to provide the semantic guarantees
+of the Jahob interface.
+
+\subsection{Smallfoot}
+
+Our second comparison is against the Smallfoot~\cite{smallfoot}
+system, which focuses on completely automatic reasoning and
+concurrency.  We have not yet tackled concurrency in our system, so
+our comparison focuses on automatic reasoning about sequential
+programs.  We compare two aspects of the systems: the size of
 annotations and proof obligations and the expressivity of the
-logic. We use the linked list as a running example.
+logics. We use linked list segments as a running example.
 
 The Smallfoot system defines a segment of a linked list as the minimal
 predicate satisfying the following:
 $$
-ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
+ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. \; E.tl \mapsto y \; * \; ls(y,F))
 $$
+This is almost the same definition as we gave earlier in the Queue example, with different notational conventions.  The notable difference is that we add the pointer inequality, which is necessary to guarantee lack of cycles.
 
-\hide{
-\noindent The definition is expressible in a similar manner to the
-queue representation fixpoint described previously. The notable
-difference being the addition of the inequality which is necessary to
-guarantee non-cycles. The only difficulty in reasoning comes from the
-fact that {\tt new} returns a pointer which is guaranteed distinct
-only from {\it currently allocated} pointers, not all previously
-allocated pointers. This means that Ynot functions which allocate
-require witnesses that the list ends at {\tt nil} or an allocated
-pointer. The type for {\it cons} shows the use of this condition.
-\begin{verbatim}
-cons :: forall (v : A) (r : LinkedList) 
-  (q : [LinkedList]) (m : [list A]) (T : Type)
-  (vt : [T]),
-  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
-    (fun r:LinkedList => q ~~ m ~~ vt ~~ 
-     llseg r q (v :: m) * q ~~> vt * [r <> None]).
-\end{verbatim}
-Where the {\tt ~~>} arrow denotes a option pointer (potentially null)
-pointing to {\it vt} if it is not {\tt null}. In the case of a
-complete list, {\it vt} is {\tt null} and any values of {\it T} and
-{\it vt} will suffice. Allocating a list, and then addressing only a
-prefix of the list creates a problem because the sentinal value could
-become a pointer in the middle of the list if the head of the
-remaining list is freed and memory is reclaimed and returned in a call
-to insert into the segment.
-}
-
-For comparing annotatations, we consider {\tt append} function on
-lists as a representative example. In Smallfoot, the function is built
-using a {\tt while} loop, requires 14 lines, and three annotations:
-the pre- and post-conditions and the loop invariant. To maintain a
-close symmetry between the definitions, we break the {\it append}
-function into two pieces, one for the loop and the other for the main
-body. The two functions are, respectively, 4 and 5 lines long and
-require 2 lines of annotations for the fixpoint definition which
-corresponds to the Smallfoot loop invariant. As with all previous
-examples, the proof-automation tactics and lemmas used for this
-function apply to all functions dealing with linked lists in the same
-way that the linked list representation predicate is axiomatized in
-the Smallfoot system and is reused.
+To compare annotatation burden, we consider an {\tt append} function
+on lists as a representative example. In Smallfoot, the function is
+built using a {\tt while} loop and requires 14 lines and three
+annotations: the pre- and post-conditions and the loop invariant. To
+maintain a close symmetry between the definitions, we break the {\it
+append} function into two pieces, one for the loop and the other for
+the main body. Our two Ynot functions for these pieces are,
+respectively, 4 and 5 lines long and require 2 lines of annotations
+for the fixpoint definition, corresponding to the Smallfoot loop
+invariant. As with all previous examples, the tactics and lemmas used
+for this function apply to all functions dealing with linked lists, in
+the same way that the linked list representation predicate is
+axiomatized and reused in Smallfoot.
 
 While the Smallfoot system is faster and requires less verbose
-annotations, there are two primary advantages that Ynot has over
-it. The first is, as previously mentioned, Ynot functions use
-dependent types to represent partial correctness while Smallfoot
-guarantees only heap-safety. This is captured in the type of the {\it
-  cons} function:
-\begin{verbatim}
-cons :: forall (v : A) (r : LL) (q : [LL])
-    (m : [list A]) (T : Type) (vt : [T]),
-  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
-        (fun r:LL => q ~~ m ~~ vt ~~ 
-                  llseg r q (v :: m) * q ~~> vt).
-\end{verbatim}
-In Smallfoot, the system can guarantee only that the returned list is
-valid. Thus, {\it cons}, {\it removeFirst}, etc. all have the same
-type despite the fact that they do different things.
+annotations, Ynot has two primary advantages over it. The first is
+that, as previously mentioned, Ynot supports functional correctness
+verification, while Smallfoot guarantees only heap-safety. Consider
+the type of the list {\it cons} function.  Smallfoot can only
+guarantee that the returned list is valid, not that it really has a
+new element pushed on front.  {\it cons}, {\it removeFirst}, and other
+list operations share a single return value specification, despite the
+fact that they are meant to do different things.
 
-The second advantage in Ynot is the ability to deal use higher-order
-logic to express properties. The ease of use in Smallfoot comes at the
-price of restricting programs to a small set of data structures
-(including linked lists, doubly linked lists, trees, and xor-lists)
-for which the definitions and corresponding inductive properties can
-be defined using predicate logic. The theory built for each data
-structure in Smallfoot plays the same roll as the unrolling lemmas for
-which counts are given in Figure \ref{loc}.
+The second advantage in Ynot is the ability to express properties in
+higher-order logic. Smallfoot's ease of use comes at the price of
+restricting programs to a small set of data structures (including
+linked lists, doubly linked lists, trees, and xor-lists) for which the
+definitions and corresponding inductive properties can be defined
+using predicate logic. The theory built for each data structure in
+Smallfoot plays the same roll as the unfolding lemmas that any user of
+Ynot may prove for new data structures.  Figure \ref{loc} includes the
+size of the lemmas and proofs of that kind that we wrote for this
+example and the others.
 
-\section{Other Related Work}
+\section{Related Work}
 
 The ESC/Java~\cite{esc-java} and Spec\#~\cite{spec-sharp} systems tackle some related problems within the classical verification framework.  These systems have strictly less support for modeling data structures than Jahob has, so that it is impractical use them to perform full verifications of many data structures.
 
@@ -912,7 +1055,7 @@ In comparing the new Ynot environment to the above systems and all others that w
 
 Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library, and we need to assume an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation; we hope for a future version of Coq or a related system to include general support for computationally-irrelevant values.
 
-Concurrency is another big area for future work.  Systems like Smallfoot\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
+Concurrency is another big area for future work.  Systems like Smallfoot~\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
 
 The full potential of the Ynot approach also depends on explicit handling of other computational effects, like exceptions and input-output.  We speculate that it would be relatively straightforward to add these effects to our implementation, with most of the hard work of building automation machinery transferring directly.
 

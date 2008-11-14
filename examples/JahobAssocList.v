@@ -139,15 +139,22 @@ Ltac simplr := repeat (try discriminate;
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
     | [ H : next _ = _ |- _ ] => rewrite -> H
     | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
-    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else None) = Some _  |- _ ] => destruct (eqK a b) ; [ contradiction | discriminate ] 
-    | [  HH : (if (eqK ?a ?b) then Some _ else _) = None  |- _ ] => destruct (eqK a b) ; [ discriminate | idtac ]
-    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else Some ?v1) = Some ?v  |- context[Some ?v1 = Some ?v] ] => 
+    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else None) = Some _  |- _ ] => 
+            destruct (eqK a b) ; [ contradiction | discriminate ] 
+    | [  HH : (if (eqK ?a ?b) then Some _ else _) = None  |- _ ] => 
+            destruct (eqK a b) ; [ discriminate | idtac ]
+    | [  H : ?a = ?b -> False , HH : (if (eqK ?a ?b) then Some _ else Some ?v1) =
+             Some ?v  |- context[Some ?v1 = Some ?v] ] => 
            destruct (eqK a b) ; [ try congruence | try contradiction ] 
-    | [ _ : ?a = ?b -> False ,  HH : (if (eqK ?a ?b) then _ else ?c) = ?d  |- _ ] => destruct (eqK a b) ; [ contradiction | idtac ]
+    | [ _ : ?a = ?b -> False ,  HH : (if (eqK ?a ?b) then _ else ?c) = ?d  |- _ ] => 
+           destruct (eqK a b) ; [ contradiction | idtac ]
     | [ |- context[ if eqK ?a ?a then _ else _ ] ] => destruct (eqK a a) 
-    | [ H : ?a = ?b -> False |- context[ if eqK ?a ?b then _ else _ ] ] => destruct (eqK a b); [ contradiction | idtac ] 
-    | [  H : next ?nn = ?a |- ?n = node (key ?nn) (value ?nn) ?a ] => rewrite <- H; destruct n; reflexivity
-    | [ _ : (if eqK ?a ?b then Some _ else None) = Some _ |- _ ] => destruct (eqK a b); [ idtac | discriminate ] 
+    | [ H : ?a = ?b -> False |- context[ if eqK ?a ?b then _ else _ ] ] =>
+             destruct (eqK a b); [ contradiction | idtac ] 
+    | [  H : next ?nn = ?a |- ?n = node (key ?nn) (value ?nn) ?a ] =>
+              rewrite <- H; destruct n; reflexivity
+    | [ _ : (if eqK ?a ?b then Some _ else None) = Some _ |- _ ] => 
+           destruct (eqK a b); [ idtac | discriminate ] 
     | [ _ : (if eqK ?a ?a then _ else _) = _ |- _ ] => destruct (eqK a a); [ idtac | intuition ] 
   end).
 
@@ -161,7 +168,8 @@ Qed.
 Hint Resolve eta_node.
 
 Lemma ll_concat : forall nde a b c hd, Some (key nde, value nde) = head a ->
-  rep' (next nde) (tail a ++ b :: c) * hd --> nde * [lookup (tail a ++ b :: c) (key nde) = None] ==> rep' (Some hd) (a ++ b :: c)  .
+  rep' (next nde) (tail a ++ b :: c) * hd --> nde *
+   [lookup (tail a ++ b :: c) (key nde) = None] ==> rep' (Some hd) (a ++ b :: c)  .
   induction a; t.
 Qed.
 
@@ -177,9 +185,9 @@ Hint Resolve cons_nil.
 Hint Resolve node_next.
 
 Lemma lkup: forall m k x, 
- lookup m x = None -> lookup (delete m k) x = None.
-  intros. induction m. trivial. simpl in *. destruct a. destruct (eqK x k0). discriminate. destruct (eqK k k0). apply IHm. assumption.
-   induction m. t. t. Qed.
+ lookup m x = None -> lookup (delete m k) x = None. 
+intros. induction m. t. trivial. simpl in *. destruct a. t.
+ destruct (eqK x k0). t. destruct (eqK k k0). t. t. Qed.
 
 (* Hint Resolve lkup. *)
 
@@ -189,7 +197,8 @@ Theorem rep'_None : forall ls,
 Qed.
 
 Theorem rep'_Some : forall ls hd,
-  rep' (Some hd) ls ==> Exists k :@ K, Exists v :@ V, Exists t :@ list (prod K V), Exists p :@ option ptr,
+  rep' (Some hd) ls ==> Exists k :@ K, Exists v :@ V, 
+    Exists t :@ list (prod K V), Exists p :@ option ptr,
   [ls = (k,v) :: t] * hd --> node k v p * [lookup t k = None] * rep' p t.
   destruct ls; sep fail ltac:(try discriminate).
 Qed.
@@ -220,9 +229,15 @@ Theorem rep_rep' : forall m p, rep p m ==>
 
 Hint Resolve rep_rep'.
 
+Lemma repl : forall p m k, (rep p m * Exists v :@ V, [lookup m k = Some v]) ==>
+ Exists x :@ option ptr, p --> x * (Exists cur :@ ptr, [x = Some cur] * rep' (Some cur) m * Exists v :@ V, [lookup m k = Some v]). Admitted.
+
+Hint Resolve repl.
+
 Ltac simp_prem :=
   simpl_IfNull;
-  repeat simpl_prem ltac:(apply rep'_None || apply rep'_Some || apply node_eta || apply cons_eta || apply rep_rep');
+  repeat simpl_prem ltac:(apply rep'_None || apply rep'_Some || apply repl ||
+                          apply node_eta || apply cons_eta || apply rep_rep');
     unpack_conc.
 
 Ltac destr := match goal with [ x : list (prod K V) |- context[rep' None ?x] ] => destruct x; try t end.
@@ -301,34 +316,37 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
 
  (* Remove         *********)
 
+Definition remove_pre' k ls prev pn cur n := 
+ Exists t :@ list (K*V), prev --> pn * rep' (next n) t * 
+(Exists v :@ V, [lookup ((key n, value n)::t) k = Some v] * [key n <> key pn] * 
+   [ls = (key pn, value pn)::(key n, value n)::t] * [key pn <> k] *
+   [next pn = Some cur] * [lookup ((key n, value n)::t) (key pn) = None] *
+   [lookup t (key n) = None]).
 
-Definition remove_pre k ls prev pn cur := (ls ~~ Exists t :@ list (K*V), Exists v :@ V, Exists n :@ Node, 
- [lookup ((key n, value n)::t) k = Some v] * 
- [ls = (key pn, value pn)::(key n, value n)::t] * [key pn <> k] *
- prev --> pn * [next pn = Some cur] * [lookup ((key n, value n)::t) (key pn) = None] *
- cur --> n * rep' (next n) t * [lookup t (key n) = None]).
+Definition remove_pre k ls prev pn cur := (ls ~~ Exists n :@ Node, cur --> n * remove_pre' k ls prev pn cur n).
 
 Definition remove_post k ls prev (pn:Node) (_:ptr) :=
 (fun r:V => ls ~~ Exists pk :@ K, Exists pv :@ V, Exists x :@ list (prod K V), 
           [ls = (pk,pv) :: x] * rep' (Some prev) ((pk,pv)::(delete x k)) * [lookup x k = Some r]).
 
+Definition remove_frame ls pn n k prev cur := Exists t :@ list (prod K V), [lookup t (key pn) = None] * 
+  [ls = (key pn, value pn) :: (key n, value n) :: t]  * [k <> key n] * 
+  [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur).
+
 Definition remove'' k ls prev pn cur : STsep (remove_pre k ls prev pn cur) (remove_post k ls prev pn cur).             
 intro k. refine (Fix4 (remove_pre k) (remove_post k)  
  (fun self ls prev pn cur =>        
-  n <- SepRead cur (fun n => ls ~~ Exists t :@ list (prod K V), Exists v :@ V, [key pn <> k] * [lookup t (key pn) = None] * [next pn = Some cur] *
-                [ls = (key pn, value pn) :: (key n, value n) :: t] * [key pn <> key n] * [lookup t (key n) = None] * 
-                 prev --> node (key pn) (value pn) (Some cur) * rep' (next n) t * [lookup ((key n, value n)::t) k = Some v])  ; 
+  n <- SepRead cur (fun n => ls ~~ remove_pre' k ls prev pn cur n);
   if eqK k (key n)  
   then Free cur ;;
         prev ::= node (key pn) (value pn) (next n) ;;  
         {{ Return (value n) }}
   else IfNull (next n) As nt 
        Then  {{ !!! }} 
-       Else {{ self (ls ~~~ tail ls) cur n nt <@>  (ls ~~ Exists t :@ list (prod K V), [lookup t (key pn) = None] * 
-                                            [ls = (key pn, value pn) :: (key n, value n) :: t]  * [k <> key n] * 
-                                            [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur))  }})); 
-unfold remove_pre; unfold remove_post; pose lkup; pose lkup; 
-solve [ t | t' | sep fail auto; t'; tx | rewrite _0; t'; instantiate (1:=v0); t ]. Qed.
+       Else {{ self (ls ~~~ tail ls) cur n nt <@> (ls ~~ remove_frame ls pn n k prev cur)  }})); 
+unfold remove_pre; unfold remove_pre'; unfold remove_post; unfold remove_frame; pose lkup; pose lkup.
+t. instantiate (1:=v1). t. t. instantiate (1:=v1). t.
+t. t. t. t. t. sep fail auto. t'. tx. t'. t'. t'. instantiate (1:=v0). t. t. Qed.
 
 
  Definition remove : forall k (p: t) (m: [list (prod K V)]),
@@ -347,9 +365,9 @@ solve [ t | t' | sep fail auto; t'; tx | rewrite _0; t'; instantiate (1:=v0); t 
           else IfNull (next hd) As nt 
                Then {{ !!! }}
                Else {{ remove'' k m hdptr hd nt <@> (m ~~ p --> Some hdptr * [head m = Some (key hd, value hd)] ) }}
-  ); unfold remove_pre; unfold remove_post; pose lkup; pose lkup0; pose lkpdel.
+  ); unfold remove_pre; unfold remove_pre'; unfold remove_post; pose lkup; pose lkup0; pose lkpdel.
 t. instantiate (1:=v0). t. t. instantiate (1:= v1). t. t'. t. t'. instantiate (1:=v0). t. t. instantiate (1:= v1). t.
-t. t. t. t. t. t'. tx. sep fail auto. t'. t. t'. instantiate (1:= v0). t. t. Qed.
+t. t. t. t. t. t'. tx. sep fail auto. t'. t. t'. instantiate (1:=v0). t. t. Qed.
 
 
  (* Replace        **********)

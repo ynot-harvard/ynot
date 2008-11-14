@@ -74,14 +74,10 @@ Lemma head_some_nonil : forall x y,
   -> x <> nil.
   destruct x; intros; simpl in *; congruence.
 Qed.
+
 Hint Resolve eta_node head_tail head_some_nonil.
 
-(** Folding and Unfolding **)
-Lemma llist_unfold : forall ls hd,
-  llist hd ls ==> llseg hd None ls.
-  sep fail simpl.
-Qed.
-
+(**  Unfolding **)
 Lemma llseg_unfold_nil : forall hd tl,
   llseg hd tl nil ==> [hd = tl].
   sep fail simpl.
@@ -123,6 +119,7 @@ Lemma llseg_unfold_tail_none : forall p l,
   destruct l; destruct p; sep fail ltac:(try congruence).
 Qed.
 
+(** Folding Lemmas **)
 Lemma combine : forall nde ls p tl,
   Some p <> tl
   -> head ls = Some (data nde) 
@@ -132,33 +129,13 @@ Lemma combine : forall nde ls p tl,
     | sep fail auto; destruct nde; inversion H0; reflexivity ].
 Qed.
 
-Lemma empty_seg : forall p, __ ==> llseg p p nil.
-  sep fail simpl.
+Lemma combine' : forall nde ls p a n,
+  a = data nde -> n = next nde
+  -> llseg n None ls * p --> nde ==> llseg (Some p) None (a :: ls).
+  unfold llseg; intros; assert (Some p <> None); try congruence; sep fail idtac.
 Qed.
 
-
-(** disjointness **)
-Theorem himp_disjoint : forall S T p1 p2 (a1:S) (a2:T), 
-  p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
-(** TODO: Move this into Separation.v **)
-  intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
-  exists ((x * x0)%heap). exists empty. sep fail auto. exists x. exists x0. sep fail auto. split_prover'. compute.
-  split. apply ext_eq. auto. intros. subst.
-  compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. 
-Qed.
-
-Lemma imp : forall (P Q : Prop) H, 
-  (P -> Q)
-  -> H * [P] ==> H * [Q].
-(** TODO: Move this into Separation.v **)
-  sep fail auto.
-Qed.
-
-Lemma simp : forall (P : Prop) H1 H2,
-  P -> (H1 ==> H2) -> (H1 ==> [P] * H2).
-(** TODO: Move this into Separation.v **)
-  sep fail auto.
-Qed.
+Hint Resolve combine combine'.
 
 Lemma locineq x y B C (w:B) (v:C) : x --> w * y --> v ==> [x <> y] * ??.
   intros; eapply (@himp_trans (x --> w * y --> v * [x <> y])); [ apply himp_disjoint | ]; sep fail auto.
@@ -169,14 +146,9 @@ Lemma mlocineq x y B C (w:B) (v:C) : x --> w * y ~~> v ==> [Some x <> y] * ??.
   intros; unfold maybe_points_to; destruct y;
     [ apply (@himp_trans (x --> w * p --> v * [x <> p])) | ]. sep fail auto.
   apply (@himp_trans (x --> w * p --> v * [Some x <> Some p])).
-  apply (@imp (x <> p) (Some x <> Some p) ). congruence.
+  apply (@himp_prop_imp (x <> p) (Some x <> Some p) ). congruence.
   sep fail auto.
-  pose (Some x <> None). sep fail auto. apply simp. congruence. sep fail auto.
-Qed.
-
-Theorem himp_disjoint' : forall  h S T p (a1:S) (a2:T), 
-  (p --> a1 * p --> a2)%hprop h -> False.
-  intros; unfold hprop_imp; intros. repeat (destruct H). destruct H0. destruct H0. destruct H3. unfold disjoint1 in *. pose (H p). rewrite H0 in y. rewrite H3 in y. trivial.
+  pose (Some x <> None). sep fail auto. apply himp_prop_conc. congruence. sep fail auto.
 Qed.
 
 Lemma neqseg : forall p ls q ls',
@@ -287,33 +259,6 @@ Ltac add_somenoneseg :=
         end
     end).
 
-Ltac merge :=
-  repeat match goal with 
-           | [ |- ?PREM ==> ?CONC ] =>
-             match PREM with
-               | context H [?X --> ?XV] =>
-                 match context H [__] with
-                   | context H' [llseg (next XV) ?TL ?LS] => 
-                     let H'' := context H' [__] in 
-                       apply (@himp_trans (llseg (Some X) TL ((data XV) :: LS) * H''));
-                         [ solve [ sep fail simpl ] | ]
-                 end
-             end
-         end.
-
-
-Ltac print_goal := idtac "GOAL <<<<<<<<<<<<<<<<<<<<<<<<<<";
-  match goal with
-    [ |- ?H ] => idtac H
-  end.
-Ltac print_state := idtac "STATE <<<<<<<<<<<<<<<<<<<<<<<";
-  try match goal with
-        [ H : ?P |- _ ] => idtac H ":" P; fail
-      end;
-  match goal with
-    [ |- ?H ] => idtac H
-  end.
-
 Ltac ondemand_subst := idtac;
   repeat match goal with 
            | [ H : ?X = ?Y |- context[?X] ] => 
@@ -321,6 +266,9 @@ Ltac ondemand_subst := idtac;
                | [_]%inhabited => fail 1
                | _ => rewrite -> H
              end
+           | [ H : [?X]%inhabited = [?Y]%inhabited |- context[?Y] ] =>
+             let p := fresh "eq" in
+               progress (pose (p := pack_injective H); (rewrite <- p; clear p || clear p))
          end.
 
 Ltac extend_eq l r tac :=
@@ -336,7 +284,8 @@ Ltac extend_eq l r tac :=
 
 Ltac expander := add_segne || add_somenoneseg || add_mlocneq || add_locneq.
 
-Ltac simplr'' := (simpl; congruence || discriminate || expander
+Ltac simplr'' := (apply combine' || congruence || discriminate || reflexivity 
+  || (simpl; expander || apply combine (** || apply empty_seg **)
   || match goal with
        | [ H : ?X = ?X |- _ ] => clear H
        | [ H : Some ?X = Some ?Y |- _ ] => extend_eq X Y ltac:(inversion H)
@@ -416,9 +365,10 @@ Ltac simplr'' := (simpl; congruence || discriminate || expander
            | [ H : X = data V |- _ ] => solve [ rewrite -> H; apply eta_node ]
            | [ H : data V = X |- _ ] => solve [ rewrite <- H; apply eta_node ]
          end
-     end).
+       | [ H : ?V = node ?D ?N |- ?D = data ?V ] => rewrite -> H; reflexivity
+     end)).
 
-Ltac simplr := simpl; repeat simplr''.
+Ltac simplr := repeat simplr''.
 
 Ltac unfolder := simpl_prem ltac:(
        apply llseg_unfold_nil  || apply llseg_unfold_some_cons
@@ -432,23 +382,16 @@ Ltac t := unfold llist; simpl_IfNull; sep simp_prem simplr; sep fail auto.
 Ltac f := fold llseg; fold llist.
 
 Ltac rsep expander tac := unfold llist; intros;
-  try equater; try inhabiter; expander; unpack_conc;
+  try equater; try inhabiter; try unpack_conc; try canceler; try expander;
     repeat match goal with
              | [ H1 : ?X = [?Y]%inhabited, H2 : inhabit_unpack ?X ?XV = [?Z]%inhabited |- _ ==> ?CONC ] => 
                match CONC with
                  | context[Z] =>
                    let l := fresh "eq" in
-                     rewrite -> H1 in H2; simpl in H2; pose (l := pack_injective H2); rewrite <- l
+                     rewrite -> H1 in H2; simpl in H2
                end
-           end; ondemand_subst; canceler; 
-    solve [ sep fail idtac 
-          | sep fail tac; 
-            try match goal with
-                  | [ |- _ ==> ?CONC ] => 
-                    match CONC with 
-                      | context [llseg _ _ (?X ++ _)] => destruct X
-                    end
-                end; sep fail tac ].
+           end; ondemand_subst; canceler;
+    solve [ sep fail idtac | tac ].
 
 (********************)
 (** Implementation **)
@@ -485,6 +428,15 @@ Definition freeHead : forall (p : LinkedList) (q : [LinkedList]) (b : [A]) (ls :
   t.
 Qed.
 
+Section append.
+
+Ltac q := sep fail simplr; try match goal with
+                                 | [ |- _ ==> ?CONC ] => 
+                                   match CONC with 
+                                     | context [llseg _ _ (?X ++ _)] => destruct X
+                                   end
+                               end; sep fail simplr.
+
 Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq : [list A]),
   STsep (lsp' ~~ lsq ~~ pr' --> nde' * llist (next nde') lsp' * llist q lsq)
         (fun _:unit => lsp' ~~ lsq ~~ Exists r :@ LinkedList, pr' --> node (data nde') r * llist r (lsp' ++ lsq)).
@@ -498,7 +450,7 @@ Definition append' : forall (pr' : ptr) (nde' : Node) (q : LinkedList) (lsp' lsq
       Else nde' <- !p;
            {{self p nde' (lsp ~~~ tail lsp) <@> _}}
     ) pr' nde' lsp');
-  rsep simp_prem t.
+  rsep simp_prem q.
 Qed.
 
 Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]), 
@@ -511,8 +463,10 @@ Definition append : forall (p : LinkedList) (q : LinkedList) (lsp lsq : [list A]
     Else nde <- !p';
          append' p' nde q (lsp ~~~ tail lsp) lsq <@> _;;
          {{Return p}});
-  rsep simp_prem t.
+  rsep simp_prem q.
 Qed.
+
+End append.
 
 Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T : Set) (vt : [T]),
   STsep (ls' ~~ vt ~~ llseg p' q ls' * q ~~> vt)
@@ -527,10 +481,10 @@ Definition copy : forall (p' : LinkedList) (q : LinkedList) (ls' : [list A]) (T 
       else
         IfNull p Then {{!!!}}
         Else nde <- !p;
-             rr <- self (next nde) (ls ~~~ tail ls) <@> (ls ~~ [Some p <> q] * p --> nde * [head ls = Some (data nde)]);
-             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> (ls ~~ [head ls = Some (data nde)] * llseg (Some p) q ls);
+             rr <- self (next nde) (ls ~~~ tail ls) <@> _;
+             res <- cons (data nde) rr [q] (ls ~~~ tail ls) vt <@> _;
              {{Return res}}) p' ls'); clear self;
-  solve [ t | canceler; t ].
+  solve [ t | rsep simp_prem simplr ].
 Qed.
 
 Fixpoint insertAt_model (ls : list A) (a : A) (idx : nat) {struct idx} : list A :=
@@ -573,7 +527,7 @@ Definition insertAt : forall (p : LinkedList) (a : A) (idx : nat) (ls : [list A]
     IfNull p
     Then {{cons a p [None] ls [1] <@> (ls ~~ [ls = nil])}}
     Else if nat_eq idx 0 then
-           {{cons a (Some p) [None] ls [0] <@> (__)}}
+           {{cons a (Some p) [None] ls [0] <@> __}}
          else
            insertAt' p (pred idx) a ls <@> __;;
            {{Return (Some p)}});
@@ -697,4 +651,3 @@ Section Remove.
 End Remove.
 
 End LINKED_LIST_SEG.
-
