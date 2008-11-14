@@ -121,8 +121,9 @@ The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
 type-checker that code is correct.  Unfortunately, explicit proofs can
 be quite large when compared to the code.  For example, in the Ynot
-module implementing enqueue for a linked-list, requires 7 lines of code,
-whereas the proof of correctness is about 70 lines.
+code implementing dequeue for imperative queues, only 7 lines of
+program code are required, whereas the proof of correctness is about
+70 lines.
 
 This paper reports our experience re-designing and re-implementing
 Ynot to dramatically reduce the burden of writing and maintaining the
@@ -948,9 +949,6 @@ logic and set theory extended with useful operators over sets and heaps (e.g.,
 transitive-closure, is-tree).  Instead of using a fixed a set of operators and
 the low-level language of set theory, Ynot's separation logic layer lets 
 programmers build their own abstractions using the full expressiveness of Coq.  
-A slight modification of Coq is required for Ynot 
-to be consistent with the law of the 
-excluded middle (and proof irrelevence).   
  
 Jahob programs are verified by first being translated into an extended guarded command language.
 Then, Jahob generates verification conditions 
@@ -960,23 +958,24 @@ provers in parallel.  It also means that practically speaking, verification
 and development are not programmer-interactive.
 
 Because provers are often specialized to particular
-classes of formulae, formula approximation techiques must be used to integrate them with
+classes of formulas, formula approximation techiques must be used to integrate them with
 a system using higher order logic. Jahob supports a number of first order and SMT provers,
 Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  
 In contrast, Ynot's automated reasoning is implemented completely in Coq.  
 The ``toolchain overhead'' of using external provers is high: the 
 entire Ynot codebase is smaller than just the Jahob-MONA interface.
 
-We have compared the Jahob association list example with an equivalent in Ynot program.  
-The Ynot program is X larger, but it not only contains functionality that is implemented by
-the Jahob backend, it also contains reasoning code that
-can presumably be shared with similar datastructures.  Modulo these differences,  
-the Jahob and Ynot examples are, perhaps unsurprisingly, quite similar.  For instance,
-  they both require large specifications for loop invariants --  
-in the remove method, for instance, Jahob uses X lines of such specs and Ynot
-uses Y lines.  Our Ynot implementation uses explicit framing conditions in 
-places where Jahob does not, although there is no reason that we know of that these
-annotations could not be inferred using the techniques in this paper. 
+We have compared the Jahob association list example with an equivalent
+in Ynot.  The Ynot program is X larger, but it not only contains
+functionality that is implemented by the Jahob backend, it also
+contains reasoning code that can presumably be shared with similar
+datastructures.  Modulo these differences, the Jahob and Ynot examples
+are, perhaps unsurprisingly, quite similar.  For instance, they both
+require large specifications for loop invariants -- in the remove
+method, for instance, Jahob uses X lines of such specs and Ynot uses Y
+lines.  Our Ynot implementation uses explicit framing conditions in
+places where Jahob does not, but we speculate that we can probably
+remove these annotations with some additional custom automation.
 
 In practice, specifications have a different feel in Ynot than in Jahob.  One of
 the hard lessons we have learned is that for our purposes, in Coq, 
@@ -986,65 +985,57 @@ our equivalent Ynot implementation
 uses lists with a uniqueness invariant to provide the semantic guarantees
 of the Jahob interface.
 
- \subsection{Smallfoot}
-We conclude our comparison with alternative approaches by comparing
-our system to Smallfoot~\cite{smallfoot}. The focus of Smallfoot is on
-completely automatic reasoning and concurrency. Since the current
-version of Ynot does not address concurrency, we will not address this
-in our comparison. We draw a comparison in two parts: the size of
+\subsection{Smallfoot}
+
+Our second comparison is against the Smallfoot~\cite{smallfoot}
+system, which focuses on completely automatic reasoning and
+concurrency.  We have not yet tackled concurrency in our system, so
+our comparison focuses on automatic reasoning about sequential
+programs.  We compare two aspects of the systems: the size of
 annotations and proof obligations and the expressivity of the
-logic. We use the linked list as a running example.
+logics. We use linked list segments as a running example.
 
 The Smallfoot system defines a segment of a linked list as the minimal
 predicate satisfying the following:
 $$
-ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. E \mapsto tl:y * ls(y,F))
+ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. \; E.tl \mapsto y \; * \; ls(y,F))
 $$
+This is almost the same definition as we gave earlier in the Queue example, with different notational conventions.  The notable difference is that we add the pointer inequality, which is necessary to guarantee lack of cycles.
 
-\noindent The definition is expressible in the same manner as the
-queue representation fixpoint described previously. The notable
-difference being the addition of the inequality which is necessary to
-guarantee non-cycles.
-
-For comparing annotatations, we consider {\tt append} function on
-lists as a representative example. In Smallfoot, the function is built
-using a {\tt while} loop, requires 14 lines, and three annotations:
-the pre- and post-conditions and the loop invariant. To maintain a
-close symmetry between the definitions, we break the {\it append}
-function into two pieces, one for the loop and the other for the main
-body. The two functions are, respectively, 4 and 5 lines long and
-require 2 lines of annotations for the fixpoint definition which
-corresponds to the Smallfoot loop invariant. As with all previous
-examples, the proof-automation tactics and lemmas used for this
-function apply to all functions dealing with linked lists in the same
-way that the linked list representation predicate is axiomatized in
-the Smallfoot system and is reused.
+To compare annotatation burden, we consider an {\tt append} function
+on lists as a representative example. In Smallfoot, the function is
+built using a {\tt while} loop and requires 14 lines and three
+annotations: the pre- and post-conditions and the loop invariant. To
+maintain a close symmetry between the definitions, we break the {\it
+append} function into two pieces, one for the loop and the other for
+the main body. Our two Ynot functions for these pieces are,
+respectively, 4 and 5 lines long and require 2 lines of annotations
+for the fixpoint definition, corresponding to the Smallfoot loop
+invariant. As with all previous examples, the tactics and lemmas used
+for this function apply to all functions dealing with linked lists, in
+the same way that the linked list representation predicate is
+axiomatized and reused in Smallfoot.
 
 While the Smallfoot system is faster and requires less verbose
-annotations, there are two primary advantages that Ynot has over
-it. The first is, as previously mentioned, Ynot functions use
-dependent types to represent partial correctness while Smallfoot
-guarantees only heap-safety. This is captured in the type of the {\it
-  cons} function:
-\begin{verbatim}
-cons :: forall (v : A) (r : LL) (q : [LL])
-    (m : [list A]) (T : Type) (vt : [T]),
-  STsep (q ~~ m ~~ vt ~~ llseg r q m * q ~~> vt)
-        (fun r:LL => q ~~ m ~~ vt ~~ 
-                  llseg r q (v :: m) * q ~~> vt).
-\end{verbatim}
-In Smallfoot, the system can guarantee only that the returned list is
-valid. Thus, {\it cons}, {\it removeFirst}, etc. all have the same
-type despite the fact that they do different things.
+annotations, Ynot has two primary advantages over it. The first is
+that, as previously mentioned, Ynot supports functional correctness
+verification, while Smallfoot guarantees only heap-safety. Consider
+the type of the list {\it cons} function.  Smallfoot can only
+guarantee that the returned list is valid, not that it really has a
+new element pushed on front.  {\it cons}, {\it removeFirst}, and other
+list operations share a single return value specification, despite the
+fact that they are meant to do different things.
 
-The second advantage in Ynot is the ability to deal use higher-order
-logic to express properties. The ease of use in Smallfoot comes at the
-price of restricting programs to a small set of data structures
-(including linked lists, doubly linked lists, trees, and xor-lists)
-for which the definitions and corresponding inductive properties can
-be defined using predicate logic. The theory built for each data
-structure in Smallfoot plays the same roll as the unrolling lemmas for
-which counts are given in Figure \ref{loc}.
+The second advantage in Ynot is the ability to express properties in
+higher-order logic. Smallfoot's ease of use comes at the price of
+restricting programs to a small set of data structures (including
+linked lists, doubly linked lists, trees, and xor-lists) for which the
+definitions and corresponding inductive properties can be defined
+using predicate logic. The theory built for each data structure in
+Smallfoot plays the same roll as the unfolding lemmas that any user of
+Ynot may prove for new data structures.  Figure \ref{loc} includes the
+size of the lemmas and proofs of that kind that we wrote for this
+example and the others.
 
 \section{Related Work}
 
