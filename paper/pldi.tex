@@ -256,13 +256,13 @@ We do need a notion of implication, though we do not need to include it in asser
 \medskip
 
 What we have described so far is the same as in the original Ynot
-work.  The big departure of our new system is that we define a more
+work.  The big departure of our new system is that we use a more
 standard separation logic.  The old Ynot separation logic used
 ``binary postcondtions'' that may refer to both the initial and final
 heaps.  This is in stark contrast to traditional separation logics,
-where all assertions are separation formulas over a single heap, and all verification proof obligations are implications between such assertions.  The utility of this formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, proofs for the binary postconditions in the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
+where all assertions are separation formulas over a single heap, and all proof obligations are implications between such assertions.  The utility of this formalism has been born out in the wealth of tools that have used separation logic for automated verification.  In contrast, proofs for the binary postconditions in the old Ynot tended to involve at least tens of steps of manual proof per line of program code.
 
-Why did the original Ynot use this nonstandard program logic?  The answer has to do with the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to relate pre- and post-conditions ensure that parts of state are preserved by commands, when the same specification variable appears in both the precondition and postcondition of a derivation.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
+Why did the original Ynot use this nonstandard program logic?  The answer is the need for an effective analogue of specification variables.  In traditional separation logic, specification variables are commonly used to relate precondition and postcondition.  In contrast, the old Ynot used binary postconditions for the same purpose, asserting equations between parts of the pre and post heaps.
 
 The final output of a Ynot program is an executable piece of OCaml or Haskell code, produced with Coq's program extraction facility.  We can use standard Coq variables as specification variables, but, by default, they will remain at runtime, reducing the efficiency of programs.  One of the main innovations of the new work we present involves a new way of encoding specification variables in Coq, such that they will be erased by the standard program extraction facility.  This makes it possible to use a more standard separation logic, with the corresponding decrease in the difficulty of automating proofs.  We will present this new technique by example in later subsections.
 
