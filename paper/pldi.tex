@@ -98,13 +98,13 @@ range of truly bad states.
 
 However, in the case of ESC/Java, Spec\#, and Sage, the program logic
 is too weak to support full verification because these systems rely
-upon provers to automatically discharge verification conditions.
+completely upon provers to automatically discharge verification conditions.
 While there have been great advances in the performance of automated
 provers, in practice, they can only handle relatively shallow
 fragments of first-order logic.  Thus, programmers are frustrated when
-code that is correct is rejected by the type-checker.  For example,
+correct code is rejected by the type-checker.  For example,
 none of these systems is able to prove that an array index is in
-bounds when the constraints involved step outside quantifier-free
+bounds when the constraints step outside quantifier-free
 linear arithmetic.
 
 In contrast, ATS, Concoqtion, and Ynot use powerful, higher-order
@@ -121,7 +121,7 @@ The price paid for these more powerful type systems is that, in
 general, programmers must provide explicit proofs to convince the
 type-checker that code is correct.  Unfortunately, explicit proofs can
 be quite large when compared to the code.  For example, in the Ynot
-module implementing a enqueue for a linked-list, requires 7 lines of code,
+module implementing enqueue for a linked-list, requires 7 lines of code,
 whereas the proof of correctness is about 70 lines.
 
 This paper reports our experience re-designing and re-implementing
@@ -133,9 +133,9 @@ assistant~\cite{CoqArt}.  This allows us to inherit the full power of
 Coq's dependent types for writing code, specifications, and proofs,
 and it allows us to use Coq's facility for extraction to executable ML
 code.  However, unlike the previous version, we have taken advantage
-of Coq's tactic language Ltac to implement a new set of parameterized
-semi-decision procedures for automatically discharging or at least
-simplifying the separation logic-style verification conditions.  The
+of Coq's tactic language, Ltac, to implement a set of parameterized
+semi-decision procedures for automatically discharging, or at least
+simplifying, the separation logic-style verification conditions.  The
 careful design of these procedures makes it possible for programmers
 to teach the prover about new domains as they arise.
 
@@ -163,7 +163,7 @@ separately-checkable proof witnesses justifying their conclusions.
 Smallfoot, like Ynot, is based on separation logic and requires many
 fewer annotations, but can only verify memory safety and not full
 correctness.  Furthermore, Smallfoot only understands a small set of
-hard-coded abstractions (linked list segments and tree segments),
+hard-coded abstractions (including linked list segments and binary trees),
 while our new system supports sound extension of the library of
 abstractions by programmers.
 
@@ -188,7 +188,7 @@ Definition avg (x:list nat) : nat :=
   end.
 \end{verbatim}
 
-This function averages the values in a list of natural numbers.  It has a normal type like you might find in ML, and its implementation begins in an ML-like way, using a higher-order \cd{fold} function.  The interesting part is the \cd{match} expression.  We match on the result of a call to \cd{eq\_nat\_dec}, a dependently-typed natural number comparison function.  That function returns more than just a boolean; it returns a sum type with equality proofs in one branch and inequality proofs in the other.  We bind a name for each proof explicitly in the pattern for each \cd{match} case.  The proof that \cd{len} is not zero is passed to \cd{div} to justify the safety of the operation.
+This function averages the values in a list of natural numbers.  It has a normal type like you might find in ML, and its implementation begins in an ML-like way, using a higher-order \cd{fold} function.  The interesting part is the \cd{match} expression.  We match on the result of a call to \cd{eq\_nat\_dec}, a dependently-typed natural number comparison function.  This function returns a sum type with an equality proof in one branch and an inequality proof in the other. We bind a name for each proof explicitly in the pattern for each \cd{match} case.  The proof that \cd{len} is not zero is passed to \cd{div} to justify the safety of the operation.
 
 All Coq functions have to be pure -- terminating without side effects.  This is necessary to ensure that proofs really are proofs, with no spurious ``proofs by infinite loop.''  Ynot extends Coq with support for side-effecting computations.  Similar to Haskell, we introduce a monadic type constructor \cd{ST T} which describes computations that might diverge and that might have side effects, but that, if they do return, return values of type \cd{T}.  We can use \cd{ST} to safely keep the ``effectful'' computations separate from the pure computations.
 
@@ -201,7 +201,7 @@ $$\begin{array}{c}
   \{\lambda h, \_, h'. \; \coq{sel}(h, p_1) = p_2 \land h' = \coq{upd}(h, p_2, 1)\}
 \end{array}$$
 
-In actuality, Ynot has no separate concepts of programs and derivations.  Rather, the two are combined into one dependent type family, whose indices give the specification of a program.  For instance, the type of the first example program above would be:
+Unlike other systems, Ynot does not distinguish between programs and derivations. Rather, the two are combined into one dependent type family, whose indices give the specification of a program.  For instance, the type of the return example would be:
 \begin{verbatim}
 ST (fun _ => True) (fun h v h' => h' = h /\ v = 1)
 \end{verbatim}
@@ -237,18 +237,18 @@ Heaps are represented as functions from pointers to dynamically-typed packages, 
   \caption{\label{STsep}The main rules of the derived separation logic}
 \end{figure*}
 
-Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The previous Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  As before, we introduce no new syntactic class of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
+Direct reasoning about heaps leads to very cumbersome proof obligations, with many sub-proofs that pairs of pointers are not equal.  Separation logic~\cite{separation} is the standard tool for reducing that complexity.  The previous Ynot system built a separation logic on top of the axiomatic foundation, and we do the same here.  We introduce no new syntactic classes of separation logic formulas.  Instead, we define functions that operate on arbitrary predicates over heaps, with the intention that we will only apply them on separation-style formulas.  Nonetheless, it can be helpful to think of our ``assertion language'' as defined by:
 $$\begin{array}{rcl}
   P &::=& [p] \mid \emp \mid \pts{x}{y} \mid P \sep P \mid \exists x, P
 \end{array}$$
 
-For any pure Coq proposition $p$, $[p]$ is the heap predicate that asserts that $p$ is true and the heap is empty.  $\emp$ asserts that the heap is empty, and $\pts{x}{y}$ asserts that the heap contains only a mapping from $x$ to $y$.  $P_1 \sep P_2$ asserts that the heap can be broken into two heaps $h_1$ and $h_2$ with disjoint domains, such that $h_1$ satisfies $P_1$ and $h_2$ satisfies $P_2$.  Finally, we add existential quantification.
+For any pure Coq proposition $p$, $[p]$ is the heap predicate that asserts that $p$ is true and the heap is empty.  $\emp$ asserts that the heap is empty, and $\pts{x}{y}$ asserts that the heap contains only a mapping from $x$ to $y$.  $P_1 \sep P_2$ asserts that the heap can be broken into two heaps $h_1$ and $h_2$ with disjoint domains, such that $h_1$ satisfies $P_1$ and $h_2$ satisfies $P_2$.  The final clause provides existential quantification.
 
 It is worth pointing out that we simplify the assertion language substantially by taking advantage of Coq's base language.  We do not need to include program variables in the logic, because any Coq variable may be included anywhere in a Coq development, including within one of our assertions.  The same argument allows us to avoid explicit mention of specification variables, sometimes also called ``ghost state'' variables.
 
-We can write much more expressive formulas than in most systems based on separation logic.  Not only can any pure proposition be injected with $[\cdot]$, but we can also use arbitrary Coq computation to build impure assertions.  For instance, we can include calls to custom recursive functions that return assertions.  We need no special support in the assertion language to accommodate this, and Coq's theorem-proving support for reasoning about pattern-matching recursive functions can be brought to bear without modification.
+The embedding in Coq provides much more expressive formulas than in most systems based on separation logic.  Not only can any pure proposition be injected with $[\cdot]$, but we can also use arbitrary Coq computation to build impure assertions.  For instance, we can include calls to custom recursive functions that return assertions.  We need no special support in the assertion language to accommodate this, and Coq's theorem-proving support for reasoning about pattern-matching recursive functions can be used without modification.
 
-This automatic importation of Coq features has some surprising and pleasant consequences.  We literally need no more of the standard separation logic connectives to verify a wide variety of data structures.  For instance, separation logic proofs often use several kinds of disjunction.  In our setting, we reduce this disjunction to pattern matching over datatypes.  We take advantage of Coq's computational rules for simplifying pattern matches, which need not mention heaps, making them easier to think about and promoting easier proof automation.
+This automatic importation of Coq features has some surprising and pleasant consequences.  We literally need no more of the standard separation logic connectives to verify a wide variety of data structures.  For instance, separation logic proofs often use several kinds of disjunction.  In our setting, we reduce this disjunction to pattern matching over datatypes.  We take advantage of Coq's computational rules for simplifying pattern matches, which need not mention heaps, making them easier to reason about and promoting easier proof automation.
 
 We do need a notion of implication, though we do not need to include it in assertions.  There is no need to introduce the ``magic wand'' of separation logic.  Rather, we just define an almost trivial operator $\himp$, which appears only at the top level of individual proof obligations.  The meaning of $p \himp q$ is that any heap satisfying $p$ also satisfies $q$.  The relevant aspects of the usual ``magic wand'' connective are built into the definition of what a valid program derivation is in the separation logic.
 
