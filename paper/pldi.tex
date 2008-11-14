@@ -831,7 +831,7 @@ Every step of the overall process is implemented in Ltac, so that only a bug in 
 
 \section{Evaluation}
 
-We have used our environment to implement and verify a several data
+We have used our environment to implement and verify several data
 structures, including the Stack and Queue examples that appeared in
 Section \ref{tutorial}.  We also follow the prior Ynot system in
 implementing a generic signature of imperative finite maps.  We built
@@ -881,31 +881,32 @@ that will be removed later as the programmer discovers which
 automation would be effective.
 
 Figure \ref{loc} presents code size statistics for our case studies.
-For comparison to the original, manual-proof-oriented Ynot system, we
-provide code size statistics for two of our examples as they were
-implemented in that system.
-
-Canonical Ynot modules in the new system have a particular structure
-which is reflected in the column headings: specifications, heap
-representation, proofs, tactics, and program code.  Ynot modules begin
-with two sections that we ignore in our statistics: first, an ADT
-module type is defined, and then a pure functional model, including
-proofs and tactics, is defined or imported.  We ignore the module type
-definitions because they would be double counted in the specifications
-column, which includes the pre- and post-conditions of every function
-defined in the module.  We do not include such functional code in the
-statistics, because it is generally unsurprising that particular
-theorems about pure functions are provable easily in modern proof
-assistants; the overhead for these theorems will tend to remain
-constant, no matter which approach one adopts to imperativity.  The
-core of a Ynot module, then, consists of heap representation code
+Program code (e.g. \cd{getElements}) is code that is preserved by extraction.
+Specifications are the pre and post conditions of every function
+defined in the module.  The core of a Ynot module consists of heap representation code
 (e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
-(e.g. {\cd{simp\_prem}) dealining with these representations; these
-three columns, plus the annotations column, are totaled in the
-overhead column.  The annotations column counts the number of lines of
-programmer specified annotations (e.g. \cd{<@>}). Program code
-(e.g. \cd{getElements}) is code that is preserved by extraction.  Coq
-type-checking and proving times (in minutes and seconds) were measured
+(e.g. {\cd{simp\_prem}) dealing with these representations.
+The annotations column counts the number of lines of
+programmer specified annotations (e.g. \cd{<@>}).  The total
+overhead column sums proofs, tactics, and annotations.
+
+%Canonical Ynot modules in the new system have a particular structure
+%which is reflected in the column headings: specifications, heap
+%representation, proofs, tactics, and program code.  Ynot modules begin
+%with two sections that we ignore in our statistics: first, an ADT
+%module type is defined, and then a pure functional model, including
+%proofs and tactics, is defined or imported.  We ignore the module type
+%definitions because they would be double counted in the specifications
+%column, which i.  We do not include such functional code in the
+%statistics, because it is generally unsurprising that particular
+%theorems about pure functions are provable easily in modern proof
+%assistants; the overhead for these theorems will tend to remain
+%constant, no matter which approach one adopts to imperativity.  
+% ; these
+% three columns, plus the annotations column, are totaled in the
+% overhead column.     
+
+Coq type-checking and proving times (in minutes and seconds) were measured
 on a 2.8 GHz Pentium D with 1 GB of memory.  So far, we have not
 optimized our tactics for running time; they are executed by direct
 interpretation of source code in a dynamically-typed language, so
@@ -918,16 +919,14 @@ taken advantage of that opportunity yet.
   \begin{center}
     \begin{tabular}{r | r | r | r | r | r | r | r | r}
                                              & Program & Specs & Rep & Proofs & Tactics &  Annotations    & Total Overhead & Time (m:s) \\ \hline
-Stack                                        &         &       &     &        &         &                 &             & 0:12 \\
-Queue                                        &         &       &     &        &         &                 &             & 1:36 \\
-Ref to Functional Finite Map                 &         &       &     &        &         &                 &             & 0:05 \\
-Hash Table                                   &         &       &     &        &         &                 &             & 0:45 \\
-Hash Table (old)                             &         &       &     &        &         &                 &             &      \\
-BST Finite Map                               &         &       &     &        &         &                 &             & 1:35 \\
-BST Finite Map  (old)                        &         &       &     &        &         &                 &             & 1:35 \\
-Binomial Tree                                &         &       &     &        &         &                 &             & 2:33 \\
-Association List                             &         &       &     &        &         &                 &             & 3:10 \\
-Linked List Segments                         &         &       &     &        &         &                 &             &      \\
+Stack                                        &   14    &  8    &  14 &  7     &    5    &      0          &    12       & 0:12 \\
+Queue                                        &   26    &  12   &  22 &  41    &    25   &      0          &    66       & 1:36 \\
+Ref to Functional Finite Map                 &    8    &  16   &   2 &   2    &     2   &     0           &     4       & 0:05 \\
+Hash Table                                   &   34    &  21   &  6  &  70    &   38    &     34          &   142       & 0:45 \\
+BST Finite Map                               &   31    &  16   &  6  &  22    &    8    &      4          &    34       & 1:35 \\
+Binomial Tree                                &   19    &  12   &  13 &   0    &    9    &      7          &    16       & 2:33 \\
+Association List                             &   48    &  34   &  17 &  41    &   51    &     10          &   102       & 3:10 \\
+Linked List Segments                         &   84    &  34   &  19 &  91   &   208   &       7         &    306      &  2:15 \\
     \end{tabular}
   \end{center}
 \footnotesize
@@ -935,7 +934,21 @@ Linked List Segments                         &         &       &     &        & 
   \caption{\label{loc}Breakdown of numbers of lines of different kinds of code in the case studies}
 \end{figure*}
 
-Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to our two comparison studies.
+Our examples indicate that Ynot compiles quickly enough to be useful in practice, and that a variety of tradeoffs between columns are possible.  Development is done interactively with Coq, so programmers are typically only exposed to shorter, single-method verification times.  From our data, it seems plausible that, for a variety of implementations, we can maintain a small constant factor of verification overhead beyond conventional program size.  To better explain how our kinds of overhead compare to those found in related systems, we turn to a comparison with the previous Ynot and two related systems.
+
+\subsection{Previous Ynot}
+
+The previous version of Ynot placed a significant interactive proof burden on the programmer.  
+The previous Ynot hashtable, for instance, required around 320 explicit Coq tactic invocations.
+Each tactic invocation (the ``.'' of Coq) represents a manual invervention by the
+Ynot programmer.  These invocations tended to be low level steps, like choosing which
+branch of a disjunction to prove.  As such, these proofs tended to be brittle to minor changes.
+In some previous Ynot developments, the ratio of manual proof to program text is over 10 to 1.
+
+In contrast, our new hastable requires only about 70 explicit tactic invocations. 
+These invocations tend to be high level steps, like performing induction or
+invoking the {\texttt sep} tactic.  We have observed that tactic based proofs
+are significantly easier to maintain.  
 
 \subsection{Jahob}
 
@@ -968,16 +981,22 @@ The ``toolchain overhead'' of using external provers is high: the
 entire Ynot codebase is smaller than just the Jahob-MONA interface.
 
 We have compared the Jahob association list example with an equivalent
-in Ynot.  The Ynot program is X larger, but it not only contains
-functionality that is implemented by the Jahob backend, it also
-contains reasoning code that can presumably be shared with similar
-datastructures.  Modulo these differences, the Jahob and Ynot examples
-are, perhaps unsurprisingly, quite similar.  For instance, they both
-require large specifications for loop invariants -- in the remove
-method, for instance, Jahob uses X lines of such specs and Ynot uses Y
-lines.  Our Ynot implementation uses explicit framing conditions in
+in Ynot.  The Ynot program contains theorems and tactics with
+no equivalents in Jahob, but such functionality 
+is implemented by the Jahob backend.  Modulo this difference, 
+the Jahob and Ynot examples are quite similar.  For instance, they 
+both require around twenty lines of heap representation code,
+and they both require about a dozen lines of code for the
+get function's loop invariant.  Our Ynot implementation 
+uses explicit framing conditions in
 places where Jahob does not, but we speculate that we can probably
 remove these annotations with some additional custom automation.
+
+Verifying the Ynot association list takes ten times longer than in Jahob.
+However, Jahob verification times depend crucially on the underlying
+provers used.  For the association list example, Jahob is able to prove
+all obligations using the optimized SPASS prover.  Another Jahob example,
+a binary search tree, uses the MONA prover and takes almost two hours to verify.   
 
 In practice, specifications have a different feel in Ynot than in Jahob.  One of
 the hard lessons we have learned is that for our purposes, in Coq, 
