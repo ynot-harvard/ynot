@@ -949,9 +949,6 @@ logic and set theory extended with useful operators over sets and heaps (e.g.,
 transitive-closure, is-tree).  Instead of using a fixed a set of operators and
 the low-level language of set theory, Ynot's separation logic layer lets 
 programmers build their own abstractions using the full expressiveness of Coq.  
-A slight modification of Coq is required for Ynot 
-to be consistent with the law of the 
-excluded middle (and proof irrelevence).   
  
 Jahob programs are verified by first being translated into an extended guarded command language.
 Then, Jahob generates verification conditions 
@@ -961,23 +958,24 @@ provers in parallel.  It also means that practically speaking, verification
 and development are not programmer-interactive.
 
 Because provers are often specialized to particular
-classes of formulae, formula approximation techiques must be used to integrate them with
+classes of formulas, formula approximation techiques must be used to integrate them with
 a system using higher order logic. Jahob supports a number of first order and SMT provers,
 Isabelle and Coq, and also the MONA prover for the monadic fragment of 2nd order logic.  
 In contrast, Ynot's automated reasoning is implemented completely in Coq.  
 The ``toolchain overhead'' of using external provers is high: the 
 entire Ynot codebase is smaller than just the Jahob-MONA interface.
 
-We have compared the Jahob association list example with an equivalent in Ynot program.  
-The Ynot program is X larger, but it not only contains functionality that is implemented by
-the Jahob backend, it also contains reasoning code that
-can presumably be shared with similar datastructures.  Modulo these differences,  
-the Jahob and Ynot examples are, perhaps unsurprisingly, quite similar.  For instance,
-  they both require large specifications for loop invariants --  
-in the remove method, for instance, Jahob uses X lines of such specs and Ynot
-uses Y lines.  Our Ynot implementation uses explicit framing conditions in 
-places where Jahob does not, although there is no reason that we know of that these
-annotations could not be inferred using the techniques in this paper. 
+We have compared the Jahob association list example with an equivalent
+in Ynot.  The Ynot program is X larger, but it not only contains
+functionality that is implemented by the Jahob backend, it also
+contains reasoning code that can presumably be shared with similar
+datastructures.  Modulo these differences, the Jahob and Ynot examples
+are, perhaps unsurprisingly, quite similar.  For instance, they both
+require large specifications for loop invariants -- in the remove
+method, for instance, Jahob uses X lines of such specs and Ynot uses Y
+lines.  Our Ynot implementation uses explicit framing conditions in
+places where Jahob does not, but we speculate that we can probably
+remove these annotations with some additional custom automation.
 
 In practice, specifications have a different feel in Ynot than in Jahob.  One of
 the hard lessons we have learned is that for our purposes, in Coq, 
