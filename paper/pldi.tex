@@ -135,10 +135,10 @@ Coq's dependent types for writing code, specifications, and proofs,
 and it allows us to use Coq's facility for extraction to executable ML
 code.  However, unlike the previous version, we have taken advantage
 of Coq's tactic language, Ltac, to implement a set of parameterized
-semi-decision procedures for automatically discharging, or at least
-simplifying, the separation logic-style verification conditions.  The
-careful design of these procedures makes it possible for programmers
-to teach the prover about new domains as they arise.
+procedures for automatically discharging, or at least simplifying, the
+separation logic-style verification conditions.  The careful design of
+these procedures makes it possible for programmers to teach the prover
+about new domains as they arise.
 
 We describe this new implementation of Ynot and report on our
 experience implementing and verifying various imperative data
@@ -155,16 +155,16 @@ We also provide a qualitative comparison of our approach to two other
 verification projects that have recently appeared in the literature,
 Jahob~\cite{jahob} and Smallfoot~\cite{smallfoot}.  To summarize,
 Jahob is based on the ideas of ESC/Java and Spec\# but aims for full
-verification of imperative data structures.  It requires a
-much larger trusted computing base than Ynot as it combines a number of external
+verification of imperative data structures.  It requires a much larger
+trusted computing base than Ynot, as it combines a number of external
 decision procedures, some of which do not generate
 separately-checkable proof witnesses justifying their conclusions.
 Smallfoot, like Ynot, is based on separation logic and requires many
 fewer annotations, but can only verify memory safety and not full
 correctness.  Furthermore, Smallfoot only understands a small set of
-hard-coded abstractions (including linked list segments and binary trees),
-while our new system supports sound extension of the library of
-abstractions by programmers.
+hard-coded abstractions (including linked list segments and binary
+trees), while our new system supports sound extension of the library
+of abstractions by programmers.
 
 \section{\label{tutorial}The Ynot Programming Environment}
 
@@ -247,7 +247,7 @@ It is worth pointing out that we simplify the assertion language substantially b
 
 The embedding in Coq provides much more expressive formulas than in most systems based on separation logic.  Not only can any pure proposition be injected with $[\cdot]$, but we can also use arbitrary Coq computation to build impure assertions.  For instance, we can include calls to custom recursive functions that return assertions.  We need no special support in the assertion language to accommodate this, and Coq's theorem-proving support for reasoning about pattern-matching recursive functions can be used without modification.
 
-Perhaps surprisingly, we have general success in implementing realistic examples using just these connectives.  Standard uses of other connectives can often be replaced by uses of higher-order features, and the connectives that we \emph{do} use are particularly amenable to automation.  Fully-automated systems like Smallfoot build in similar restrictions, but it surprised us that we needed little more to do functional verification.
+Perhaps surprisingly, we have met with general success in implementing realistic examples using just these connectives.  Standard uses of other connectives can often be replaced by uses of higher-order features, and the connectives that we \emph{do} use are particularly amenable to automation.  Fully-automated systems like Smallfoot build in similar restrictions, but it surprised us that we needed little more to do full correctness verification.
 
 \medskip
 
@@ -365,7 +365,7 @@ Definition rep (s : stack) (ls : list T) : hprop :=
   Exists po :@ option ptr, s --> po * listRep ls po.
 \end{verbatim}
 
-Before we start implementing the ADT methods, we should set up some proof automation machinery.  Systems like Smallfoot~\cite{smallfoot} have hardcoded support for particular heap predicates like acyclic linked list-ness, cyclic linked list-ness, and so on.  These systems perform simplifications on formulas that mention the predicates that they understand.  In contrast, with Ynot, the programmer can define his own new predicates, as we have just done.  Not only that, but he can also prove lemmas that correspond with the simplification rules built into automated tools, and he can plug his lemmas into a general separation logic solver.  All of this is done with no risk that a mistake by the programmer will lead to a faulty verification; every lemma must be proved from first principles.
+Before we start implementing the ADT methods, we should set up some proof automation machinery.  Systems like Smallfoot~\cite{smallfoot} have hardcoded support for particular heap predicates like acyclic linked list-ness, cyclic linked list-ness, and so on.  These systems perform simplifications on formulas that mention the predicates that they understand.  In contrast, with Ynot, the programmer can define his own new predicates, as we have just done.  Not only that, but he can also prove lemmas that correspond to the simplification rules built into automated tools, and he can plug his lemmas into a general separation logic solver.  All of this is done with no risk that a mistake by the programmer will lead to a faulty verification; every lemma must be proved from first principles.
 
 For the current example, we need two lemmas for ``unfolding'' the definition of \cd{listRep} at points where we know for sure whether or not the pointer argument is null.
 
@@ -395,7 +395,7 @@ Ltac simp_prem := simpl_IfNull;
 
 Our procedure, or \emph{tactic} in Coq parlance, first calls a simplification procedure associated with a syntax extension for checking pointer nullness.  Next, our procedure calls a tactic \cd{simpl\_prem} from the Ynot library, for simplifying premises of implications.  The argument to \cd{simpl\_prem} gives a procedure to attempt on each premise, until no further progress can be made.
 
-We can plug our domain-specific simplification tactic into the generic separation logic solver.  We define a new tactic that will suffice to prove all goals that will arise in this example.  The first argument to \cd{sep} gives a procedure to apply to simplify premises before starting the main proof search, and the second argument gives a procedure to attempt on individual subgoals throughout proof search.  The \cd{discriminate} tactic solves goals whose premises include inconsistent equalities over values of datatypes, like \cd{nil = x :: ls}; and adding \cd{try} in front prevents \cd{discriminate} from signaling an error if no such equality exists.
+We can plug our domain-specific simplification tactic into the generic separation logic solver.  We define a new tactic that will suffice to prove all goals that will arise in this example.  The first argument to \cd{sep} gives a procedure to apply to simplify goals before starting the main proof search, and the second argument gives a procedure to attempt on individual subgoals throughout proof search.  The \cd{discriminate} tactic solves goals whose premises include inconsistent equalities over values of datatypes, like \cd{nil = x :: ls}; and adding \cd{try} in front prevents \cd{discriminate} from signaling an error if no such equality exists.
 
 \begin{verbatim}
 Ltac t := unfold rep; sep simp_prem
@@ -556,7 +556,7 @@ Lemma rep'_back : forall ls fr ba,
         end.
 \end{verbatim}
 
-The proof of the lemma relies on some lemmas about pure functional lists.  With those available, we prove \cd{rep'\_back} in under 20 lines.  When we plug this and the two other unfolding lemmas into the \cd{sep} procedure, we arrive at quite a robust decision procedure for separation assertions about lists that may be modified at either end.
+The proof of the lemma relies on some lemmas about pure functional lists.  With those available, we prove \cd{rep'\_back} in under 20 lines.  When we plug this and the two other unfolding lemmas into the \cd{sep} procedure, we arrive at quite a robust proof procedure for separation assertions about lists that may be modified at either end.
 
 Again, every proof obligation for our queue implementation is proved by a \cd{t} tactic built from \cd{sep}.  We write under 10 lines of new tactic hints to be applied during proof search, and we must prove one key lemma by induction.
 
@@ -721,7 +721,7 @@ we simply set \cd{?123} to \cd{p --> x * q --> y}.  Given the slightly more comp
 \begin{verbatim}
 p --> x * q --> y ==> ?123 x
 \end{verbatim}
-we abstract the lefthand side to produce\cd{fun x' => p --> x' * q --> y}.
+we abstract the lefthand side to produce \cd{fun x' => p --> x' * q --> y}.
 
 \subsection{Intermediate Constraint Solving}
 
@@ -852,7 +852,7 @@ characterize functional models of such trees.
 Finally, we chose representative examples from two competing data
 structure verification systems, Smallfoot~\cite{smallfoot} and
 Jahob~\cite{jahob}, and reimplemented those examples in our new Ynot.
-For Smallfoot, we worked with one of their example inputs that gives
+For Smallfoot, we worked with one of their example programs that gives
 10 functions over imperative linked list segments, with enough
 specifications to enable memory safety verification.  Our alternative
 version goes further and verifies functional correctness.  We have a
@@ -882,10 +882,10 @@ Figure \ref{loc} presents code size statistics for our case studies.
 Program code is code that is preserved by extraction.
 Specifications are the pre and post-conditions of every function
 defined in the module.  The core of a Ynot module consists of heap representation code
-(e.g. \cd{rep}), and proofs (e.g. \cd{push\_listRep}) and tactics
-(e.g. {\cd{simp\_prem}) dealing with these representations.
+(e.g., \cd{rep}), and proofs (e.g., \cd{push\_listRep}) and tactics
+(e.g., {\cd{simp\_prem}) dealing with these representations.
 The annotations column counts the number of lines of
-programmer specified annotations (e.g. \cd{<@>}).  The total
+programmer specified annotations (e.g., \cd{<@>}).  The total
 overhead column sums proofs, tactics, and annotations.
 
 %Canonical Ynot modules in the new system have a particular structure
@@ -907,11 +907,11 @@ overhead column sums proofs, tactics, and annotations.
 Coq type-checking and proving times (in minutes and seconds) were measured
 on a 2.8 GHz Pentium D with 1 GB of memory.  So far, we have not
 optimized our tactics for running time; they are executed by direct
-interpretation of source code in a dynamically-typed language, so
+interpretation of programs in a dynamically-typed language, so
 there is much opportunity for improvement there.  Some of our examples
 also contains formalizations of similar data structures that could
-profitably share representation and tactic code, though we have not
-taken advantage of this opportunity yet.
+profitably share representation and tactic code, though we have not yet
+taken advantage of this opportunity.
 
 \begin{figure*}
   \begin{center}
@@ -939,19 +939,20 @@ Our examples indicate that Ynot compiles quickly enough to be useful in practice
 The previous version of Ynot placed a significant interactive proof
 burden on the programmer.  The previous Ynot hash table, for instance,
 required around 320 explicit Coq tactic invocations.  Each tactic
-invocation (the ``.'' of Coq) represents a manual intervention by the
+invocation (indicated by a terminating ``.'' in Coq) represents a manual intervention by the
 Ynot programmer.  These invocations tended to be low level steps, like
 choosing which branch of a disjunction to prove.  As such, these
-proofs are brittle to minor changes.  In some previous
+proofs are brittle in the face of minor changes.  In some previous
 Ynot developments, the ratio of manual proof to program text is over
 10 to 1. For comparison, a large scale compiler certification
 effort~\cite{leroy} has reported a proof-to-code ratio of roughly 6 to
 1.
 
-In contrast, our new hash table requires only about 70 explicit tactic invocations. 
-These invocations tend to be high level steps, like performing induction or
-invoking the {\texttt sep} tactic.  We have observed that tactic based proofs
-are significantly easier to maintain.  
+In contrast, our new hash table requires only about 70 explicit tactic
+invocations.  These invocations tend to be high level steps, like
+performing induction or invoking the {\texttt sep} tactic.  We have
+observed that such tactic-based proofs are significantly easier to
+maintain.
 
 \subsection{Jahob}
 
@@ -959,10 +960,10 @@ The Jahob system allows the specification and verification
 of recursive, linked data structures in a fragment of Java.  Ynot and Jahob 
 both relate the abstract state of a data structure to its concrete heap representation
 using specification variables and pre-post conditions. Both systems also use
-programmer supplied annotations to guide the verification process.  The systems 
-differ in their heap models and how verification conditions are discharged.
+programmer-supplied annotations to guide the verification process.  The systems 
+differ in their heap models and in how verification conditions are discharged.
 
-Jahob specifications are written in Java comments using classical higher order
+Jahob specifications are written in Java comments using classical higher-order
 logic and set theory extended with useful operators over sets and heaps (e.g., 
 transitive-closure, is-tree).  Instead of using a fixed a set of operators and
 the low-level language of set theory, Ynot's separation logic layer lets 
@@ -1020,7 +1021,7 @@ annotations and the expressivity of the
 logics. We use linked list segments as a running example.
 
 The Smallfoot system defines a segment of a linked list as the minimal
-predicate satisfying the following:
+predicate satisfying the following equivalence:
 $$
 ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exists y. \; E.tl \mapsto y \; * \; ls(y,F))
 $$
@@ -1036,7 +1037,7 @@ the main body. Our two Ynot functions for these pieces are,
 respectively, 4 and 5 lines of code and require 2 lines of annotations
 for the fixpoint definition which correspond to the Smallfoot loop
 invariant. As with all previous examples, the tactics and lemmas used
-for this function apply to all functions dealing with linked lists, in
+for this example apply to all functions dealing with linked lists, in
 the same way that the linked list representation predicate is
 axiomatized and reused in Smallfoot.
 
@@ -1076,7 +1077,7 @@ In comparing the new Ynot environment to the above systems and all others that w
 
 \section{Conclusions \& Future Work}
 
-Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library. This formulation requires an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation and we hope that a future version of Coq or a related system will include general support for computationally-irrelevant values.
+Coq has not proved to be the ideal setting for reasoning with specification variables.  Our encoding of computationally-irrelevant variables is in terms of the \cd{inhabited} type from Coq's standard library. This formulation requires an axiom which states that the constructor for building irrelevant values is injective.  This is not a fundamental limitation, and we hope that a future version of Coq or a related system will include general support for computationally-irrelevant values.
 
 Concurrency is another big area for future work.  Systems like Smallfoot~\cite{smallfoot} do automated separation-logic reasoning about memory safety of concurrent programs.  We would like to extend that work to full correctness verification, by designing a monadic version of concurrent separation logic that fits well within Coq.
 
