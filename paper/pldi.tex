@@ -630,7 +630,9 @@ Qed.
 
 The code demonstrates a use of one of the derived fixpoint combinators, \cd{Fix2}.  Of the three arguments that we pass, the first two give the precondition and post-condition in terms of the two ``real'' arguments (and, for the post-condition, the return value).  The third argument is the function body.  It takes a recursive self-reference as its first argument, followed by the two ``real'' arguments.
 
-The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.  We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
+The notation \cd{x \textasciitilde\textasciitilde\textasciitilde \; e} is for building a new computationally-irrelevant value out of an old one.  The notation \cd{e <@> P} is explicit invocation of the frame rule.  With the current system, one usually wants to invoke that rule at each function call.  The framing assertion can be written as an underscore to ask that it be inferred.
+
+%We would like to avoid such explicit framings, and they only remain because it is unclear how to implement our syntax extensions in a way that avoids them.
 
 
 \subsection{A Dependently-Typed Memoizing Function}
