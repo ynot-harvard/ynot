@@ -693,7 +693,7 @@ Here is an example of the proof obligations generated for the code we gave earli
 
 We can see that each goal has at most one new unification variable standing for a specification, and each such variable has its value determined by the value of the variable from the previous goal.  This is no accident; we designed our combinators and notations to have this property.
 
-Now we are ready to describe what the \cd{sep} tactic does.  We do not have space to include the literal Coq code implementing it; we will give pseudocode instead.  The implementation is in Coq's Ltac language~\cite{Ltac}, a domain-specific, dynamically-typed language for writing proof-generating proof search procedures.  Here is an example Ltac program that implements simplifications of goals that contain conjunctions.
+Now we are ready to describe what the \cd{sep} tactic does.  We do not have space to include the literal Coq code implementing it; we will outline the basic procedure instead.  The implementation is in Coq's Ltac language~\cite{Ltac}, a domain-specific, dynamically-typed language for writing proof-generating proof search procedures.  Here is an example Ltac program that implements simplifications of goals that contain conjunctions.
 
 \begin{verbatim}
 Ltac un_and :=
@@ -792,42 +792,6 @@ The main \cd{sep} loop is focused on dealing with parts of the conclusion.  We r
 When \cd{sep} has run out of rules to apply, the remaining subgoal is subjected to standard Coq automation.  Propositional structure and calls to recursive functions are simplified where possible.  \cd{sep} ends by running a loop over those simplifications and the simplifications performed by the user's \cd{solver} tactic, until no further progress can be made.  Finally, \cd{sep} discharges all goals of the form \cd{P ==> P}, by reflexivity.
 
 Every step of the overall process is implemented in Ltac, so that only a bug in Coq would allow \cd{sep} to declare an untrue goal as true, no matter which customization the programmer provides.  By construction, every step builds an explicit proof term, which we can be validated afterward with an independent checker that is relatively simple, compared to the operation of all of the decision procedures that may have contributed to the proof.
-
-
-%% \section{Comparison to Previous Ynot (AVI)}
-
-%%  The original formulation of Ynot lead to large, unwieldy proofs.
-%%  Reasoning about separation logic connectives was done at the heap
-%%  level; a larger fraction of all of our proof scripts simply massaged
-%%  subeaps into appropriate forms.  We had some tactics that implemented
-%%  basic operations, such as the split, join, and flattening of
-%%  sub-heaps, but the proof writer was forced to stitch them together to
-%%  force the heaps into the correct form.
-
-%%  The focus of our re-implementation of the Ynot system has been proof
-%%  automation.  Throught the use of the sep tactic, we have virtually
-%%  eliminated the need to reason about heaps; reasoning is done at the
-%%  level of seperation logic.  Much of this reasoning has in turn been
-%%  automated by a set of tactics such as \texttt{sep auto}. These
-%%  tactics reduce the need to reason about the connectives of separation
-%%  logic and their properties, allowing the proof writer to focus on the
-%%  domain specific parts of the proof.  For proofs that only have simple
-%%  domain specific parts, \texttt{sep auto} is often able to prove them
-%%  on its own.
-
-%%  The new model uses ``ghost variables'' to simplify specifying
-%%  properties. It does so in a way that guarantees that they are
-%%  computationally irrelevant, and so can always be eliminated when a
-%%  program is extracted.  This in turn allows the new model to use unary
-%%  post-conditions, which greatly simplifies specifications and enables
-%%  the greater automation.  The old model used binary post-conditions to
-%%  obviate the need for ghost variables.  Binary post-conditions where
-%%  generally harder to reason about, since the connection between pre-
-%%  and post-conditions always needed to be re-established.  In the new
-%%  style, the connection is built in to the specification.
-
-%%  In the new Ynot, proofs are an order of magnitude shorter then they
-%%  where in the old Ynot. (provide numbers here)
 
 \section{Evaluation}
 
@@ -1029,7 +993,7 @@ ls(E,F) \Leftrightarrow (E = F \wedge \mathtt{emp}) \vee (E \neq F \wedge \exist
 $$
 This is almost the same definition as we gave earlier in the Queue example, with different notational conventions.  The notable difference is that we add the pointer inequality, which is necessary to guarantee lack of cycles.
 
-To compare the annotatation burden, we consider an {\tt append} function
+To compare the annotation burden, we consider an {\tt append} function
 on lists. In Smallfoot, the function is
 built using a {\tt while} loop and requires 14 lines of code and three
 annotations: the pre- and post-conditions and the loop invariant. To
