@@ -2,7 +2,7 @@ Require Import String.
 Require Import List. 
 Require Import Ascii.
 Require Import Omega.
-Require Import Eqdep.
+(*Require Import Eqdep.*)
 Require Import Examples.Stream.
 
 Set Implicit Arguments.
@@ -28,10 +28,43 @@ Section PARSE.
     | GTry     : forall t, term t -> term t
     | GRec     : forall t:Set, (var t -> term t) -> term t
     | GMap     : forall (t1 t2:Set), (t1 -> t2) -> term t1 -> term t2.
+
+    (* A relational definition of substitution for terms -- used in the definition
+     * of the semantics below, in particular for the rec case *)
+    Inductive Subst :
+    forall (t1 t2:Set), (var t1->term t2)->(term t1)->(term t2)->Type := 
+    | SEpsilon : forall (t1 t2:Set) (v:t2) (e:term t1), 
+      Subst (fun _ => GEpsilon v) e (GEpsilon v)
+    | SSatisfy : forall t1 (f:char->bool) (e:term t1), 
+      Subst (fun _ => GSatisfy f) e (GSatisfy f)
+    | SCat : 
+      forall t1 t2 t3 (f1:var t1 -> term t2) (f2:var t1 -> term t3) (e:term t1)
+        (e1:term t2)(e2:term t3),
+        Subst f1 e e1 -> Subst f2 e e2 -> 
+        Subst (fun v => GCat (f1 v) (f2 v)) e (GCat e1 e2)
+    | SAlt : 
+      forall t1 t2 (f1 f2:var t1 -> term t2) (e:term t1)(e1 e2:term t2),
+        Subst f1 e e1 -> Subst f2 e e2 -> 
+        Subst (fun v => GAlt (f1 v) (f2 v)) e (GAlt e1 e2)
+    | SMap : 
+      forall (t1 t2 t3:Set) 
+        (f:var t1 -> term t2) (e:term t1) (g:t2->t3) (e1:term t2),
+        Subst f e e1 -> 
+        Subst (fun v => GMap g (f v)) e (GMap g e1)
+    | STry : 
+      forall t1 t2 (f1:var t1 -> term t2) (e : term t1) (e1:term t2), 
+        Subst f1 e e1 -> Subst (fun v => GTry (f1 v)) e (GTry e1)
+    | SVarEq : 
+      forall t (e:term t), Subst (@GVar t) e e
+    | SVarNeq : 
+      forall t1 t2 (v:var t2) (e:term t1), Subst (fun _ => GVar v) e (GVar v)
+    | SRec : 
+      forall t1 t2 (f1:var t1->var t2->term t2) (f2:var t2->term t2)(e:term t1), 
+        (forall v', Subst (fun v => f1 v v') e (f2 v')) -> 
+        Subst (fun v => GRec (f1 v)) e (GRec f2).
   End VARS.
 
   Definition Term t := forall V, term V t.
-
   Implicit Arguments GVar     [var t].
   Implicit Arguments GEpsilon [var t].
   Implicit Arguments GSatisfy [var].
@@ -41,39 +74,29 @@ Section PARSE.
   Implicit Arguments GRec     [var t].
   Implicit Arguments GMap     [var t1 t2].
 
-  (* A relational definition of substitution for terms -- used in the definition
-   * of the semantics below, in particular for the rec case *)
-  Inductive Subst(Var:Set->Type) : 
-    forall (t1 t2:Set), (Var t1->term Var t2)->(term Var t1)->(term Var t2)->Type := 
-  | SEpsilon : forall (t1 t2:Set) (v:t2) (e:term Var t1), 
-      Subst (fun _ => GEpsilon v) e (GEpsilon v)
-  | SSatisfy : forall t1 (f:char->bool) (e:term Var t1), 
-       Subst (fun _ => GSatisfy f) e (GSatisfy f)
-  | SCat : 
-      forall t1 t2 t3 (f1:Var t1 -> term Var t2) (f2:Var t1 -> term Var t3) (e:term Var t1)
-        (e1:term Var t2)(e2:term Var t3),
-        Subst f1 e e1 -> Subst f2 e e2 -> 
-        Subst (fun v => GCat (f1 v) (f2 v)) e (GCat e1 e2)
-  | SAlt : 
-      forall t1 t2 (f1 f2:Var t1 -> term Var t2) (e:term Var t1)(e1 e2:term Var t2),
-        Subst f1 e e1 -> Subst f2 e e2 -> 
-        Subst (fun v => GAlt (f1 v) (f2 v)) e (GAlt e1 e2)
-  | SMap : 
-       forall (t1 t2 t3:Set) 
-         (f:Var t1 -> term Var t2) (e:term Var t1) (g:t2->t3) (e1:term Var t2),
-         Subst f e e1 -> 
-         Subst (fun v => GMap g (f v)) e (GMap g e1)
-  | STry : 
-      forall t1 t2 (f1:Var t1 -> term Var t2) (e : term Var t1) (e1:term Var t2), 
-        Subst f1 e e1 -> Subst (fun v => GTry (f1 v)) e (GTry e1)
-  | SVarEq : 
-       forall t (e:term Var t), Subst (@GVar Var t) e e
-  | SVarNeq : 
-       forall t1 t2 (v:Var t2) (e:term Var t1), Subst (fun _ => GVar v) e (GVar v)
-  | SRec : 
-       forall t1 t2 (f1:Var t1->Var t2->term Var t2) (f2:Var t2->term Var t2)(e:term Var t1), 
-         (forall v', Subst (fun v => f1 v v') e (f2 v')) -> 
-         Subst (fun v => GRec (f1 v)) e (GRec f2).
+  Fixpoint flatten(V:Set->Type)(t:Set)(e: term (term V) t) {struct e} : term V t := 
+    match e in (term _ t) return (term V t) with
+    | GVar _ v => v
+    | GEpsilon t v => GEpsilon v
+    | GSatisfy f => GSatisfy f
+    | GCat t1 t2 e1 e2 => GCat (flatten e1) (flatten e2)
+    | GAlt t e1 e2 => GAlt (flatten e1) (flatten e2)
+    | GMap t1 t2 f e => GMap f (flatten e)
+    | GTry t e => GTry (flatten e)
+    | GRec t f => GRec (fun (v:V t) => flatten (f (GVar v)))
+    end.
+
+  Definition unroll(t:Set)(f:forall V, V t -> term V t) : Term t := 
+    fun V => flatten (f (term V) (GRec (f V))).
+
+  Inductive empty_set : Set := .
+  Definition empvar := (fun _:Set => empty_set).
+
+  (* It would be nice if we could prove the following axiom so that the definition
+   * of Gfix was simpler: 
+  Axiom Unroll : forall (t:Set)(f:forall var, var t -> term var t), 
+    Subst (f empvar) (GRec (f empvar)) (unroll f empvar).
+  *)
 
   Inductive consumed_t : Set := Consumed | NotConsumed.
 
@@ -100,54 +123,99 @@ Section PARSE.
    * intention here is that grammars should use a minimum of meta-level stuff in
    * revealing their structure, so that we can potentially analyze and transform them.
    *)
-  Section PARSES.
-    Variable var : Set -> Type.
 
-    Inductive parses : forall (t:Set), term var t -> list char -> reply_t t -> Prop := 
-    | pRec : forall (t:Set) (f:var t -> term var t) e s r, 
-                Subst f (GRec f) e -> parses e s r -> parses (GRec f) s r
-    | pEpsilon : forall (t:Set) (v:t) s, parses (GEpsilon v) s (Okay NotConsumed v s)
-    | pSatisfy : forall (f:char->bool) s r, 
-                   r = match s with 
-                       | c::cs => if (f c) then Okay Consumed c cs else Error NotConsumed
-                       | nil => Error NotConsumed
-                       end -> parses (GSatisfy f) s r
-    | pMap : forall (t1 t2:Set) (f:t1->t2) e1 r1 r s, 
-               parses e1 s r1 -> r = match r1 with 
-                                     | Okay nc v s2 => Okay nc (f v) s2
-                                     | Error nc => Error nc
-                                     end -> parses (GMap f e1) s r
-    | pAltR : forall t (e1 e2:term var t) r s, 
-              parses e1 s (Error NotConsumed) -> parses e2 s r -> parses (GAlt e1 e2) s r
-    | pAltLNC : forall t (e1 e2:term var t) v s2 r2 r s, 
-                parses e1 s (Okay NotConsumed v s2) -> 
-                parses e2 s r2 -> 
-                r = match r2 with
-                    | Error NotConsumed => Okay NotConsumed v s2
-                    | Okay NotConsumed _ _ => Okay NotConsumed v s2
-                    | r2 => r2
-                    end -> parses (GAlt e1 e2) s r
-    | pAltLCE : forall t (e1 e2:term var t) s, 
-                parses e1 s (Error Consumed) -> parses (GAlt e1 e2) s (Error Consumed)
-    | pAltLCOK : forall t (e1 e2:term var t) s s2 v, 
-                parses e1 s (Okay Consumed v s2) -> parses (GAlt e1 e2) s (Okay Consumed v s2)
-    | pTry : forall t (e1:term var t) r1 r s, 
-             parses e1 s r1 -> 
-             r = match r1 with
+  Section DENOTE.
+
+  (* What I'm doing here is defining a denotational semantics that maps grammar terms
+   * down to a simpler language with a monadic structure.  Then we give an operational
+   * semantics to the monadic structure.  Note that I've instantiated the var in the
+   * phoas so that it always yields an empty set.  This ensures that the term does not
+   * have a free variable.  *)
+  Inductive M: Set -> Type := 
+  | MReturn : forall t, reply_t t -> M t
+  | MBind : forall t1 t2, M t1 -> (reply_t t1 -> M t2) -> M t2
+  | MFix : forall t (f:empvar t -> term empvar t), list char -> M t.
+
+  Notation "'Return' x" := (MReturn x) (at level 75) : gdenote_scope.
+  Notation "x <- c1 ; c2" := (MBind c1 (fun x => c2)) 
+    (right associativity, at level 84, c1 at next level) : gdenote_scope.
+
+  Definition wfCoerce (t:Set)(v:empvar t) : M t := match v with end.
+
+  Open Local Scope gdenote_scope.
+
+  (* here we map a term e to a computation over lists of characters -- this is
+   * essentially the same as with Parsec-style combinators, though I've chosen
+   * slightly different combinators that are closer to arrows than the monadic
+   * interpretation.  *)
+  Fixpoint denote(t:Set)(e:term empvar t)(s:list char) {struct e} : M t := 
+    match e in term _ t return M t with
+      | GVar _ v => wfCoerce v
+      | GEpsilon _ x => Return Okay NotConsumed x s
+      | GSatisfy test => 
+        Return match s with
+                 | c :: cs => if (test c) then Okay Consumed c cs else 
+                   Error NotConsumed
+                 | nil => Error NotConsumed
+               end
+      | GMap t1 t2 f e => 
+        r <- denote e s ;
+        Return match r with 
+                 | Okay nc v s2 => Okay nc (f v) s2
+                 | Error nc => Error nc
+               end
+      | GTry t e => 
+        r <- denote e s ;
+        Return match r with
                  | Error Consumed => Error NotConsumed
                  | Okay Consumed v s2 => Okay NotConsumed v s2
-                 | _ => r1
-                 end -> parses (GTry e1) s r
-    | pCatE : forall t1 t2 (e1:term var t1) (e2:term var t2) nc s, 
-                parses e1 s (Error nc) -> parses (GCat e1 e2) s (Error nc)
-    | pCatOK : forall t1 t2 (e1:term var t1) (e2:term var t2) nc1 v1 s1 r2 r s, 
-                parses e1 s (Okay nc1 v1 s1) -> 
-                parses e2 s1 r2 -> 
-                r = match r2 with
-                    | Error nc2 => Error (join_cons nc1 nc2)
-                    | Okay nc2 v2 s2 => Okay (join_cons nc1 nc2) (v1,v2) s2
-                    end -> parses (GCat e1 e2) s r.
-  End PARSES.
+                 | _ => r
+               end
+      | GCat t1 t2 e1 e2 => 
+        r1 <- denote e1 s ;
+        match r1 with 
+          | Error nc => Return Error nc
+          | Okay nc1 v1 s1 => 
+            r2 <- denote e2 s1 ;
+            Return match r2 with 
+                     | Error nc2 => Error (join_cons nc1 nc2)
+                     | Okay nc2 v2 s2 => Okay (join_cons nc1 nc2) (v1,v2) s2
+                   end
+        end
+      | GAlt t e1 e2 => 
+        r1 <- denote e1 s ; 
+        match r1 with
+          | Error Consumed => Return Error Consumed
+          | Error NotConsumed => denote e2 s
+          | Okay NotConsumed v s2 => 
+            r2 <- denote e2 s ;
+            Return match r2 with 
+                     | Error NotConsumed => Okay NotConsumed v s2
+                     | Okay NotConsumed _ _ => Okay NotConsumed v s2
+                     | r2 => r2
+                   end
+          | Okay Consumed v s2 => Return Okay Consumed v s2
+        end
+      | GRec t f => MFix f s
+    end.
+  
+  (* We now give an operational semantics to the monadic terms generated by the
+   * denotation function.  Note that in essence, we just delay unrolling the 
+   * fix operator.  *)
+  Inductive evals : forall t, M t -> reply_t t -> Prop := 
+  | eMReturn : forall t (r:reply_t t), evals (MReturn r) r
+  | eMBind : forall t1 t2 (c:M t1) (r1:reply_t t1) (f:reply_t t1 -> M t2) r2, 
+    evals c r1 -> evals (f r1) r2 -> evals (MBind c f) r2
+  | eMFix : 
+    forall t (f:empvar t -> term empvar t) (s:list char) (e:term empvar t) (r:reply_t t), 
+      Subst f (GRec f) e -> evals (denote e s) r -> evals (MFix f s) r.
+
+  (* Then we say that a term t parses string s yielding result r if the following
+   * if evaluating the denotation of e, when applied to s yields r. *)
+  Definition parses(t:Set)(e:Term t)(s:list char)(r:reply_t t) := 
+    evals (denote (e empvar) s) r.
+
+  End DENOTE.
   End GRAMMAR.
 
   Require Import Ynot.
@@ -163,18 +231,16 @@ Section PARSE.
     | (S n, nil) => nil
     end.
 
-  Definition P(t:Set) := list char -> reply_t t.
-
   Definition okay(t:Set)(n:[nat])(i:instream_t char)(e:Term t)(c:consumed_t)(m:nat)(v:t) :=
     (n ~~ let elts := stream_elts i in
-          elts ~~ [parses (e P) (nthtail elts n) (Okay c v (nthtail elts (m+n)))])%hprop.
+          elts ~~ [parses e (nthtail elts n) (Okay c v (nthtail elts (m+n)))])%hprop.
 
   Definition okaystr(t:Set)(n:[nat])(i:instream_t char)(e:Term t)(c:consumed_t)(m:nat)(v:t) :=
     (okay n i e c m v * (n ~~ rep i (m+n)))%hprop.
 
   Definition error(t:Set)(n:[nat])(i:instream_t char)(e:Term t)(c:consumed_t) := 
     (n ~~ let elts := stream_elts i in
-          elts ~~ [parses (e P) (nthtail elts n) (Error t c)])%hprop.
+          elts ~~ [parses e (nthtail elts n) (Error t c)])%hprop.
 
   Definition errorstr(t:Set)(n:[nat])(i:instream_t char)(e:Term t)(c:consumed_t) := 
     (error n i e c * (Exists m :@ nat, rep i m))%hprop.
@@ -200,7 +266,7 @@ Section PARSE.
   Lemma EmpImpInj(P:Prop) : 
     P -> __ ==> [P].
   Proof.
-    intros. sep auto.
+    intros. sep fail auto.
   Qed.
 
   Lemma NthErrorNoneNthTail(A:Type)(i:nat)(vs:list A) : 
@@ -227,25 +293,14 @@ Section PARSE.
     pose (IHi _ _ _ H). apply e.
   Qed.
 
+  Lemma PlusAssoc(n m p:nat) : n + (m + p) = n + m + p. intros ; omega. Qed.
+
   Ltac mysep := 
     match goal with
     | [ |- (__ ==> [ _ ])%hprop ] => apply EmpImpInj
-    | [ H : parses ?e1 ?s (Error _ _) |- parses (GCat ?e1 _) ?s _ ] => 
-      eapply pCatE ; eauto
-    | [ H : parses ?e1 ?s (Okay _ _ _) |- parses (GCat ?e1 _) ?s _ ] => 
-      eapply pCatOK ; eauto
-    | [ H : parses ?e1 ?s (Error _ NotConsumed) |- parses (GAlt ?e1 _) ?s _ ] => 
-      eapply pAltR ; eauto
-    | [ H : parses ?e1 ?s (Okay NotConsumed _ _) |- parses (GAlt ?e1 _) ?s _] => 
-      eapply pAltLNC ; eauto
-    | [ H : parses ?e1 ?s (Error _ Consumed) |- parses (GAlt ?e1 _) ?s _] => 
-      eapply pAltLCE ; eauto
-    | [ H : parses ?e1 ?s (Okay Consumed _ _) |- parses (GAlt ?e1 _) ?s _] => 
-      eapply pAltLCOK ; eauto
-    | [ |- parses _ _ _ ] => econstructor ; eauto
-    | [ |- context[hprop_unpack (stream_elts ?ins) _]] => 
-      destruct ins as [stream_elts rep peek next position seek close] ; 
-        simpl in *; clear peek next position seek close
+    | [ |- evals (MReturn ?r) ?r ] => constructor
+    | [ |- evals (MBind _ _) _] => econstructor
+    | [ |- context[?n + (?m + ?p)]] => rewrite (PlusAssoc n m p)
     | [ |- context[if (?f ?c) then _ else _] ] => 
       let H := fresh "H" in
       assert (H: f c = true \/ f c = false) ; [ destruct (f c) ; tauto | 
@@ -263,9 +318,24 @@ Section PARSE.
     GRec (f var).
 
   Ltac myunfold := unfold ans_str_correct, ans_correct, okaystr, okay, errorstr, error, 
-    gsatisfy, gepsilon, galt, gmap, gcat, gtry, grec.
+    parses, gsatisfy, gepsilon, galt, gmap, gcat, gtry, grec.
 
-  Ltac psimp := repeat (progress (myunfold ; sep auto ; mysep ; simpl ; eauto)).
+  Ltac psimp := (myunfold ; sep fail auto ; mysep ; simpl ; eauto).
+
+  Ltac rsimp := psimp ; 
+    match goal with 
+    | [ |- context[match ?a with | OKAY c m v => _ | ERROR c _ => _ end] ] => destruct a
+    | [ |- context[match ?c with | Consumed => _ | NotConsumed => _ end] ] => destruct c
+    | _ => idtac
+    end.
+
+  Lemma NthError(x:list char)(n:nat) : 
+    (nth_error x n = None \/ exists c, nth_error x n = Some c).
+  Proof.  intros. destruct (nth_error x n). right. eauto. left. eauto.
+  Qed.
+
+  Lemma EvalsMReturn(t:Set)(r1 r2:reply_t t) : r1 = r2 -> evals (MReturn r1) r2.
+  Proof. intros. rewrite <- H. constructor. Qed.
 
   (* the parser for a single character *)
   Definition satisfy(f:char -> bool) : parser_t (gsatisfy f).
@@ -280,20 +350,26 @@ Section PARSE.
               | None => errorstr n instream (gsatisfy f) NotConsumed
               | Some c => if f c then okaystr n instream (gsatisfy f) Consumed 1 c
                           else errorstr n instream (gsatisfy f) NotConsumed 
-              end @> _) ; psimp. destruct copt ; psimp.
-   assert (nth_error l n0 = None \/ (exists c, nth_error l n0 = Some c)).
-   destruct (nth_error l n0). right. eauto. left. auto. destruct H. rewrite H ; psimp. 
-   rewrite (NthErrorNoneNthTail _ _ H). auto. destruct H. 
-   destruct (NthErrorSomeNthTail _ _ H) as [vs1 [vs2 [H1 H2]]]. rewrite H. psimp. rewrite H2. 
-   pose (NthTailSucc _ _ H2). simpl in e. rewrite e. rewrite H0. auto. rewrite H2.  
-   rewrite H0. auto.
- Defined.
+              end @> _) ; psimp ; 
+    match goal with 
+      [ |- _ ==> match nth_error ?x ?n with | Some c => _ | None => _ end] => 
+      let H := fresh in pose (H := NthError x n) ; destruct H ; [ rewrite H ; psimp ; 
+        rewrite (NthErrorNoneNthTail _ _ H) ; psimp | destruct H ; rewrite H ; psimp ; psimp ;
+          let H1 := fresh in let v1 := fresh in let v2 := fresh in 
+            let H2 := fresh in let H3 := fresh in 
+          pose (H1 := NthErrorSomeNthTail _ _ H) ; destruct H1 as [v1 [v2 [H1 H2]]] ; 
+          rewrite H2 ; psimp ; pose (H3 := (NthTailSucc _ _ H2)) ; 
+          simpl in H3 ; eapply EvalsMReturn ; congruence]
+      | [ |- match ?copt with | Some c => _ | None => _ end ==> _] => destruct copt ;
+        repeat psimp 
+    end.
+  Defined.
             
   (* the parser for the empty string *)
   Definition epsilon(t:Set)(v:t) : parser_t (gepsilon v).
     intros t v instream n.
     refine ({{Return (OKAY NotConsumed 0 v) <@> (n ~~ rep instream n)}}) ; 
-    psimp. 
+    repeat psimp. 
   Defined.
     
   (* left-biased alternation -- need to fix error message propagation here *)
@@ -344,19 +420,7 @@ Section PARSE.
           | ans => 
               {{Return ans <@> 
                  ((n ~~ [n0=n]) * ans_str_correct n instream e1 ans)%hprop}}
-          end).
-    (* Most of the cases can be discharged with psimp, but in a few cases, this
-     * fails because sep generates a constraint variable for an existential goal
-     * before introducing certain terms (usually for an hprop_unpack).  So I have
-     * to break out those cases and handle them manually. *)
-    psimp. psimp. psimp. psimp. unfold ans. psimp. myunfold. sep auto. dependent inversion n.
-    psimp. unfold frame. dependent inversion n. psimp. psimp. psimp. 
-    unfold frame. psimp. myunfold. dependent inversion n. psimp. 
-    unfold frame. psimp. psimp. psimp. psimp. unfold frame, ans ; clear frame ans.
-    psimp. psimp. psimp. unfold frame, ans, ans0 ; clear frame ans ans0. psimp. 
-    psimp. psimp. unfold frame. dependent inversion n. psimp. psimp. psimp.
-    psimp. unfold frame ; clear frame. psimp. destruct v. psimp. psimp.
-    unfold frame, ans. dependent inversion n. psimp. psimp. psimp.
+          end) ; (try unfold frame) ; repeat rsimp.
   Defined.
 
   (* the parser for (gmap f e) given f and a parser p for e *)
@@ -367,7 +431,7 @@ Section PARSE.
                     | OKAY c m v => OKAY c m (f v)
                     | ERROR c msg => ERROR t2 c msg 
                     end) <@> ans_str_correct n instream e ans @> _) ; psimp.
-    destruct ans ; psimp. 
+    destruct ans ; repeat psimp. 
   Defined.
 
   (* parser for concatenation *)
@@ -392,9 +456,7 @@ Section PARSE.
             | ERROR c1 msg => 
                 {{Return ERROR (t1*t2) c1 msg <@> 
                   (ans_str_correct n instream e1 (ERROR t1 c1 msg) * (n ~~ [n0 = n]))%hprop}}
-            end) ; psimp.
-    destruct ans2 ; psimp. assert (n + (m1 + n1) = n + m1 + n1). omega. rewrite H1.
-    psimp. rewrite H1. psimp. 
+            end) ; repeat rsimp.
   Defined.
 
   (* try combinator *)
@@ -406,32 +468,17 @@ Section PARSE.
                    | OKAY Consumed m v => OKAY NotConsumed m v
                    | ans => ans
                    end <@> ans_str_correct n instream e ans @> _) ; psimp.
-    destruct ans ; destruct c ; psimp. 
+    destruct ans ; destruct c ; repeat psimp.
   Defined.
 
   (* used in construction of fixed-point *)
   Definition coerce_parse_fn(t:Set)(f:forall var, var t -> term var t)(e:Term t)
-                            (H:Subst (f P) (GRec (f P)) (e P))
+                            (H:Subst (f empvar) (GRec (f empvar)) (e empvar))
                             (F:parser_t (grec f) -> parser_t e) : 
                        parser_t (grec f) -> parser_t (grec f).
     intros t f e H1 F p instream n.
-    refine ((F p instream n) @> _). destruct v ; psimp.
+    refine ((F p instream n) @> _). destruct v ; psimp ; econstructor ; eauto.
   Qed. 
-
-  Fixpoint flatten(V:Set->Type)(t:Set)(e: term (term V) t) {struct e} : term V t := 
-    match e in (term _ t) return (term V t) with
-    | GVar _ v => v
-    | GEpsilon t v => GEpsilon V v
-    | GSatisfy f => GSatisfy V f
-    | GCat t1 t2 e1 e2 => GCat (flatten e1) (flatten e2)
-    | GAlt t e1 e2 => GAlt (flatten e1) (flatten e2)
-    | GMap t1 t2 f e => GMap f (flatten e)
-    | GTry t e => GTry (flatten e)
-    | GRec t f => GRec (fun (v:V t) => flatten (f (GVar V t v)))
-    end.
-
-  Definition unroll(t:Set)(f:forall V, V t -> term V t) : Term t := 
-    fun V => flatten (f (term V) (GRec (f V))).
 
   Definition parser_t'(t:Set)(e:Term t)(p:(instream_t char * [nat])) := 
     let ins := fst p in
@@ -441,14 +488,14 @@ Section PARSE.
   (* Alas, note that we need H here -- can't easily prove this once and for all *)
   Definition Gfix(t:Set)(f:forall V, V t -> term V t)
                   (F:parser_t (grec f) -> parser_t (unroll f))
-                  (H: Subst (f P) (GRec (f P)) (unroll f P)) : 
-                  parser_t (grec f) := 
+                  (H: Subst (f empvar) (GRec (f empvar)) (unroll f empvar)) : 
+                  parser_t (grec f) :=
     (* coerce F so that its result is re-rolled *)
     let Fc : parser_t (grec f) -> parser_t (grec f) := coerce_parse_fn H F in
     (* Grrr. To call SepFix, I have to uncurry Fc *)
     let Fu : (forall p, parser_t' (grec f) p) -> (forall p, parser_t' (grec f) p) := 
        fun f arg => Fc (fun ins n => f (ins,n)) (fst arg) (snd arg) in
-    fun instream n => (SepFix _ _ _ Fu) (instream,n).
+    fun instream n => (SepFix _ _ Fu) (instream,n).
   Implicit Arguments Gfix [t f].
 End PARSE.
 
