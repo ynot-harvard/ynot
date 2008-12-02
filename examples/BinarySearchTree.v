@@ -211,7 +211,7 @@ Qed.
    Proof. Hint Resolve perm_node_rep. intros. apply himp_split; auto. Qed.
 
    Ltac nr_perm := search_conc ltac:(search_prem ltac:(apply perm_node_swap_frame)) || auto.
-
+(*
    Fixpoint find_max (l:alist_t) mk (mv:value_t mk) {struct l} :=
      match l with
        | nil => (mk,,mv)
@@ -304,7 +304,7 @@ search_prem ltac:(apply rep2node_prem). sep fail idtac.
  t. t. t. t.
  Qed.
 
-
+*)
 
    Definition lookup  : T.lookup.
    refine (Fix3 _ _ (fun (lookup:T.lookup) f k l => 
