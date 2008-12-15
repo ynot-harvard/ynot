@@ -13,6 +13,6 @@ coqtop:
 	coqtop -impredicative-set -R src Ynot -R examples Examples
 
 dist: 
-	hg archive -t tgz -X SIGNUP ynot.tgz
+	hg archive -t tgz -X paper -X private ynot.tgz
 
-.PHONY: all clean coqtop cleandep
+.PHONY: all clean coqtop cleandep dist

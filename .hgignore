@@ -18,3 +18,5 @@ syntax: glob
 *.fls
 *.ps
 *.temp
+
+ynot.tgz
