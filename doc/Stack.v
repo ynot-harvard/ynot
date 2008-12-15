@@ -38,13 +38,20 @@ Module Type STACK.
 End STACK.
 
 Module Stack : STACK.
+
+  (** We use Coq's section mechanism to scope the type variable [T] over all of our definitions. *)
+
   Section Stack.
     Variable T : Set.
+
+    (* We will represent stacks as singly-linked lists.  A node of a linked list consists of a data value and an optional pointer to the next node.  We use [option] types rather than baking in a concept of "null pointers." *)
 
     Record node : Set := Node {
       data : T;
       next : option ptr
     }.
+
+    (** We can use a recursive [hprop]-valued function to define what it means for a particular list to be represented in the heap, starting from a particular head pointer. *)
 
     Fixpoint listRep (ls : list T) (hd : option ptr) {struct ls} : hprop :=
       match ls with
@@ -53,32 +60,46 @@ Module Stack : STACK.
                       | None => [False]
                       | Some hd => Exists p :@ option ptr, hd --> Node h p * listRep t p
                     end
-      end%hprop.
+      end.
+
+    (** As in the [Counter] example, we represent a stack as an untyped pointer, and we rely on the [rep] predicate to enforce proper typing of associated heap cells. *)
 
     Definition stack := ptr.
+    Definition rep q ls := Exists po :@ option ptr, q --> po * listRep ls po.
 
-    Definition rep q ls := (Exists po :@ option ptr, q --> po * listRep ls po)%hprop.
+    (** We define a tactic that will be useful for domain-specific goal simplification.  In larger examples, such a tactic definition would probably be significantly longer.  Here, we only need to ask Coq to try solving goals by showing that they are contradictory, because two equated values of a datatype are built from different constructors. *)
 
     Ltac simplr := try discriminate.
 
-    Theorem listRep_None : forall ls,
-      listRep ls None ==> [ls = nil].
+    (** A key component of effective Ynot automation is the choice of appropriate domain-specific %\emph{%#<i>#unfolding lemmas#</i>#%}%.  Such a lemma characterizes how an application of a representation predicate may be decomposed, when something is known about the structure of the arguments.  Our first simple unfolding lemma says that any functional list represented by a null pointer must be nil.  [sep] can complete the proof after we begin with a case analysis on the list. *)
+
+    Theorem listRep_None : forall ls, listRep ls None ==> [ls = nil].
       destruct ls; sep fail idtac.
     Qed.
+
+    (** A slightly more complicated lemma characterizes the shape of a list represented by a non-null pointer.  Here we put our [simplr] tactic to use as the second argument to [sep].  In general, the tactic given as that second argument is tried throughout proof search, in attempts to discharge goals that the separation logic simplifier can't prove alone. *)
 
     Theorem listRep_Some : forall ls hd,
       listRep ls (Some hd) ==> Exists h :@ T, Exists t :@ list T, Exists p :@ option ptr,
         [ls = h :: t] * hd --> Node h p * listRep t p.
-      destruct ls; sep fail ltac:(try discriminate).
+      destruct ls; sep fail simplr.
     Qed.
+
+    (** With these lemmas available, we are ready to define a tactic that will be passed as the first argument to [sep].  The tactic in that position is used to simplify the goal before beginning the main proof search.  The tactic [simp_prem] will perform that function for us. *)
 
     Ltac simp_prem :=
       simpl_IfNull;
       simpl_prem ltac:(apply listRep_None || apply listRep_Some).
 
+    (** The [simpl_IfNull] tactic comes from the Ynot library.  It simplifies goal patterns that arise from a syntax extension that we will see shortly.  The more interesting part of [simp_prem] is the call to [simpl_prem], another tactic from the library.  [simpl_prem t] looks for premises (sub-formulas on the left of implications) that can be simplified by the tactic [t].  Here, we try to simplify by applying either of our unfolding lemmas.
+
+       With these pieces in place, we define a final [t] solver tactic by dropping our two parameters into the version that we used for [Counter]. *)
+
     Ltac t := unfold rep; sep simp_prem simplr.
     
     Open Scope stsepi_scope.
+
+    (** The first three method definitions are quite simple and use no new concepts. *)
 
     Definition new : STsep __ (fun s => rep s nil).
       refine {{New (@None ptr)}}; t.
@@ -95,11 +116,15 @@ Module Stack : STACK.
       ); t.
     Qed.
 
+    (** The definition of [pop] introduces the [IfNull] syntax extension.  An expression [IfNull x Then e1 Else e2] expands to a test on whether the variable [x] of some [option] type is null.  If [x] is [None], then the result is [e1].  If [x] is [Some y], then the result is [e2], with all occurrences of [x] replaced by [y]. *)
+
     Definition pop : forall s ls,
-      STsep (ls ~~ rep s ls) (fun xo => ls ~~ match xo with
-                                                | None => [ls = nil] * rep s ls
-                                                | Some x => Exists ls' :@ list T, [ls = x :: ls'] * rep s ls'
-                                              end).
+      STsep (ls ~~ rep s ls)
+      (fun xo => ls ~~ match xo with
+                         | None => [ls = nil] * rep s ls
+                         | Some x => Exists ls' :@ list T, [ls = x :: ls']
+                                     * rep s ls'
+                       end).
       intros; refine (hd <- !s;
 
         IfNull hd Then
@@ -111,6 +136,8 @@ Module Stack : STACK.
           {{Return (Some (data nd))}}); t.
     Qed.
   End Stack.
+
+  (** Finally, since the signature makes the type [t] polymorphic, we define a trivial wrapper that discards the type paramter. *)
 
   Definition t (_ : Set) := stack.
 End Stack.
