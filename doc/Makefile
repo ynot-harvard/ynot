@@ -1,4 +1,4 @@
-MODULES := Intro
+MODULES := Intro Counter
 VS      := $(MODULES:%=%.v)
 VOS     := $(MODULES:%=%.vo)
 GLOBALS := .coq_globals
@@ -10,9 +10,12 @@ doc: Tutorial.dvi Tutorial.pdf html
 coq: Makefile.coq
 	make -f Makefile.coq
 
+R := -R ../src Ynot
+
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \
-		COQC = "coqc -impredicative-set -dump-glob $(GLOBALS)" \
+		COQC = "coqc -impredicative-set -dump-glob $(GLOBALS) $(R)" \
+		COQDEP = "coqdep $(R)" \
 		-o Makefile.coq
 
 clean:: Makefile.coq
