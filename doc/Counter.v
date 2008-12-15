@@ -57,17 +57,58 @@ Module Type COUNTER.
     (fun _ : unit => n ~~ rep c (S n)).
 End COUNTER.
 
+(** We can implement a module ascribing to this signature.  Since the types of the methods include specifications, we know that any implementation is correct, up to the level of detail that we included in the signature. *)
+
 Module Counter : COUNTER.
   Definition t := ptr.
-  Definition rep (p : t) (n : nat) := (p --> n)%hprop.
+  Definition rep (p : t) (n : nat) := p --> n.
+
+  (** We represent a counter with the [ptr] type.  Unlike ML ref types, Ynot pointer types don't carry information on the types of data that they point to.  Rather, we rely on typed points-to facts within assertions.  We see an example in the definition of [rep]: a counter-pointer [p] represents a number [n] if [p] points to heap memory containing [n].
+
+     Since our method types contain specifications, we will need to do some proving to define the methods.  We define a simple tactic [t] that is able to dispatch all of the proof obligations we will encounter. *)
 
   Ltac t := unfold rep; sep fail idtac.
 
+  (** We replace uses of [rep] by unfolding its definition, and we call the [sep] tactic from the Ynot library.  [sep] is intended as a separation logic version of Coq's [intuition] tactic, which simplifies formulas of constructive propositional logic.  We have no theoretical completeness guarantees for [sep], but usage patterns are roughly the same.  Just as [intuition] takes an optional argument giving a tactic to apply in solving leaves of its proof search, [sep] takes two domain-specific tactics as arguments.  In later examples, we will see more interesting choices for those tactics.
+
+     Before we begin programming, we open another scope, this time to let us write ML-like syntax for Ynot programs. *)
+
   Open Scope stsepi_scope.
+
+  (** We implement the [new] method by %\emph{%#<i>#declaring it as a proof search goal#</i>#%}%, so that we can use tactics to discharge the obligations that we will generate. *)
 
   Definition new : STsep __ (fun c => rep c 0).
     refine {{New 0}}; t.
   Qed.
+
+  (** The [refine] tactic is the foundation of our implementation.  In general, [refine] takes a term with holes in it, solving the current goal and adding the types of the holes as subgoals.  There are holes in the term we pass to [refine] in defining [new], but they are hidden by the Ynot syntax extensions.  We write double braces around a Ynot program to indicate simultaneous strengthening of the precondition and weakening of the postcondition.  We chain our tactic [t] onto the [refine], so that [t] is applied to discharge every subgoal.
+
+     It is instructive to see exactly which subgoals are being proved for us. *)
+
+  Definition new' : STsep __ (fun c => rep c 0).
+    refine {{New 0}}.
+    (** [[
+
+2 subgoals
+  
+  ============================
+   __ ==> ?504 * __
+        ]] *)
+
+    (** [[
+subgoal 2 is:
+ forall v : ptr, ?504 * v --> 0 ==> rep v 0
+        ]]
+
+        The first subgoal corresponds to strengthening the precondition; we see an implication between our stated precondition and the precondition that Coq inferred.  We are trying to write a function with precondition [__], while Coq has figured out that our implementation could actually be given any precondition.  That fact shows up in the form of the second assertion, which is a unification variable conjoined with the empty heap, which is logically equivalent to that unification variable alone.
+
+        The same unification appears to the left of an implication in the second subgoal, which comes from weakening the postcondition.  Where [v] is the method return value, we must show that any heap with some unknown part and some part containing just a mapping of [v] to [0] can be described by the appropriate instance of [rep].  In our automated script above, the unification variable had already been determined to be [__] by this point, so that this goal can be proved by reflexivity of implication.
+
+        For the rest of this and the other examples, we won't show the obligations that are generated.  You will no doubt need to inspect such obligations in writing your own Ynot programs, so it may be useful to play with the proof scripts in this tutorial, to see which obligations are generated and experiment with manual means of discharging them. *)
+
+  Abort.
+
+  (** The remaining method definitions are (perhaps surprisingly) quite straightforward.  We use ML-style operators for working with pointers, writing prefix [!] for reading and infix [::=] for writing.  We use Haskell-style [<-] notation for the monad "bind" operator. *)
 
   Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __).
     intros; refine {{Free c}}; t.
