@@ -8,11 +8,15 @@ cleandep:
 clean:
 	make -C src clean
 	make -C examples clean
+	make -C doc clean
+
+doc:
+	make -C doc
 
 coqtop:
-	coqtop -impredicative-set -R src Ynot -R examples Examples
+	coqtop -R src Ynot -R examples Examples
 
 dist: 
 	hg archive -t tgz -X paper -X private ynot.tgz
 
-.PHONY: all clean coqtop cleandep dist
+.PHONY: all clean coqtop cleandep dist doc

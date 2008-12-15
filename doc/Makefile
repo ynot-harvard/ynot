@@ -1,4 +1,4 @@
-MODULES := Intro Counter Stack
+MODULES := Intro Counter Stack Queue
 VS      := $(MODULES:%=%.v)
 VOS     := $(MODULES:%=%.vo)
 GLOBALS := .coq_globals
@@ -14,13 +14,15 @@ R := -R ../src Ynot
 
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \
-		COQC = "coqc -impredicative-set -dump-glob $(GLOBALS) $(R)" \
+		COQC = "coqc -dump-glob $(GLOBALS) $(R)" \
 		COQDEP = "coqdep $(R)" \
 		-o Makefile.coq
 
 clean:: Makefile.coq
 	make -f Makefile.coq clean
-	rm -f Makefile.coq .depend $(GLOBALS)
+	rm -f Makefile.coq .depend $(GLOBALS) \
+		*.sty *.aux *.dvi *.log *.pdf *.tex \
+		html/*.html html/*.css
 
 Tutorial.tex: coq Makefile $(VOS)
 	coqdoc --latex -s $(VS) -o Tutorial.tex \
