@@ -2,6 +2,7 @@ syntax: glob
 
 *~
 .coq_globals
+doc/.coq_globals
 
 *.depend
 *.vo
@@ -20,3 +21,8 @@ syntax: glob
 *.temp
 
 ynot.tgz
+
+doc/*.tex
+doc/*.sty
+doc/html/*.html
+doc/html/*.css
