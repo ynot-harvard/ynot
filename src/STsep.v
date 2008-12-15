@@ -195,7 +195,8 @@ Section Sep.
     STsep (pre v1 v2) (post v1 v2).
     Proof. intros;
     refine (@SepFix (sigT dom2)%type 
-      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2)); auto.
+      (curry ran) (curry pre) (curry post)
+      (fun self x => F (fun a b => self (@existT _ _ a b)) (projT1 x) (projT2 x)) (@existT _ _ v1 v2)).
     Qed.
 
   Definition SepFix3 : forall (dom1 : Type) (dom2: forall (d1:dom1), Type) 
@@ -208,7 +209,8 @@ Section Sep.
     v1 v2 v3, STsep (pre v1 v2 v3) (post v1 v2 v3).
     Proof. intros;
     refine (@SepFix2 (sigT dom2)%type (curry dom3)
-      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2) v3); auto.
+      (curry ran) (curry pre) (curry post) 
+      (fun self x => F (fun a b c => self (@existT _ _ a b) c) (projT1 x) (projT2 x)) (@existT _ _ v1 v2) v3).
     Qed.
 
   Definition SepFix4 : forall (dom1 : Type) (dom2: forall (d1:dom1), Type) 
@@ -221,7 +223,9 @@ Section Sep.
     v1 v2 v3 v4, STsep (pre v1 v2 v3 v4) (post v1 v2 v3 v4).
     Proof. intros;
     refine (@SepFix3 (sigT dom2)%type (curry dom3) (curry dom4)
-      (curry ran) (curry pre) (curry post) _ (@existT _ _ v1 v2) v3 v4); auto.
+      (curry ran) (curry pre) (curry post) 
+      (fun self x =>  F (fun a b c d => self (@existT _ _ a b) c d) (projT1 x) (projT2 x))
+      (@existT _ _ v1 v2) v3 v4).
     Qed.
 
 End Sep.
