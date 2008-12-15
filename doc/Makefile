@@ -1,4 +1,4 @@
-MODULES := Intro Counter
+MODULES := Intro Counter Stack
 VS      := $(MODULES:%=%.v)
 VOS     := $(MODULES:%=%.vo)
 GLOBALS := .coq_globals
