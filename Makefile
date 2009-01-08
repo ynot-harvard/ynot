@@ -17,6 +17,6 @@ coqtop:
 	coqtop -R src Ynot -R examples Examples
 
 dist: 
-	hg archive -t tgz -X paper -X private ynot.tgz
+	hg archive -t tgz -X private ynot.tgz
 
 .PHONY: all clean coqtop cleandep dist doc
