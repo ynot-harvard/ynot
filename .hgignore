@@ -9,7 +9,8 @@ doc/.coq_globals
 */Makefile.coq
 *.aux
 *.log
-*.pdf
+doc/*.pdf
+private/papers/*.pdf
 
 *.make
 *.bbl
