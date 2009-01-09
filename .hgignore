@@ -27,3 +27,5 @@ doc/*.tex
 doc/*.sty
 doc/html/*.html
 doc/html/*.css
+
+private/web/Tutorial.pdf
