@@ -10,7 +10,7 @@ doc/.coq_globals
 *.aux
 *.log
 doc/*.pdf
-private/papers/*.pdf
+private/papers/*/*.pdf
 
 *.make
 *.bbl
