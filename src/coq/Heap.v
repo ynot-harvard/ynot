@@ -33,18 +33,25 @@ Require Import Ynot.Axioms.
 
 Set Implicit Arguments.
 
+Axiom axiom_ptr : Set.
 
-Definition heap := nat -> option dynamic.
-Definition ptr := nat.
+Definition ptr := axiom_ptr.
+
+Axiom axiom_ptr_eq_dec : forall (a b : ptr), {a = b} + {a <> b}.
+
+Definition ptr_eq_dec := axiom_ptr_eq_dec.
+(** Definition ptr := nat. **)
+
+Definition heap := ptr -> option dynamic.
 
 Definition empty : heap := fun _ => None.
 Definition singleton (p : ptr) (v : dynamic) : heap :=
-  fun p' => if eq_nat_dec p' p then Some v else None.
+  fun p' => if ptr_eq_dec p' p then Some v else None.
 Definition read (h : heap) (p : ptr) : option dynamic := h p.
 Definition write (h : heap) (p : ptr) (v : dynamic) : heap :=
-  fun p' => if eq_nat_dec p' p then Some v else h p'.
+  fun p' => if ptr_eq_dec p' p then Some v else h p'.
 Definition free (h : heap) (p : ptr) : heap :=
-  fun p' => if eq_nat_dec p' p then None else h p'.
+  fun p' => if ptr_eq_dec p' p then None else h p'.
 
 Infix "-->" := singleton (at level 38, no associativity) : heap_scope.
 Infix "#" := read (right associativity, at level 60) : heap_scope.
@@ -91,27 +98,27 @@ Qed.
 Theorem read_singleton_same : forall p d,
   (p --> d) # p = Some d.
   unfold read, singleton; intros.
-  destruct (eq_nat_dec p p); tauto.
+  destruct (ptr_eq_dec p p); tauto.
 Qed.
 
 Theorem read_singleton_diff : forall p d p',
   p' <> p
   -> (p --> d) # p' = None.
   unfold read, singleton; intros.
-  destruct (eq_nat_dec p' p); tauto.
+  destruct (ptr_eq_dec p' p); tauto.
 Qed.
 
 Theorem read_write_same : forall h p d,
   (h ## p <- d) # p = Some d.
   unfold read, write; intros.
-  destruct (eq_nat_dec p p); tauto.
+  destruct (ptr_eq_dec p p); tauto.
 Qed.
 
 Theorem read_write_diff : forall h p d p',
   p' <> p
   -> (h ## p <- d) # p' = h # p'.
   unfold read, write; intros.
-  destruct (eq_nat_dec p' p); tauto.
+  destruct (ptr_eq_dec p' p); tauto.
 Qed.
 
 Hint Rewrite read_empty read_singleton_same read_write_same : Ynot.

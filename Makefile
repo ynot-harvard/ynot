@@ -1,17 +1,17 @@
 all:
-	make -C src
-	make -C examples
+	$(MAKE) -C src
+	$(MAKE) -C examples
 
 cleandep:
 	rm */.depend
 
 clean:
-	make -C src clean
-	make -C examples clean
-	make -C doc clean
+	$(MAKE) -C src clean
+	$(MAKE) -C examples clean
+	$(MAKE) -C doc clean
 
 doc:
-	make -C doc
+	$(MAKE) -C doc
 
 coqtop:
 	coqtop -R src Ynot -R examples Examples

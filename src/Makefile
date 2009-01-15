@@ -1,19 +1,19 @@
-MODULES    := Axioms Util Heap Hprop ST STsep Separation Hprop2 Case Ynot
+MODULES    := Axioms Util Heap Hprop ST STsep Separation Hprop2 Case Basis Ynot Extract
 VS         := $(MODULES:%=%.v)
 
 .PHONY: coq clean
 
-coq: Makefile.coq
-	make -f Makefile.coq
+coq: coq/Makefile.coq
+	(cd coq; $(MAKE) -f Makefile.coq)
 
 R := -R . Ynot
 
-Makefile.coq: Makefile $(VS)
-	coq_makefile $(VS) \
-		COQC = "coqc $(R)" \
-		COQDEP = "coqdep $(R)" \
-		-o Makefile.coq
+coq/Makefile.coq: Makefile $(VS:%=coq/%)
+	(cd coq; coq_makefile $(VS) \
+	             COQC = "coqc $(R)" \
+		     COQDEP = "coqdep $(R)" \
+		     -o Makefile.coq)
 
-clean:: Makefile.coq
-	make -f Makefile.coq clean
-	rm -f Makefile.coq .depend
+clean:: coq/Makefile.coq
+	(cd coq; $(MAKE) -f Makefile.coq clean)
+	rm -f coq/Makefile.coq coq/.depend

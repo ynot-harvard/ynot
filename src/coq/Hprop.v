@@ -240,7 +240,7 @@ Theorem split_write1 : forall h h1 h2 p T T' (v : T) (v' : T'),
   -> (h ## p <- Dyn v') ~> (h1 ## p <- Dyn v') * h2.
   unfold split, disjoint, disjoint1, join, write, read; intuition; subst.
 
-  destruct (eq_nat_dec p0 p); subst.
+  destruct (ptr_eq_dec p0 p); subst.
   generalize (H3 p); intro Hp.
   destruct (h2 p); trivial.
   rewrite H0 in Hp; trivial.
@@ -250,12 +250,12 @@ Theorem split_write1 : forall h h1 h2 p T T' (v : T) (v' : T'),
   generalize (H3 p0); intro Hp0.
   destruct (h2 p0); trivial.
 
-  destruct (eq_nat_dec p0 p); subst; trivial.
+  destruct (ptr_eq_dec p0 p); subst; trivial.
 
   rewrite H0 in Hp0; trivial.
 
   unfold heap; ext_eq.
-  destruct (eq_nat_dec x p); trivial.
+  destruct (ptr_eq_dec x p); trivial.
 Qed.
 
 Theorem split_write2 : forall h h1 h2 p T T' (v : T) (v' : T'),
@@ -272,19 +272,19 @@ Theorem split_write2 : forall h h1 h2 p T T' (v : T) (v' : T'),
   generalize (H p0).
   unfold write, read in *.
   destruct (h1 p0); trivial.
-  destruct (eq_nat_dec p0 p); subst; auto.
+  destruct (ptr_eq_dec p0 p); subst; auto.
   rewrite H0; auto.
 
   intro.
   generalize (H2 p0).
   unfold write, read in *.
-  destruct (eq_nat_dec p0 p); subst; auto.
+  destruct (ptr_eq_dec p0 p); subst; auto.
   rewrite H0; auto.
 
   generalize (H p); intro Hp.
   unfold read, write, join, heap in *.
   ext_eq.
-  destruct (eq_nat_dec x p); subst; trivial.
+  destruct (ptr_eq_dec x p); subst; trivial.
   destruct (h1 p); trivial.
   rewrite H0 in Hp; tauto.
 Qed.
@@ -300,18 +300,18 @@ Theorem new_sep : forall h p T (v : T),
 
   intro.
   unfold singleton, read in *.
-  destruct (eq_nat_dec p0 p); subst; trivial.
+  destruct (ptr_eq_dec p0 p); subst; trivial.
   rewrite H; trivial.
 
   intro.
   unfold read, write, singleton in *.
-  destruct (eq_nat_dec p0 p); subst; trivial.
+  destruct (ptr_eq_dec p0 p); subst; trivial.
   rewrite H; trivial.
 
   destruct (h p0); trivial.
 
   unfold read, write, singleton, join, heap in *; ext_eq.
-  destruct (eq_nat_dec x p); subst; trivial.
+  destruct (ptr_eq_dec x p); subst; trivial.
 Qed.
 
 Hint Resolve new_sep : Ynot.
@@ -352,9 +352,9 @@ Theorem Dyn_inj_Some : forall T (x y : T),
 Qed.
 
 Ltac split_prover' :=
-  unfold split, disjoint, disjoint1, join, read, heap, ptr; intuition; subst; try ext_eq;
+  unfold split, disjoint, disjoint1, join, read, heap; intuition; subst; try ext_eq;
     repeat match goal with
-             | [ H : _, p : nat |- _ ] => generalize (H p); clear H; intro H
+             | [ H : _, p : ptr |- _ ] => generalize (H p); clear H; intro H
            end.
 
 Ltac split_prover_up :=
@@ -486,7 +486,7 @@ Theorem split_free : forall h h1 h2 p d,
   replace (h ### p) with h2.
   auto with Ynot.
   unfold free, heap; ext_eq.
-  destruct (eq_nat_dec x p); subst.
+  destruct (ptr_eq_dec x p); subst.
 
   red in H; intuition.
   red in H2; intuition.
