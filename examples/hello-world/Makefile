@@ -22,21 +22,11 @@ coq: Makefile.coq $(MODULES)
 Makefile.coq: $(ROOT)/src/coq/Ynot.vo $(MODULES)
 	coq_makefile $(R) -o Makefile.coq $(MODULES)
 
-.extract/$(EXTRACT_NAME).ml: coq
-	mkdir -p .extract
-	coqc -I . $(R) Extract.v
-
-build: .extract/$(EXTRACT_NAME).ml
-	mkdir -p .extract
-	ocamldep.opt -I $(ROOT)/src/ml/ -I .extract -I ml .extract/*.ml  ml/*.ml ../../src/ml/*.ml > .depend
-	ocamldep.opt -I $(ROOT)/src/ml/ -I .extract -I ml .extract/*.mli ml/*.mli $(ROOT)/src/ml/*.mli >> .depend
-	$(MAKE)  -f Makefile.ml
-
 .SUFFIXES: .v .vo .ml .mli .cmo .cmi
 
 clean:
 	touch .depend
-	$(MAKE)  -f Makefile.ml clean
+	$(MAKE)  -f Makefile.ocaml clean
 	rm -rf .extract/
 	rm -f *.vo
 	rm -f .depend Makefile.coq	

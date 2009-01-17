@@ -29,3 +29,14 @@ $(CAMLDIR)/ynot.cmxa: $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
 	$(OCAMLOPT) $(COMPFLAGS) -a -o $(CAMLDIR)/ynot.cmxa \
               $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
 	      $(CAMLDIR)/HeapImpl.cmx $(CAMLDIR)/BasisImpl.cmx
+
+.extract/$(EXTRACT_NAME).ml: coq
+	mkdir -p .extract
+	coqc -I . $(R) Extract.v
+
+build: .extract/$(EXTRACT_NAME).ml
+	mkdir -p .extract
+	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.ml  ml/*.ml $(CAMLDIR)/*.ml > .depend
+	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.mli ml/*.mli $(CAMLDIR)/*.mli >> .depend
+	$(MAKE)  -f Makefile.ocaml
+
