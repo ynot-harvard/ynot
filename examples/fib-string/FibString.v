@@ -1,7 +1,7 @@
 (* Copyright (c) 2008, Harvard University
  * All rights reserved.
  *
- * Author: Ryan Wisnesky, Gregory Malecha
+ * Authors: Ryan Wisnesky, Gregory Malecha
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,6 +26,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *)
+
 Require Import Ynot.
 Require Import Basis.
 Require Import List.
@@ -58,6 +59,3 @@ Definition main : STsep (__) (fun _:unit => __).
      printStringLn z);
    sep fail auto.
 Qed. 
-  
-
- 

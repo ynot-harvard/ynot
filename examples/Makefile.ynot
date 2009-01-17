@@ -36,8 +36,8 @@ $(CAMLDIR)/ynot.cmxa: $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
 
 build: .extract/$(EXTRACT_NAME).ml
 	mkdir -p .extract
-	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.ml  ml/*.ml $(CAMLDIR)/*.ml > .depend
-	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.mli ml/*.mli $(CAMLDIR)/*.mli >> .depend
+	ocamldep -I $(CAMLDIR)/ -I .extract -I ml .extract/*.ml  ml/*.ml $(CAMLDIR)/*.ml > .depend
+	ocamldep -I $(CAMLDIR)/ -I .extract -I ml .extract/*.mli ml/*.mli $(CAMLDIR)/*.mli >> .depend
 	$(MAKE) -f Makefile.ocaml ocaml
 
 ocaml: main.byte main.native

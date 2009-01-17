@@ -1,7 +1,7 @@
 #Path to the Ynot Root
 ROOT=./../..
 
-COQTOP=coqtop.opt
+COQTOP=coqtop
 COQC=coqc
 R=-R $(ROOT)/src/coq Ynot
 
