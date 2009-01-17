@@ -38,5 +38,15 @@ build: .extract/$(EXTRACT_NAME).ml
 	mkdir -p .extract
 	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.ml  ml/*.ml $(CAMLDIR)/*.ml > .depend
 	ocamldep.opt -I $(CAMLDIR)/ -I .extract -I ml .extract/*.mli ml/*.mli $(CAMLDIR)/*.mli >> .depend
-	$(MAKE)  -f Makefile.ocaml
+	$(MAKE) -f Makefile.ocaml ocaml
+
+ocaml: main.byte main.native
+
+main.byte: $(CAMLDIR)/ynot.cma ml/main.cmo $(EXTRACTED:%.ml=%.cmo)
+	$(OCAMLC) $(COMPFLAGS) -o main.byte \
+            $(CAMLDIR)/ynot.cma .extract/*.cmo ml/main.cmo
+
+main.native: $(CAMLDIR)/ynot.cmxa ml/main.cmx  $(EXTRACTED:%.ml=%.cmx)
+	$(OCAMLOPT) $(COMPFLAGS) -o main.native \
+            $(CAMLDIR)/ynot.cmxa .extract/*.cmx ml/main.cmx
 

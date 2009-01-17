@@ -201,6 +201,15 @@ Theorem himp_unpack_conc : forall T x (y:[T]) p1 p2 p,
   firstorder.
 Qed.
 
+Theorem himp_unpack_conc_meta : forall T x (y:[T]) p1 p2 p,
+  p ==> p1 x * p2
+  -> y = [x]%inhabited
+  -> p ==> hprop_unpack y p1 * p2.
+  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
+  generalize (H _ H1).
+  firstorder.
+Qed.
+
 Theorem himp_split : forall p1 p2 q1 q2,
   p1 ==> q1
   -> p2 ==> q2
@@ -392,12 +401,7 @@ Ltac deExist P :=
       let y := eval cbv delta [F] in F in
         clear F; y.
 
-Ltac force_unify :=
-match goal with 
-  [|- ?g] => let GG := fresh in assert (GG:g = g); [reflexivity | clear GG]
-end.
-
-Ltac equater := (* force_unify; *)
+Ltac equater :=
   match goal with
     | [ |- ?p ==> ?q ] => equate p q || let q := deExist q in equate p q
     | [ |- ?p ==> (?q * __)%hprop ] => equate p q || let q := deExist q in equate p q
@@ -410,7 +414,7 @@ Ltac equater := (* force_unify; *)
                              | [ |- ?F _ = _ ] => equate U F
                            end; reflexivity
             | idtac
-          ]; clear H H'); simpl; try apply himp_refl
+          ]; clear H H')
     | [ |- ?p ==> ?U ?X ] =>
       let H := fresh in
         (pose (H := p); pattern X in H;
@@ -418,10 +422,8 @@ Ltac equater := (* force_unify; *)
             cbv delta [H]; match goal with
                              | [ |- ?F _ = _ ] => equate U F
                            end; reflexivity
-            | (* simpl; try apply himp_refl *) idtac
+            | idtac
           ]; clear H H')
-    | [ |- (_ _ * __)%hprop ==> _] => apply himp_comm_prem; apply himp_empty_prem; equater
-    | [ |- _ ==> (_ * __)%hprop ] => apply himp_comm_conc; apply himp_empty_conc; equater
   end.
 
 Theorem unpack : forall T (h : [T]) (P : Prop),
@@ -466,10 +468,23 @@ Ltac findContents ptr P :=
     | _ => tt
   end.
 
+
+Ltac meta_fail x :=
+  match x with
+    | x => idtac
+    | _ => fail 1
+  end.
+
 Ltac unpack_conc := repeat search_conc ltac:(idtac;
   match goal with
-    | [ |- _ ==> hprop_unpack _ _ * _ ] =>
-      eapply himp_unpack_conc; [eassumption || reflexivity | ]
+    | [ |- _ ==> hprop_unpack ?M _ * _ ] =>
+      match M with
+        | M => eapply himp_unpack_conc; [eassumption || reflexivity | ]
+        | _ => match M with 
+                 | M => fail 2
+                 | _ => eapply himp_unpack_conc_meta
+               end
+      end
   end).
 
 Ltac inhabiter :=
@@ -479,7 +494,8 @@ Ltac inhabiter :=
                | [ _ : x = [_]%inhabited |- _ ] => fail 1
                | _ => apply (unpack (h := x)); do 2 intro
              end
-           | [|- context [hprop_unpack ?x _]] => 
+           | [|- context [hprop_unpack ?x _]] =>
+             meta_fail x;
              match goal with
                | [ _ : x = [_]%inhabited |- _ ] => fail 1
                | _ => apply (unpack (h := x)); do 2 intro
@@ -642,22 +658,22 @@ Ltac unfold_local :=
 
 Ltac sep stac tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
-    let concer := apply himp_empty_conc
+  let concer := apply himp_empty_conc
       || apply himp_ex_conc_trivial
-        || (apply himp_ex_conc; econstructor)
-          || (eapply himp_unpack_conc; [eassumption || reflexivity |])
-            || (apply himp_inj_conc; [s; fail | idtac]) in
-              (intros; equater || specFinder stac; tac;
-                repeat match goal with
-                         | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
-                       end;
-                intros; s; tac;
-                  repeat ((
-                    search_prem ltac:(idtac;
-                      search_conc ltac:(
-                        apply himp_frame || (* equater || *) (apply himp_frame_cell; trivial))) || search_conc concer); 
-                  s);
-                  try finisher).
+      || (apply himp_ex_conc; econstructor)
+      || (eapply himp_unpack_conc; [eassumption || reflexivity |])
+      || (apply himp_inj_conc; [s; fail | idtac])
+  in
+  (intros; equater || specFinder stac; tac;
+   repeat match goal with
+            | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
+          end;
+   intros; s; tac;
+     repeat ((
+       search_prem ltac:(idtac;
+         search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
+     s);
+     try finisher).
 
 Ltac intro_pure :=
   repeat search_prem ltac:(idtac;
@@ -719,6 +735,9 @@ Theorem himp_disjoint : forall S T p1 p2 (a1:S) (a2:T),
   compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. 
 Qed.
 
+Theorem himp_split_any : ?? * ?? ==> ??.
+  unfold hprop_any, hprop_imp; trivial.
+Qed.
 
 Theorem himp_disjoint' : forall  h S T p (a1:S) (a2:T), 
   (p --> a1 * p --> a2)%hprop h -> False.
