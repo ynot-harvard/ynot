@@ -1,0 +1,31 @@
+YNOT=$(ROOT)/src/coq/Ynot.vo
+CAMLDIR=$(ROOT)/src/ocaml
+
+YNOTLIB=$(CAMLDIR)/ynot.cma
+YNOTLIBX=$(CAMLDIR)/ynot.cmxa
+
+$(ROOT)/src/coq/Ynot.vo: 
+	(cd $(ROOT)/src; $(MAKE))
+
+.SUFFIXES : .ml .mli .cmo .cmi .cmx .cmi
+
+.ml.cmo:
+	$(OCAMLC) $(COMPFLAGS) $< -c
+
+.ml.cmx:
+	$(OCAMLOPT) $(COMPFLAGS) $< -c
+
+.mli.cmi:
+	$(OCAMLC) $(COMPFLAGS) $< -c
+
+$(CAMLDIR)/ynot.cma: $(CAMLDIR)/MlCoq.cmo $(CAMLDIR)/STImpl.cmo \
+    $(CAMLDIR)/HeapImpl.cmo $(CAMLDIR)/BasisImpl.cmo
+	$(OCAMLC) $(COMPFLAGS) -a -o $(CAMLDIR)/ynot.cma \
+              $(CAMLDIR)/MlCoq.cmo $(CAMLDIR)/STImpl.cmo \
+	      $(CAMLDIR)/HeapImpl.cmo $(CAMLDIR)/BasisImpl.cmo
+
+$(CAMLDIR)/ynot.cmxa: $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
+    $(CAMLDIR)/HeapImpl.cmx $(CAMLDIR)/BasisImpl.cmx
+	$(OCAMLOPT) $(COMPFLAGS) -a -o $(CAMLDIR)/ynot.cmxa \
+              $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
+	      $(CAMLDIR)/HeapImpl.cmx $(CAMLDIR)/BasisImpl.cmx

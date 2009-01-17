@@ -6,7 +6,7 @@ VS         := $(MODULES:%=%.v)
 .PHONY: coq clean
 
 coq: Makefile.coq
-	make -f Makefile.coq
+	$(MAKE) -f Makefile.coq
 
 R := -R ../src/coq Ynot -R . Examples
 
@@ -17,7 +17,7 @@ Makefile.coq: Makefile $(VS)
 		-o Makefile.coq
 
 clean:: Makefile.coq
-	make -f Makefile.coq clean
+	$(MAKE) -f Makefile.coq clean
 	rm -f Makefile.coq .depend
 
 .v.vo: $.v

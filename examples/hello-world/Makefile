@@ -19,7 +19,7 @@ all: coq
 coq: Makefile.coq $(MODULES)
 	$(MAKE)  -f Makefile.coq
 
-Makefile.coq: $(MODULES)
+Makefile.coq: $(ROOT)/src/coq/Ynot.vo $(MODULES)
 	coq_makefile $(R) -o Makefile.coq $(MODULES)
 
 .extract/$(EXTRACT_NAME).ml: coq
