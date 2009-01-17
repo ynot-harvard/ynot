@@ -12,6 +12,16 @@ doc/.coq_globals
 doc/*.pdf
 private/papers/*/*.pdf
 
+*.cmo
+*.cmx
+*.cmi
+*.o
+*/main.byte
+*/main.native
+*.cma
+*.cmxa
+*.a
+
 *.make
 *.bbl
 *.blg
