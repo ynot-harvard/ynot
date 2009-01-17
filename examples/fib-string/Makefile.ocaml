@@ -1,0 +1,15 @@
+ROOT=./../..
+
+OCAMLC=ocamlc
+OCAMLOPT=ocamlopt
+
+COMPFLAGS=-I ./ml -I .extract -I $(ROOT)/src/ocaml/
+
+EXTRACTED=$(wildcard .extract/*.ml)
+
+clean:
+	rm -f main.byte main.native
+	rm -f ml/*.cmo ml/*.cmi ml/*.cmx ml/*.o
+
+include ../Makefile.ynot
+include .depend

@@ -1,7 +1,7 @@
 (* Copyright (c) 2008, Harvard University
  * All rights reserved.
  *
- * Author: Gregory Malecha
+ * Author: Ryan Wisnesky, Gregory Malecha
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,15 +26,38 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *)
-
 Require Import Ynot.
 Require Import Basis.
+Require Import List.
 Require Import String.
 
 Open Local Scope string_scope.
 Open Local Scope stsepi_scope.
+Open Local Scope hprop_scope.
 
-Definition main : STsep (__) (fun _:unit => hprop_empty).
-   refine (printStringLn "Hello World");
-   sep fail auto.
+Definition fib : nat -> STsep (__) (fun _ : string => __).
+  intro y.
+  refine (Fix
+    (fun _ => hprop_empty)
+    (fun _ _ => hprop_empty)
+    (fun self x =>
+      match x with
+        | 0 =>   {{ Return "a" }}
+        | S 0 => {{ Return "a" }}
+        | S (S z) => a <- self z; 
+                     b <- self (S z);
+                     {{Return (a ++ b)}}
+      end)
+      y);
+  sep fail auto.
 Qed.
+
+Definition main : STsep (__) (fun _:unit => __).
+   refine (
+     z <- fib 4 ;
+     printStringLn z);
+   sep fail auto.
+Qed. 
+  
+
+ 

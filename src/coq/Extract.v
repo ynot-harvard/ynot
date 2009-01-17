@@ -46,3 +46,6 @@ Require Ascii.
 
 Extract Inductive Ascii.ascii => "MlCoq.ascii" [ "MlCoq.Ascii" ].
 Extract Inductive nat => "MlCoq.nat" [ "MlCoq.O" "MlCoq.S" ].
+
+Extract Inlined Constant Bool.bool_dec => "(=)".
+Extract Inlined Constant Ascii.ascii_dec => "(=)".
