@@ -10,7 +10,7 @@ VS         := $(MODULES:%=%.v)
 coq: Makefile.coq
 	$(MAKE) -f Makefile.coq
 
-R := -R ../../src/coq Ynot -R . Examples
+R := -R ../../src/coq Ynot -R . Data
 
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \
