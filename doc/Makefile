@@ -1,4 +1,4 @@
-MODULES := Intro Counter Stack Queue
+MODULES := Intro Counter Stack Queue Compilation
 VS      := $(MODULES:%=%.v)
 VOS     := $(MODULES:%=%.vo)
 GLOBALS := .coq_globals
@@ -10,7 +10,7 @@ doc: Tutorial.dvi Tutorial.pdf html
 coq: Makefile.coq
 	make -f Makefile.coq
 
-R := -R ../src Ynot
+R := -R ../src/coq Ynot
 
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \
