@@ -33,7 +33,7 @@
 (*******************************************************************)
 
 Require Import Ynot.
-Require Import Examples.FiniteMap.
+Require Import Data.FiniteMap.
 Set Implicit Arguments.
 
 Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.

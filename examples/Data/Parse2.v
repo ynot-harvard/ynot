@@ -32,7 +32,7 @@ Require Import List.
 Require Import Ascii.
 Require Import Omega.
 (*Require Import Eqdep.*)
-Require Import Examples.Stream.
+Require Import Data.Stream.
 
 Set Implicit Arguments.
 
