@@ -29,7 +29,7 @@
 
 Require Import Ynot.
 Require Import Basis.
-Require Import Examples.LinkedListSeg.
+Require Import Data.LinkedListSeg.
 Require Import Ascii.
 Require Import List.
 
