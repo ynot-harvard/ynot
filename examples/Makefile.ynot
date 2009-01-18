@@ -29,8 +29,6 @@ coq: Makefile.coq $(MODULES)
 Makefile.coq: $(ROOT)/src/coq/Ynot.vo $(MODULES)
 	coq_makefile $(R) -o Makefile.coq $(MODULES)
 
-.SUFFIXES: .v .vo .ml .mli .cmo .cmi
-
 clean::
 	touch .depend
 	rm -rf .extract/
@@ -40,7 +38,7 @@ clean::
 $(ROOT)/src/coq/Ynot.vo: 
 	(cd $(ROOT)/src; $(MAKE))
 
-.SUFFIXES : .ml .mli .cmo .cmi .cmx .cmi
+.SUFFIXES : .v .vo .ml .mli .cmo .cmi .cmx
 
 .ml.cmo:
 	$(OCAMLC) $(COMPFLAGS) $< -c
