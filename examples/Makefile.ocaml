@@ -1,0 +1,2 @@
+include .depend
+include $(ROOT)/examples/Makefile.ynot

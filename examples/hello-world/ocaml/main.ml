@@ -27,11 +27,4 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Obj
-
-(*****************************************************************************)
-(* Heap                                                                      *)
-(*****************************************************************************)
-type axiom_ptr = Obj.t ref
-
-let axiom_ptr_eq_dec a b = a = b
+STImpl.exec HelloWorld.main

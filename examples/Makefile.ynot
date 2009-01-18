@@ -1,8 +1,40 @@
-YNOT=$(ROOT)/src/coq/Ynot.vo
-CAMLDIR=$(ROOT)/src/ocaml
+YNOT     := $(ROOT)/src/coq/Ynot.vo
+CAMLDIR  := $(ROOT)/src/ocaml
 
-YNOTLIB=$(CAMLDIR)/ynot.cma
-YNOTLIBX=$(CAMLDIR)/ynot.cmxa
+YNOTLIB  := $(CAMLDIR)/ynot.cma
+YNOTLIBX := $(CAMLDIR)/ynot.cmxa
+
+ifndef OCAML
+  OCAMLC := ocamlc
+endif
+ifndef OCAMLOPT
+  OCAMLOPT := ocamlopt
+endif
+
+R        := -R $(ROOT)/src/coq Ynot
+
+MODULES_T := $(wildcard *.v)
+MODULES   := $(filter-out Extract.v,$(MODULES_T))
+
+COMPFLAGS := -I ./ocaml -I .extract -I $(ROOT)/src/ocaml/
+
+EXTRACTED := $(wildcard .extract/*.ml)
+
+all: coq
+
+coq: Makefile.coq $(MODULES)
+	$(MAKE)  -f Makefile.coq
+
+Makefile.coq: $(ROOT)/src/coq/Ynot.vo $(MODULES)
+	coq_makefile $(R) -o Makefile.coq $(MODULES)
+
+.SUFFIXES: .v .vo .ml .mli .cmo .cmi
+
+clean::
+	touch .depend
+	rm -rf .extract/
+	rm -f *.vo .depend Makefile.coq	main.byte main.native
+	rm -f ocaml/*.cmo ocaml/*.cmi ocaml/*.cmx ocaml/*.o
 
 $(ROOT)/src/coq/Ynot.vo: 
 	(cd $(ROOT)/src; $(MAKE))
@@ -36,17 +68,18 @@ $(CAMLDIR)/ynot.cmxa: $(CAMLDIR)/MlCoq.cmx $(CAMLDIR)/STImpl.cmx \
 
 build: .extract/$(EXTRACT_NAME).ml
 	mkdir -p .extract
-	ocamldep -I $(CAMLDIR)/ -I .extract -I ml .extract/*.ml  ml/*.ml $(CAMLDIR)/*.ml > .depend
-	ocamldep -I $(CAMLDIR)/ -I .extract -I ml .extract/*.mli ml/*.mli $(CAMLDIR)/*.mli >> .depend
-	$(MAKE) -f Makefile.ocaml ocaml
+	ocamldep -I $(CAMLDIR)/ -I .extract -I ocaml .extract/*.ml  ocaml/*.ml $(CAMLDIR)/*.ml > .depend
+	ocamldep -I $(CAMLDIR)/ -I .extract -I ocaml .extract/*.mli ocaml/*.mli $(CAMLDIR)/*.mli >> .depend
+	ROOT=$(ROOT) $(MAKE) -f $(ROOT)/examples/Makefile.ocaml ocaml
 
 ocaml: main.byte main.native
 
-main.byte: $(CAMLDIR)/ynot.cma ml/main.cmo $(EXTRACTED:%.ml=%.cmo)
+main.byte: $(CAMLDIR)/ynot.cma ocaml/main.cmo $(EXTRACTED:%.ml=%.cmo)
 	$(OCAMLC) $(COMPFLAGS) -o main.byte \
-            $(CAMLDIR)/ynot.cma .extract/*.cmo ml/main.cmo
+            $(CAMLDIR)/ynot.cma .extract/*.cmo ocaml/main.cmo
 
-main.native: $(CAMLDIR)/ynot.cmxa ml/main.cmx  $(EXTRACTED:%.ml=%.cmx)
+main.native: $(CAMLDIR)/ynot.cmxa ocaml/main.cmx  $(EXTRACTED:%.ml=%.cmx)
 	$(OCAMLOPT) $(COMPFLAGS) -o main.native \
-            $(CAMLDIR)/ynot.cmxa .extract/*.cmx ml/main.cmx
+            $(CAMLDIR)/ynot.cmxa .extract/*.cmx ocaml/main.cmx
 
+.PHONY: all coq clean build ocaml

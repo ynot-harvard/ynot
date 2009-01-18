@@ -1,3 +1,7 @@
+MODULES    := Axioms Util Heap Hprop ST STsep Separation Hprop2 Case Basis \
+	Ynot Extract
+VS         := $(MODULES:%=%.v)
+
 .PHONY: coq clean
 
 coq: coq/Makefile.coq

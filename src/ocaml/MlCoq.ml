@@ -48,7 +48,6 @@ let int_to_nat =
       failwith "iton : negative number!"
     else 
       f i O
-;;
 
 let nat_to_int =
   let rec f acc n =
@@ -57,14 +56,12 @@ let nat_to_int =
     | S m -> f (1 + acc) m
   in
   f 0
-;;
 
 let ascii_to_char asc = 
   let Ascii (a, b, c, d, e, f, g, h) = asc in
   let bits : bool list = [a;b;c;d;e;f;g;h] in
   let ch = List.fold_right (fun v a -> a * 2 + if v then 1 else 0) bits 0 in
   Char.chr ch
-;;
 
 let list_ascii_to_string s = 
   let rec r s =
@@ -73,5 +70,3 @@ let list_ascii_to_string s =
     | first :: rest ->
 	(String.make 1 (ascii_to_char first)) ^ (r rest)
   in r s
-;;
-  
