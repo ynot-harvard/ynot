@@ -27,8 +27,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open STImpl
-
 (** printString : string -> unit sTsep **)
 let axiom_printString str () = 
   print_string (MlCoq.list_ascii_to_string str); flush stdout

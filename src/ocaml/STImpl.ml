@@ -27,8 +27,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Obj
-
 type 'a axiom_ST = unit -> 'a
 
 let axiom_STBind b k () = let v = b () in k v ()
