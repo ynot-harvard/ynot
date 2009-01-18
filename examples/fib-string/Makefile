@@ -1,4 +1,4 @@
 ROOT         := ../..
-EXTRACT_NAME := HelloWorld
+EXTRACT_NAME := FibString
 
 include ../Makefile.ynot

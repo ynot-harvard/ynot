@@ -1,7 +1,7 @@
 (* Copyright (c) 2009, Harvard University
  * All rights reserved.
  *
- * Authors: Ryan Wisnesky, Gregory Malecha
+ * Authors: Gregory Malecha, Ryan Wisnesky
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,35 +27,4 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Ynot.
-Require Import Basis.
-Require Import List.
-Require Import String.
-
-Open Local Scope string_scope.
-Open Local Scope stsepi_scope.
-Open Local Scope hprop_scope.
-
-Definition fib : nat -> STsep (__) (fun _ : string => __).
-  intro y.
-  refine (Fix
-    (fun _ => hprop_empty)
-    (fun _ _ => hprop_empty)
-    (fun self x =>
-      match x with
-        | 0 =>   {{ Return "a" }}
-        | S 0 => {{ Return "a" }}
-        | S (S z) => a <- self z; 
-                     b <- self (S z);
-                     {{Return (a ++ b)}}
-      end)
-      y);
-  sep fail auto.
-Qed.
-
-Definition main : STsep (__) (fun _:unit => __).
-   refine (
-     z <- fib 4 ;
-     printStringLn z);
-   sep fail auto.
-Qed. 
+STImpl.exec FibString.main

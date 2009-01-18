@@ -1,1 +1,0 @@
-STImpl.exec FibString.main
