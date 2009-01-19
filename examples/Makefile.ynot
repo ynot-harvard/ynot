@@ -11,8 +11,7 @@ ifndef OCAMLOPT
   OCAMLOPT := ocamlopt
 endif
 
-R        := -R $(ROOT)/src/coq Ynot -R $(ROOT)/examples Examples \
-	-R $(ROOT)/examples/Data Data
+R        := -R $(ROOT)/src/coq Ynot -R $(ROOT)/examples/Data Data
 
 MODULES_T := $(wildcard *.v)
 MODULES   := $(filter-out Extract.v,$(MODULES_T))
