@@ -49,7 +49,7 @@ let axiom_STWrite p v () = p := Obj.repr v
 
 (** ((a -> (unit -> b)) -> a -> (unit -> b)) -> a -> (unit -> b) **)
 let axiom_STFix f = 
-  let rec fix a = f fix a
+  let rec fix a () = f fix a ()
   in fix
 
 let exec io = io ()
