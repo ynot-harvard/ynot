@@ -95,11 +95,38 @@ Definition hprop_unpack T (inh : inhabited T) (p : T -> hprop) : hprop :=
   fun h => exists v, inh = inhabits v /\ p v h.
 Arguments Scope hprop_unpack [type_scope inhabited_scope hprop_scope].
 Notation "inh ~~ p" := (hprop_unpack inh (fun inh => p)) (at level 91, right associativity) : hprop_scope.
+
+(* Unfortunately, inhabit_unpack is not compositional
+ *)
 Definition inhabit_unpack T U (inh : [T]) (f:T -> U) : [U] :=
   match inh with
     | inhabits v => inhabits (f v)
   end.
+Definition inhabit_unpack' T U (inh : [T]) (f:T -> [U]) : [U] :=
+  match inh with
+    | inhabits v => f v
+  end.
+
+(** TODO: Remove **)
+Definition inhabit_unpack2 T T' U (inh : [T]) (inh' : [T']) (f:T -> T' -> U) : [U] :=
+  match inh, inh' with
+    | inhabits v, inhabits v' => inhabits (f v v')
+  end.
+Definition inhabit_unpack3 T T' T'' U (inh : [T]) (inh' : [T']) (inh'' : [T''])
+  (f:T -> T' -> T'' -> U) : [U] :=
+  match inh, inh', inh'' with
+    | inhabits v, inhabits v', inhabits v'' => inhabits (f v v' v'')
+  end.
+Definition inhabit_unpack4 T T' T'' T''' U (inh : [T]) (inh' : [T'])
+  (inh'' : [T'']) (inh''' : [T''']) (f:T -> T' -> T'' -> T''' -> U) : [U] :=
+  match inh, inh', inh'', inh''' with
+    | inhabits v, inhabits v', inhabits v'',inhabits v''' =>
+      inhabits (f v v' v'' v''')
+  end.
+(** **)
 Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f))
+  (at level 91, right associativity).
+Notation "inh ~~~' f" := (inhabit_unpack inh (fun inh => f))
   (at level 91, right associativity).
 
 Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
@@ -498,6 +525,11 @@ Theorem split_free : forall h h1 h2 p d,
   red in H; intuition; subst.
   unfold join, read in *.
   rewrite (H1 _ n); trivial.
+Qed.
+
+Theorem pack_type_inv : forall (T : Type) (a : inhabited T),
+  exists b, a = inhabits b.
+  intros; case_eq a; intros t; exists t; auto.
 Qed.
 
 Hint Resolve split_free : Ynot.
