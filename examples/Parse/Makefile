@@ -8,7 +8,7 @@ MODULES := $(VS:%.v=%)
 coq: Makefile.coq
 	$(MAKE) -f Makefile.coq
 
-R := -R ../../src/coq Ynot -R . Parse
+R := -R ../../src/coq Ynot -R ../Data Data -R . Parse
 
 Makefile.coq: Makefile $(VS)
 	coq_makefile $(VS) \

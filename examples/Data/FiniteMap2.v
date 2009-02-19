@@ -1,7 +1,7 @@
 (* Copyright (c) 2008, Harvard University
  * All rights reserved.
  *
- * Author: Avi Shinnar
+ * Author: Greg Morrisett
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,9 +70,11 @@ Module FiniteMapInterface.
     rep : fmap_t -> alist_t -> hprop ; 
     new : STsep __ (fun (ans:fmap_t) => rep ans Nil_al) ; 
     free : forall (x:fmap_t), STsep (Exists l :@ alist_t, rep x l) (fun (_:unit) => __) ; 
-    insert : forall (x:fmap_t)(k:key_t)(v:value_t k)(l : [alist_t]), 
-               STsep (l ~~ rep x l)
-                     (fun (_:unit) => l ~~ rep x (Cons_al v (remove_al k l))) ; 
+    insert : forall (x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t -> hprop),
+               STsep (Exists l :@ alist_t, rep x l * P l)
+                     (fun (_:unit) => 
+                       Exists l :@ alist_t, rep x (Cons_al v (remove_al k l))
+                          * P l) ; 
     lookup : forall (x:fmap_t)(k:key_t)(P:alist_t -> hprop),
                STsep (Exists l :@ alist_t, rep x l * P l)
                      (fun (ans:option (value_t k)) => 
@@ -108,15 +110,17 @@ Module RefAssocList.
             Exists l :@ alist_t, rep x l * P l * [ans = F.lookup_al key_eq_dec k l]).
     intros.
     refine (z <- x !! P ; 
-            Return (F.lookup_al key_eq_dec k z) <@> ((x --> z) * P z) @> _) ; sep auto.
+            Return (F.lookup_al key_eq_dec k z) <@> ((x --> z) * P z) @> _) ; sep fail auto.
     Defined.
 
-  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(l:[alist_t]) : 
-    STsep (l ~~ rep x l)
-      (fun _:unit => l ~~ rep x (Cons v (F.remove_al key_eq_dec k l))).
+  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t -> hprop) :
+    STsep (Exists l :@ _, rep x l * P l)
+          (fun _:unit => Exists l :@ _, 
+            rep x (Cons v (F.remove_al key_eq_dec k l)) * P l).
     intros.
-    refine (z <- x !! (fun z => l ~~ [z = l]) ; 
-            x ::= (Cons v (F.remove_al key_eq_dec k z)) <@> (l ~~ [z=l]) @> _) ; sep auto.
+    refine (z <- x !! (fun z => Exists l :@ _, [z = l] * P l) ; 
+            x ::= (Cons v (F.remove_al key_eq_dec k z)) <@> 
+            (Exists l :@ _, [z=l] * P l) @> _) ; sep fail auto.
     Defined.
 
   Definition ref_assoc_list : FiniteMapInterface.finite_map_t key_eq_dec value_t := 
@@ -125,7 +129,6 @@ Module RefAssocList.
 End RefAssocList.
 
 Module HashTable.
-  Module F := FiniteMapInterface.
   Section HashTable. 
   Variable key_t : Set.
   Variable key_eq_dec : forall (k1 k2:key_t), {k1=k2}+{k1<>k2}.
@@ -133,13 +136,13 @@ Module HashTable.
   Variable value_t : key_t -> Set.
   Variable table_size : nat.
   Variable table_size_gt_zero : table_size > 0.
-  Variable FM : F.finite_map_t key_eq_dec value_t.
+  Variable FM : FiniteMapInterface.finite_map_t key_eq_dec value_t.
 
-  Definition alist_t := F.alist_t value_t.
-  Definition Nil := F.Nil_al value_t.
-  Definition Cons := @F.Cons_al key_t value_t.
-  Definition lookup_al := @F.lookup_al key_t key_eq_dec value_t.
-  Definition remove_al := @F.remove_al key_t key_eq_dec value_t.
+  Definition alist_t := FiniteMapInterface.alist_t value_t.
+  Definition Nil := FiniteMapInterface.Nil_al value_t.
+  Definition Cons := @FiniteMapInterface.Cons_al key_t value_t.
+  Definition lookup_al := @FiniteMapInterface.lookup_al key_t key_eq_dec value_t.
+  Definition remove_al := @FiniteMapInterface.remove_al key_t key_eq_dec value_t.
 
   Require Import Array.
   Require Import Coq.Arith.Euclid.
@@ -158,8 +161,8 @@ Module HashTable.
 
   Fixpoint filter_hash(i:nat)(l:alist_t) {struct l} : alist_t := 
     match l with
-    | F.Nil_al => Nil 
-    | F.Cons_al k v l' => if eq_nat_dec (hash k) i then Cons v (filter_hash i l') 
+    | FiniteMapInterface.Nil_al => Nil 
+    | FiniteMapInterface.Cons_al k v l' => if eq_nat_dec (hash k) i then Cons v (filter_hash i l') 
                      else filter_hash i l'
     end.
 
@@ -167,8 +170,8 @@ Module HashTable.
   Open Local Scope hprop_scope.
 
   Definition wf_bucket(f:fmap_t)(l:alist_t)(i:nat) : hprop := 
-    (Exists r :@ F.fmap_t FM,
-      (let p := array_plus f i in p ~~ p --> r) * F.rep FM r (filter_hash i l)).
+    (Exists r :@ FiniteMapInterface.fmap_t FM,
+      (let p := array_plus f i in p ~~ p --> r) * FiniteMapInterface.rep FM r (filter_hash i l)).
 
   Definition rep(f:fmap_t)(l:alist_t) : hprop := 
     [array_length f = table_size] * iter_sep (wf_bucket f l) 0 table_size.
@@ -189,20 +192,21 @@ Module HashTable.
     refine (fix init(n:nat) : init_table_t f n := 
               match n as n' return init_table_t f n' with
               | 0 => fun H => {{Return tt}}
-              | S i => fun H => m <- F.new FM <@> init_pre f (S i) ; 
+              | S i => fun H => m <- FiniteMapInterface.new FM <@> init_pre f (S i) ; 
                                 upd_array f (table_size - S i) m <@> 
-                                  (init_pre f i * F.rep FM m Nil) ;; 
+                                  (init_pre f i * FiniteMapInterface.rep FM m Nil) ;; 
                                 init i _ <@> wf_bucket f Nil (table_size - S i) @> _
               end) ; 
-    unfold init_table_t, init_pre, wf_bucket ; sep auto ; rewrite (sub_succ H) ; sep auto.
+    unfold init_table_t, init_pre, wf_bucket ; sep fail auto ; rewrite (sub_succ H) ; 
+      sep fail auto.
   Defined.
       
   Definition new : STsep __ (fun ans:fmap_t => rep ans Nil).
     refine (t <- new_array table_size ; 
             @init_table t table_size _ <@> [array_length t = table_size] ;; 
             {{Return t <@> rep t Nil}}) ; 
-    unfold init_table_t, init_pre, rep ; try rewrite sub_self ; sep auto.
-    rewrite H0 ; sep auto.
+    unfold init_table_t, init_pre, rep ; try rewrite sub_self ; sep fail auto.
+    rewrite H0 ; sep fail auto.
   Defined.
 
   Lemma sp_index_hyp(P:nat->hprop)(Q R:hprop)(start len i:nat) : i < len -> 
@@ -210,7 +214,7 @@ Module HashTable.
     -> iter_sep P start len * Q ==> R.
   Proof.
     intros. eapply hprop_mp. eapply himp_split. apply (split_index_sep P start H). 
-    sep auto. apply H0.
+    sep fail auto. apply H0.
   Qed.
 
   Lemma sp_index_conc(P:nat->hprop)(Q R:hprop)(start len i:nat) : i < len -> 
@@ -218,11 +222,11 @@ Module HashTable.
     R ==> iter_sep P start len * Q.
   Proof.
     intros. eapply hprop_mp_conc. eapply himp_split. apply (join_index_sep P start H).
-    sep auto. apply H0.
+    sep fail auto. apply H0.
   Qed.
     
   Lemma emp_himp_lift : forall (P:Prop), P -> (__ ==> [P]).
-  Proof. sep auto. Qed.
+  Proof. sep fail auto. Qed.
 
   Ltac mytac2 := (eapply sp_index_hyp || eapply sp_index_conc || auto).
 
@@ -290,10 +294,10 @@ Module HashTable.
     refine (fm <- sub_array x (hash k)   (* extract the right bucket *)
               (fun fm => 
                 [array_length x = table_size] * 
-                Exists l :@ alist_t, F.rep FM fm (filter_hash (hash k) l) * P l * 
+                Exists l :@ alist_t, FiniteMapInterface.rep FM fm (filter_hash (hash k) l) * P l * 
                    iter_sep (wf_bucket x l) 0 (hash k) * 
                    iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)) ;
-           F.lookup FM fm k                 (* and use F.lookup to find the value *)
+           FiniteMapInterface.lookup FM fm k                 (* and use FiniteMapInterface.lookup to find the value *)
               (fun l' => 
                 [array_length x = table_size] *
                 Exists l :@ alist_t, 
@@ -301,12 +305,19 @@ Module HashTable.
                    (let p := array_plus x (hash k) in p ~~ p --> fm) *
                    iter_sep (wf_bucket x l) 0 (hash k) * 
                    iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)) @>_)
-    ; unfold rep, wf_bucket ; intros ; fold_ex_conc ; sep sp_index ; unfold myExists.
-    simpl ; unhide. sep auto ; rewrite H2 ; sep auto.
-    unhide ; sep auto.
-    apply himp_empty_conc' ; apply himp_ex_conc ; exists v1 ;
-      search_conc ltac:(eapply sp_index_conc). sp_index. 
-      rewrite H2. rewrite look_filter_hash. sep auto.
+    ; unfold rep, wf_bucket ; intros ; 
+    sep fail ltac:(idtac ; 
+       match goal with 
+         | [ |- iter_sep ?p ?s ?l * ?Q ==> ?R ] => 
+           apply (@sp_index_hyp p Q R s l _ (hash_below k)) ; sep fail auto
+         | [ |- ?R ==> iter_sep ?P ?s ?l * ?Q ] => 
+           apply (@sp_index_conc P Q R s l _ (hash_below k))
+         | _ => auto
+       end).
+    match goal with 
+      | [ H : ?v = FiniteMapInterface.lookup_al _ _ _ |- context[?v = lookup_al _ _] ] => 
+        rewrite H ; rewrite look_filter_hash ; sep fail auto
+    end.
   Defined.
 
   Lemma remove_filter_eq (k:key_t)(l:alist_t) : 
@@ -326,35 +337,47 @@ Module HashTable.
   Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
     (at level 91, right associativity) : hprop_scope.
 
-  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(l : [alist_t]) : 
-    STsep (l ~~ rep x l) 
-          (fun (_:unit) => l ~~ rep x (Cons v (remove_al k l))).
+  Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t->hprop) : 
+    STsep (Exists l :@ _, rep x l * P l) 
+          (fun (_:unit) => Exists l :@ _, rep x (Cons v (remove_al k l)) * P l).
   intros.
   refine (fm <- sub_array x (hash k) (* find the right bucket *)
            (fun fm =>
              [array_length x = table_size] * 
-             (l ~~ (F.rep FM fm (filter_hash (hash k) l) * 
-                   iter_sep (wf_bucket x l) 0 (hash k) * 
-                   iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1)))) ; 
-         (* and use F.insert to insert the key value pair *)
-         F.insert FM fm k v (l ~~~ (filter_hash (hash k) l))     
-            <@>
+             Exists l :@ _, P l * 
+               FiniteMapInterface.rep FM fm (filter_hash (hash k) l) * 
+               iter_sep (wf_bucket x l) 0 (hash k) * 
+               iter_sep (wf_bucket x l) (S (hash k)) 
+                        (table_size - (hash k) - 1)) ; 
+         (* and use FiniteMapInterface.insert to insert the key value pair *)
+         FiniteMapInterface.insert FM fm k v (fun l' => 
              [array_length x = table_size] * 
              (let p := array_plus x (hash k) in p ~~ p --> fm) * 
-             (l ~~ iter_sep (wf_bucket x l) 0 (hash k) * 
-                     iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1))
-        @> _) ; 
-  unfold rep ; sep sp_index ; unfold wf_bucket ; simpl. sep auto. unhide. sep auto.
-  rewrite H1. sep auto. unhide. sep auto. sep mysimplr.
-  rewrite remove_filter_eq. sep auto. apply himp_split ; apply iter_imp ; sep auto ;
+             Exists l :@ _, P l * 
+              [l' = filter_hash (hash k) l] * 
+              iter_sep (wf_bucket x l) 0 (hash k) * 
+              iter_sep (wf_bucket x l) (S (hash k)) (table_size - (hash k) - 1))
+        @> _) ;
+  unfold rep, wf_bucket ;
+  sep fail ltac:(idtac ; 
+    match goal with 
+      | [ |- iter_sep ?p ?s ?l * ?Q ==> ?R ] => 
+        apply (@sp_index_hyp p Q R s l _ (hash_below k)) ; simpl 
+      | [ |- ?R ==> iter_sep ?P ?s ?l * ?Q ] => 
+        apply (@sp_index_conc P Q R s l _ (hash_below k)) ; simpl
+      | _ => auto
+    end) ; sep fail auto. 
+  destruct (eq_nat_dec (hash k) (hash k)) ; try congruence ; try subst.
+  rewrite remove_filter_eq ; sep fail auto. simpl.
+  apply himp_comm_prem. apply himp_split ; apply iter_imp ; sep fail mysimplr ; 
+    try (assert False ; [ omega | contradiction ]) ;
      match goal with 
      [ |- context[filter_hash ?i (remove_al ?k ?x)] ] => 
-       assert (hash k <> i) ; try omega ; mysimplr ; rewrite (@remove_filter_neq k i x) ; 
-         sep auto
+       rewrite (@remove_filter_neq k i x) ; sep fail auto
      end.
   Defined.
 
-  (* the following runs through the array and calls F.free on each of the buckets. *)
+  (* the following runs through the array and calls FiniteMapInterface.free on each of the buckets. *)
   Definition free_table_t(f:fmap_t)(n:nat) := (n <= table_size) -> 
     STsep (Exists l :@ _, iter_sep (wf_bucket f l) (table_size - n) n)
        (fun (_:unit) => 
@@ -368,28 +391,27 @@ Module HashTable.
           | S i => fun H => 
               fm <- sub_array f (table_size - (S i)) 
                        (fun fm => Exists l :@ _, 
-                        F.rep FM fm (filter_hash (table_size - (S i)) l) * 
+                        FiniteMapInterface.rep FM fm (filter_hash (table_size - (S i)) l) * 
                         iter_sep (wf_bucket f l) (table_size - i) i) ;
-              F.free FM fm <@> 
+              FiniteMapInterface.free FM fm <@> 
                  ((let p := array_plus f (table_size - (S i)) in p ~~ p --> fm) *
                   Exists l :@ _, iter_sep (wf_bucket f l) (table_size - i) i) ;; 
               free_tab i _ <@> 
                 (let p := array_plus f (table_size - (S i)) in p ~~ ptsto_any p ) @> _
           end) ; simpl ; intros ; try fold_ex_conc ; unfold ptsto_any, wf_bucket ; 
-  sep auto ; try (rewrite (sub_succ H)). unhide ; sep auto. unhide ; sep auto.
-  unhide ; sep auto. sep auto.
+  sep fail auto ; try (rewrite (sub_succ H)) ; sep fail auto.
   Defined.
 
-  (* Run through the array, call F.free on all of the maps, and then call array_free *)
+  (* Run through the array, call FiniteMapInterface.free on all of the maps, and then call array_free *)
   Definition free(f:fmap_t) : STsep (Exists l :@ alist_t, rep f l) (fun (_:unit) => __).
   intros.
   refine (@free_table f table_size _ <@> [array_length f = table_size] ;; 
           free_array f) ; simpl ; auto ; unfold rep, myExists ; 
-  rewrite (sub_self table_size) ; sep auto. 
+  rewrite (sub_self table_size) ; sep fail auto. 
   Defined.
 
   Definition hash_table : FiniteMapInterface.finite_map_t key_eq_dec value_t := 
-    F.mkFM key_eq_dec rep new free insert lookup.
+    FiniteMapInterface.mkFM key_eq_dec rep new free insert lookup.
   End HashTable.
 End HashTable.
 

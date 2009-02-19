@@ -1,6 +1,6 @@
 MODULES    := Counter Stack Queue Array Stream AssocListModel \
 	AssocListOrdModel FiniteMap RefFiniteMap HashTable BinarySearchTree \
-	JahobAssocList BinomialTree LinkedListSeg Parse2
+	JahobAssocList BinomialTree LinkedListSeg Parse2 FiniteMap2
 VS         := $(MODULES:%=%.v)
 
 .SUFFIXES: .v .vo
