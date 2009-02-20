@@ -1,4 +1,4 @@
-(* Copyright (c) 2008, Harvard University
+(* Copyright (c) 2009, Harvard University
  * All rights reserved.
  *
  * Author: Greg Morrisett
@@ -774,7 +774,6 @@ Section Packrat.
     (SepFix _ _ (@mkpenv' G env) (mkgenv G env G env)).
 
   (* Build association list and hash-table interfaces for our key-value pairs *)
-Check RefAssocList.ref_assoc_list.
   Definition newAssocList(G:Ctxt)(env:Env (term G) G)(ins:instream_t char) : FM_t G ins := 
     @RefAssocList.ref_assoc_list key_t key_eq (value_t G). 
 
