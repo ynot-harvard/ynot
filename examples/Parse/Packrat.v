@@ -232,7 +232,7 @@ Section Packrat.
   Require Import Ynot.
   Require Import FiniteMap2.
   Open Local Scope hprop_scope.
-  Open Local Scope stsep_scope.
+  Open Local Scope stsepi_scope.
   Section Parsing.
     (* we work relative to a typing context and environment for the non-terminals *)
     Variable G : Ctxt.
@@ -395,7 +395,7 @@ Section Packrat.
 
     Ltac unfp := unfold parser_t, basic_parser_t.
     Ltac unf := unfold ans_correct, rep_ans, parses.
-    Ltac unf' := unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val.
+    Ltac unf' := unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val; unfold_local.
     Ltac t := unf ; sep fail mysep.
     Ltac t' := unf'; sep pre mysep.
 
@@ -458,7 +458,8 @@ Section Packrat.
         {{Return (match copt with 
                     | None => None
                     | Some c' => if char_eq c c' then Some (1,c) else None
-                  end) <@> _}}) ; t. 
+                  end)}}); t.
+
       pose (NthError x x0) ; destruct o. 
         rewrite H0 ; rewrite (NthErrorNoneNthTail _ _ H0) ; t.
         destruct H0 ; rewrite H0 ; destruct (NthErrorSomeNthTail _ _ H0) as [v1 [v2 [H3 H4]]] ;
@@ -493,7 +494,7 @@ Section Packrat.
           {{Return (match copt with 
                       | None => None
                       | Some c => if f c then Some (1,c) else None
-                    end) <@> _}}
+                    end)}}
       ) ; t. pose (NthError x x0) ; destruct o.
       rewrite H0 ; rewrite (NthErrorNoneNthTail _ _ H0) ; t. clear f.
       induction cs ; t. econstructor. apply IHcs. destruct H0 ; rewrite H0 ; 
@@ -554,7 +555,7 @@ Section Packrat.
                      (fun vopt => ans_correct ins n (<<e1,e2>> ~~~ Seq e1 e2) vopt * 
                                   rep_ans ins n vopt * fminv FM t) 
              with 
-               | None => {{Return None <@> _}}
+               | None => {{Return None}}
                | Some (m1,v1) => 
                  vopt2 <- p2 penv ins (m1 + n) FM t <@> 
                  ans_correct ins n e1 (Some (m1,v1)); 
@@ -565,14 +566,14 @@ Section Packrat.
                          (fun vopt => ans_correct ins n (<<e1,e2>> ~~~ Seq e1 e2) vopt * 
                                       rep_ans ins n vopt * fminv FM t) 
                    with 
-                   | None => {{Return None <@> _}}
-                   | Some (m2,v2) => {{Return (Some (m2 + m1, (v1,v2))) <@> _}}
+                   | None => {{Return None}}
+                   | Some (m2,v2) => {{Return (Some (m2 + m1, (v1,v2)))}}
                  end
              end) ; t. 
      rewrite plus_comm ; t. 
      assert (m1 + n + m2 = n + (m2 + m1)) ; [omega | rewrite <- H2] ; t. 
      destruct m1 ; destruct m2 ; t ; rewrite <- plus_assoc ; simpl ; constructor.
-   Defined.                   
+   Defined.
 
    (* the followby parser -- doesn't consume input *)
    Definition followby(T:Set)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ FollowBy e).
@@ -585,14 +586,14 @@ Section Packrat.
                      (fun a => ans_correct ins n (e ~~~ FollowBy e) a * 
                                rep_ans ins n a * fminv FM t)
                with 
-               | None => {{ Return None <@> _ }}
+               | None => {{ Return None }}
                | Some (m,v) => 
                  seek ins n <@> (ans_correct ins n e (Some(m,v)) * fminv FM t) ;; 
-                 {{ Return Some(0,v) <@> _ }}
+                 {{ Return Some(0,v) }}
              end) ; 
      t ; rewrite plus_comm ; t.
    Defined.
-              
+
    (* the notfollowby parser -- doesn't consume input *)
    Definition notfollowby(T:Set)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ NotFollowBy e).
      unfp ; 
@@ -606,9 +607,9 @@ Section Packrat.
                with 
                | None => 
                  seek ins n <@> (ans_correct ins n e None * fminv FM t) ;;   
-                 {{ Return Some(0,tt) <@> _ }}
+                 {{ Return Some(0,tt) }}
                | Some _ => 
-                 {{ Return None <@> _ }}
+                 {{ Return None }}
              end) ; 
      t ; rewrite plus_comm ; t.
    Defined.
@@ -621,7 +622,7 @@ Section Packrat.
              {{ Return match vopt with 
                       | None => None
                       | Some (m,v) => Some (m, f v)
-                    end <@> _ }} ) ; 
+                    end }} ) ; 
      t ; destruct vopt ; try destruct p ; t.
    Defined.
 
@@ -658,102 +659,64 @@ Section Packrat.
       t.
     Defined.
 
-  Lemma lookup_valid : 
-    forall elts k al, valid_al elts al -> 
-      forall v, Some v = flookup_al k al -> valid_value elts v.
-    induction al ; simpl ; intros. congruence. destruct (key_eq k0 k). inversion H0.
-    unfold FiniteMapInterface.coerce_al. unfold eq_rec. unfold eq_rect. 
-    destruct H. generalize e v H. clear H2 H0 v0 H1 H IHal al v. rewrite e.
-    intros. rewrite (key_eq_irr e0). auto. apply IHal ; tauto.
-  Qed.
+    Lemma lookup_valid : 
+      forall elts k al, valid_al elts al -> 
+        forall v, Some v = flookup_al k al -> valid_value elts v.
+      induction al ; simpl ; intros. congruence. destruct (key_eq k0 k). inversion H0.
+      unfold FiniteMapInterface.coerce_al. unfold eq_rec. unfold eq_rect. 
+      destruct H. generalize e v H. clear H2 H0 v0 H1 H IHal al v. rewrite e.
+      intros. rewrite (key_eq_irr e0). auto. apply IHal ; tauto.
+    Qed.
 
-  Hint Resolve lookup_valid valid_al_remove.
+    Hint Resolve lookup_valid valid_al_remove.
 
-  Lemma rep_plus_comm : forall elt (ins : instream_t elt) m n,
-    rep ins (m + n) ==> rep ins (n + m).
-    intros; rewrite plus_comm; t.
-  Qed.
+    Lemma rep_plus_comm : forall elt (ins : instream_t elt) m n,
+      rep ins (m + n) ==> rep ins (n + m).
+      intros; rewrite plus_comm; t.
+    Qed.
 
-  Hint Immediate rep_plus_comm.
+    Hint Immediate rep_plus_comm.
 
-  Definition memovar'(x:nat) : parser_t [look G env x].
-    unfp;
-    refine (
-      fun x penv ins n FM t => 
-      vopt <- FiniteMapInterface.lookup FM t (mkKey x n) 
-              (fun al => elts :~~ stream_elts ins in [valid_al elts al] * rep ins n) ; 
-      IfNull vopt As v Then
-        ans <- var x penv n FM t ; 
-        FiniteMapInterface.insert FM t (mkKey x n) ans
-          (fun al => elts :~~ stream_elts ins in [valid_al elts al] * 
-                     ans_correct ins n [look G env x] ans * rep_ans ins n ans) ;; 
-          {{Return ans <@> (ans_correct ins n [look G env x] ans * 
-                            rep_ans ins n ans * fminv FM t) }}
-      Else
-        SepAssert (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) ;; 
-        IfNull v Then
-          {{ Return None <@> _ }}
-        Else
-          seek ins (fst v + n) <@> _ ;; 
-          {{ Return (Some v) <@> _ }}
-    ); t'; eauto.
-  Defined.
-
-(*    
-  (* a memoizing version of a non-terminal -- we first lookup the non-terminal 
-   * and position in the finite map [t], and if we get a hit, return (after 
-   * advancing the input stream an appropriate amount.)  If we don't get a hit,
-   * then we lookup the basic parser associated with [x] in the environment, 
-   * run it, and then insert the result into [t] before returning. 
-   *)    
-  Definition memovar'(x:nat) : parser_t [look G env x].
-    unfp ;
-    refine (
-      fun x penv ins n FM t => 
-      (* lookup this non-terminal and position in the finite map t *)
-      vopt <- FiniteMapInterface.lookup FM t (mkKey x n) 
-              (fun al => elts :~~ stream_elts ins in [valid_al elts al] * rep ins n) ; 
-      match vopt return
-        STsep (rep ins n * Exists l :@ _, fmrep FM t l * valid_al_val ins l vopt)
-              (fun a => ans_correct ins n [look G env x] a * rep_ans ins n a * fminv FM t)
-      with 
-        | None => 
+    (* a memoizing version of a non-terminal -- we first lookup the non-terminal 
+     * and position in the finite map [t], and if we get a hit, return (after 
+     * advancing the input stream an appropriate amount.)  If we don't get a hit,
+     * then we lookup the basic parser associated with [x] in the environment, 
+     * run it, and then insert the result into [t] before returning. 
+     *)    
+    Definition memovar'(x:nat) : parser_t [look G env x].
+      unfp; refine (fun x penv ins n FM t =>
+        let invariant := (fun al => elts :~~ stream_elts ins in [valid_al elts al]) in
+        (* lookup this non-terminal and position in the finite map t *)
+        vopt <- FiniteMapInterface.lookup FM t (mkKey x n) invariant <@> _;
+        IfNull vopt As v Then
           (* nothing in the memo table -- run the parser associated with the non-
            * terminal to get out a result. *)
           ans <- var x penv n FM t ; 
           (* cache the answer for later lookups *)
-          FiniteMapInterface.insert FM t (mkKey x n) ans
-          (fun al => elts :~~ stream_elts ins in [valid_al elts al] * 
-                     ans_correct ins n [look G env x] ans * rep_ans ins n ans) ;; 
+          FiniteMapInterface.insert FM t (mkKey x n) ans invariant <@> _;;
           (* finally, return the computed answer *)
-          {{Return ans <@> (ans_correct ins n [look G env x] ans * 
-                            rep_ans ins n ans * fminv FM t) }}
-        | Some v => 
+          {{ Return ans }}
+        Else
           (* here we have a cached answer v and the fminv should imply that it is correct *)
-          SepAssert (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) ;; 
-          match v return 
-            STsep (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) 
-                  (fun a => ans_correct ins n [look G env x] a * rep_ans ins n a * fminv FM t)
-            with
-            | None => {{ Return None <@> _ }}
-            | Some (m,w) => 
-                (* in the case that we have a cached answer, we need to seek
-                 * to position (n + m) to maintain the invariant that a successful
-                 * parse leaves us just after the consumed part of the input *)
-                seek ins (m + n) <@> (fminv FM t * (elts :~~ stream_elts ins in [valid_value elts (Some (m,w))])) ;; 
-                (* then we can just return the cached result *)
-                {{ Return (Some (m,w)) <@> _ }}
-          end
-      end) ; 
-      unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val ; t; eauto.
+          Assert (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) ;; 
+          IfNull v Then
+            {{ Return None }}
+          Else
+            (* in the case that we have a cached answer, we need to seek
+             * to position (n + m) to maintain the invariant that a successful
+             * parse leaves us just after the consumed part of the input *)
+            seek ins (fst v + n) <@> _ ;; 
+            (* then we can just return the cached result *)
+            {{ Return (Some v) }}
+      ); t'; eauto.
     Defined.
-*)
+
+    Hint Constructors evals.
 
     (* same as above, but instead of parser_t(look G env x) we get parser_t(Var G x) *)
     Definition memovar(x:nat) : parser_t [Var G x].
       unfp ; 
-      refine (fun x penv ins n FM t => {{ @memovar' x penv ins n FM t }}) ; t.
-      econstructor ; eauto.
+      refine (fun x penv ins n FM t => {{ @memovar' x penv ins n FM t }}) ; t; eauto.
     Defined.
 
   End Parsing.
@@ -851,7 +814,7 @@ Section Packrat.
             table <- FiniteMapInterface.new FM <@> _ ; 
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
-            {{ Return ans <@> _ }}
+            {{ Return ans }}
            ); unfold fminv, fmrep ; sep fail t ; sep fail auto.
   Defined.
 
