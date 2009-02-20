@@ -366,7 +366,7 @@ Section Packrat.
     intros. sep fail auto. Qed.
 
     Ltac mysep := 
-      idtac ; 
+      try autorewrite with PackRat; 
       match goal with
         | [ |- (__ ==> [ _ ])%hprop ] => apply EmpImpInj
         | [ |- evals _ (MReturn _ ?r) ?r ] => econstructor
@@ -456,24 +456,46 @@ Section Packrat.
       induction i ; simpl ; intros ; subst ; auto ; destruct vs ; try congruence. 
       apply (IHi _ _ _ H). 
     Qed.
-    
+
+    Hint Rewrite NthErrorNoneNthTail using solve [auto] : PackRat.
+
+    Lemma rep_S : forall elt (ins : instream_t elt) n,
+      rep ins (S n) ==> rep ins (n + 1).
+      intros; rewrite plus_comm; t.
+    Qed.
+
+    Hint Resolve rep_S.
+
+    Lemma nthtail_pop : forall c' v2 n ls,
+      nthtail ls n = c' :: v2
+      -> match ls with
+           | nil => nil (A:=char)
+           | _ :: cs => nthtail cs n
+         end = v2.
+      induction n; destruct ls; simpl; intuition; congruence.
+    Qed.    
+
+    Implicit Arguments nthtail_pop [c' v2 n ls].
+
     (* parser for a literal character c *)
     Definition lit(c:char) : parser_t ([Lit G c]).
-      unfp. 
-      refine (
-        fun c penv ins n FM t => 
+      unfp; refine (fun c penv ins n FM t => 
         copt <- next ins (inhabits n) <@> _; 
-        {{Return (match copt with 
-                    | None => None
-                    | Some c' => if char_eq c c' then Some (1,c) else None
-                  end)}}); t.
-
-      pose (NthError x x0) ; destruct o. 
-        rewrite H0 ; rewrite (NthErrorNoneNthTail _ _ H0) ; t.
-        destruct H0 ; rewrite H0 ; destruct (NthErrorSomeNthTail _ _ H0) as [v1 [v2 [H3 H4]]] ;
-        rewrite H4 ; destruct (char_eq c x1) ; subst ; t.
-        rewrite (plus_comm x0 1) ; t ; pose (NthTailSucc _ _ H4) ; simpl in * ; rewrite e ; 
-          constructor. 
+        IfNull copt As c' Then
+          {{Return None}}
+        Else
+          if char_eq c c' then
+            {{Return (Some (1, c))}}
+          else
+            {{Return None}}
+      ); t';
+      repeat match goal with
+               | [ H : Some _ = nth_error _ _ |- _ ] =>
+                 let v1 := fresh "v1" with v2 := fresh "v2" with H3 := fresh "H3" with H4 := fresh "H4" in
+                   destruct (NthErrorSomeNthTail _ _ (sym_eq H)) as [v1 [v2 [H3 H4]]]; rewrite H4
+               | [ |- context[if ?E then _ else _] ] => destruct E
+               | [ H : _ |- _ ] => rewrite (nthtail_pop H)
+             end; t'.
     Defined.
 
     (* a more efficient parser for sets of characters *)
