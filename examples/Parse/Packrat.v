@@ -450,6 +450,8 @@ Section Packrat.
         split ; subst ; auto.
     Qed.
     
+    Implicit Arguments NthErrorSomeNthTail [A i vs v].
+
     Lemma NthTailSucc(A:Type)(i:nat)(vs vs2:list A)(v:A) : 
       nthtail vs i = v::vs2 -> nthtail vs (S i) = vs2.
     Proof.
@@ -466,21 +468,33 @@ Section Packrat.
 
     Hint Resolve rep_S.
 
-    Lemma nthtail_pop : forall c' v2 n ls,
+    Lemma NthTailPop : forall c' v2 n ls,
       nthtail ls n = c' :: v2
       -> match ls with
            | nil => nil (A:=char)
            | _ :: cs => nthtail cs n
          end = v2.
       induction n; destruct ls; simpl; intuition; congruence.
-    Qed.    
+    Qed.
 
-    Implicit Arguments nthtail_pop [c' v2 n ls].
+    Implicit Arguments NthTailPop [c' v2 n ls].
+
+    Ltac erewrite E :=
+      let H := fresh "H" in
+        generalize E; intro H;
+          repeat (let T := type of H in
+            match T with
+              | _ = _ => progress rewrite H
+              | _ /\ _ => let H' := fresh "H'" in
+                destruct H as [H' H]
+              | ex _ => let x := fresh "x" in
+                destruct H as [x H]
+            end).
 
     (* parser for a literal character c *)
     Definition lit(c:char) : parser_t ([Lit G c]).
       unfp; refine (fun c penv ins n FM t => 
-        copt <- next ins (inhabits n) <@> _; 
+        copt <- next ins [n]%inhabited <@> _; 
         IfNull copt As c' Then
           {{Return None}}
         Else
@@ -490,11 +504,10 @@ Section Packrat.
             {{Return None}}
       ); t';
       repeat match goal with
-               | [ H : Some _ = nth_error _ _ |- _ ] =>
-                 let v1 := fresh "v1" with v2 := fresh "v2" with H3 := fresh "H3" with H4 := fresh "H4" in
-                   destruct (NthErrorSomeNthTail _ _ (sym_eq H)) as [v1 [v2 [H3 H4]]]; rewrite H4
                | [ |- context[if ?E then _ else _] ] => destruct E
-               | [ H : _ |- _ ] => rewrite (nthtail_pop H)
+               | [ H : Some _ = nth_error ?x ?x0 |- context[nthtail ?x ?x0] ] =>
+                 erewrite (NthErrorSomeNthTail (sym_eq H))
+               | [ H : nthtail _ _ = _ :: _ |- _ ] => rewrite (NthTailPop H)
              end; t'.
     Defined.
 
@@ -528,7 +541,7 @@ Section Packrat.
       ) ; t. pose (NthError x x0) ; destruct o.
       rewrite H0 ; rewrite (NthErrorNoneNthTail _ _ H0) ; t. clear f.
       induction cs ; t. econstructor. apply IHcs. destruct H0 ; rewrite H0 ; 
-      destruct (NthErrorSomeNthTail _ _ H0) as [v1 [v2 [H3 H4]]].
+      destruct (NthErrorSomeNthTail H0) as [v1 [v2 [H3 H4]]].
       rewrite H4. destruct (f x1). rewrite (plus_comm x0 1). t.
       pose (NthTailSucc _ _ H4). simpl in *. rewrite e. clear f.
       induction cs. simpl in *. contradiction m. simpl. destruct (char_eq a x1).
@@ -681,14 +694,25 @@ Section Packrat.
 
     Lemma lookup_valid : 
       forall elts k al, valid_al elts al -> 
-        forall v, Some v = flookup_al k al -> valid_value elts v.
+        forall v, Some v = flookup_al k al
+          -> evals env
+          (denote env (lookup (term G) (Epsilon G) G (key_non_terminal k) env)
+            (nthtail elts (key_pos k)))
+          match v with
+            | Some (pair len v0) =>
+              Succeed (if eq_nat_dec 0 len then NoConsume else Consume)
+              (nthtail elts (len + key_pos k)) v0
+            | None => Fail (get id G (key_non_terminal k))
+          end.
       induction al ; simpl ; intros. congruence. destruct (key_eq k0 k). inversion H0.
       unfold FiniteMapInterface.coerce_al. unfold eq_rec. unfold eq_rect. 
       destruct H. generalize e v H. clear H2 H0 v0 H1 H IHal al v. rewrite e.
       intros. rewrite (key_eq_irr e0). auto. apply IHal ; tauto.
     Qed.
 
-    Hint Resolve lookup_valid valid_al_remove.
+    Implicit Arguments lookup_valid [elts k al v].
+
+    Hint Resolve valid_al_remove.
 
     Lemma rep_plus_comm : forall elt (ins : instream_t elt) m n,
       rep ins (m + n) ==> rep ins (n + m).
@@ -718,7 +742,6 @@ Section Packrat.
           {{ Return ans }}
         Else
           (* here we have a cached answer v and the fminv should imply that it is correct *)
-          Assert (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) ;; 
           IfNull v Then
             {{ Return None }}
           Else
@@ -728,7 +751,11 @@ Section Packrat.
             seek ins (fst v + n) <@> _ ;; 
             (* then we can just return the cached result *)
             {{ Return (Some v) }}
-      ); unf'; t'; eauto.
+      ); unf'; t';
+      match goal with
+        | [ H : valid_al _ _, H' : Some _ = FiniteMapInterface.lookup_al _ _ _ |- _ ] =>
+          generalize (lookup_valid H H')
+      end; t'.
     Defined.
 
     Hint Constructors evals.
