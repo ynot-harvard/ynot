@@ -28,7 +28,7 @@
  *)
 
 Require Import Ynot.
-
+ 
 Set Implicit Arguments.
 
 Open Local Scope hprop_scope.
