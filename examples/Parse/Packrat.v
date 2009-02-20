@@ -387,6 +387,11 @@ Section Packrat.
     Qed.
 
     Ltac pre :=
+      simpl_IfNull;
+      repeat match goal with
+               | [ x : (_ * _)%type |- _ ] => destruct x
+             end;
+      canceler;
       try simpl_cancel ltac:(idtac;
         match goal with
           | [ |- rep _ _ ==> Exists m :@ nat, rep _ m ] =>
@@ -394,10 +399,13 @@ Section Packrat.
         end).
 
     Ltac unfp := unfold parser_t, basic_parser_t.
-    Ltac unf := unfold ans_correct, rep_ans, parses.
-    Ltac unf' := unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val; unfold_local.
+    Ltac unf := unfold ans_correct, rep_ans, parses; unfold_local.
+    Ltac unf' := unfold fminv, fmrep, valid_al_val.
     Ltac t := unf ; sep fail mysep.
-    Ltac t' := unf'; sep pre mysep.
+    Ltac t' := cbv zeta; simpl_IfNull;
+      repeat match goal with
+               | [ x : (_ * _)%type |- _ ] => destruct x
+             end; canceler; unf; sep pre mysep.
 
     (* the empty parser *)
     Definition epsilon : parser_t [Epsilon G].
@@ -523,25 +531,15 @@ Section Packrat.
     Definition alt T (e1 e2:[term G T]) (p1:parser_t e1) (p2:parser_t e2) : 
       parser_t(<<e1,e2>> ~~~ Alt e1 e2).
       unfp ; 
-      refine (
-        fun T e1 e2 p1 p2 penv ins n FM t => 
-              ans1 <- p1 penv ins n FM t ; 
-              let frame := fun a => ans_correct ins n e1 a * fminv FM t in
-              SepAssert (frame ans1 * rep_ans ins n ans1) ;;
-              match ans1 return 
-                STsep (frame ans1 * rep_ans ins n ans1)
-                      (fun a => ans_correct ins n (<<e1,e2>> ~~~ (Alt e1 e2)) a * 
-                                                   rep_ans ins n a * fminv FM t)
-                with 
-                | None => 
-                  seek ins n <@> frame None ;;
-                  {{ p2 penv ins n FM t <@> ans_correct ins n e1 None }}
-                | Some (m1,v1) => 
-                  {{Return (Some (m1,v1)) <@> 
-                    frame (Some (m1,v1)) * rep_ans ins n (Some(m1,v1)) }}
-              end) ; 
-      try (unfold frame ; clear frame) ; t.
-   Defined.
+      refine (fun T e1 e2 p1 p2 penv ins n FM t => 
+        ans1 <- p1 penv ins n FM t ; 
+        IfNull ans1 As ans1' Then
+          seek ins n <@> _ ;;
+          {{ p2 penv ins n FM t <@> _ }}
+        Else
+          {{ Return ans1 }}
+      ); t'.
+    Defined.
 
    (* parser for p1 concatenated with p2 *)
    Definition seq t1 t2 (e1:[term G t1]) (e2:[term G t2]) (p1:parser_t e1) (p2:parser_t e2) : 
@@ -708,7 +706,7 @@ Section Packrat.
             seek ins (fst v + n) <@> _ ;; 
             (* then we can just return the cached result *)
             {{ Return (Some v) }}
-      ); t'; eauto.
+      ); unf'; t'; eauto.
     Defined.
 
     Hint Constructors evals.
