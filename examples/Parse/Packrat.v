@@ -378,9 +378,26 @@ Section Packrat.
         | _ => auto
       end.
 
+    Definition valid_al_val ins al k (vopt:option(value_t k)) := 
+      elts :~~ stream_elts ins in [valid_al elts al] * [vopt = flookup_al k al].
+
+    Lemma rep_ex : forall elt (ins : instream_t elt) n,
+      rep ins n ==> (Exists m :@ nat, rep ins m).
+      sep fail idtac.
+    Qed.
+
+    Ltac pre :=
+      try simpl_cancel ltac:(idtac;
+        match goal with
+          | [ |- rep _ _ ==> Exists m :@ nat, rep _ m ] =>
+            apply rep_ex
+        end).
+
     Ltac unfp := unfold parser_t, basic_parser_t.
     Ltac unf := unfold ans_correct, rep_ans, parses.
+    Ltac unf' := unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val.
     Ltac t := unf ; sep fail mysep.
+    Ltac t' := unf'; sep pre mysep.
 
     (* the empty parser *)
     Definition epsilon : parser_t [Epsilon G].
@@ -641,9 +658,6 @@ Section Packrat.
       t.
     Defined.
 
-  Definition valid_al_val ins al k (vopt:option(value_t k)) := 
-    elts :~~ stream_elts ins in [valid_al elts al] * [vopt = flookup_al k al].
-
   Lemma lookup_valid : 
     forall elts k al, valid_al elts al -> 
       forall v, Some v = flookup_al k al -> valid_value elts v.
@@ -653,6 +667,39 @@ Section Packrat.
     intros. rewrite (key_eq_irr e0). auto. apply IHal ; tauto.
   Qed.
 
+  Hint Resolve lookup_valid valid_al_remove.
+
+  Lemma rep_plus_comm : forall elt (ins : instream_t elt) m n,
+    rep ins (m + n) ==> rep ins (n + m).
+    intros; rewrite plus_comm; t.
+  Qed.
+
+  Hint Immediate rep_plus_comm.
+
+  Definition memovar'(x:nat) : parser_t [look G env x].
+    unfp;
+    refine (
+      fun x penv ins n FM t => 
+      vopt <- FiniteMapInterface.lookup FM t (mkKey x n) 
+              (fun al => elts :~~ stream_elts ins in [valid_al elts al] * rep ins n) ; 
+      IfNull vopt As v Then
+        ans <- var x penv n FM t ; 
+        FiniteMapInterface.insert FM t (mkKey x n) ans
+          (fun al => elts :~~ stream_elts ins in [valid_al elts al] * 
+                     ans_correct ins n [look G env x] ans * rep_ans ins n ans) ;; 
+          {{Return ans <@> (ans_correct ins n [look G env x] ans * 
+                            rep_ans ins n ans * fminv FM t) }}
+      Else
+        SepAssert (rep ins n * fminv FM t * (elts :~~ stream_elts ins in [valid_value elts v])) ;; 
+        IfNull v Then
+          {{ Return None <@> _ }}
+        Else
+          seek ins (fst v + n) <@> _ ;; 
+          {{ Return (Some v) <@> _ }}
+    ); t'; eauto.
+  Defined.
+
+(*    
   (* a memoizing version of a non-terminal -- we first lookup the non-terminal 
    * and position in the finite map [t], and if we get a hit, return (after 
    * advancing the input stream an appropriate amount.)  If we don't get a hit,
@@ -698,9 +745,9 @@ Section Packrat.
                 {{ Return (Some (m,w)) <@> _ }}
           end
       end) ; 
-      unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val ; t. 
-      eapply lookup_valid ; eauto. rewrite plus_comm ; t. eapply valid_al_remove. auto.
+      unfold ans_correct, rep_ans, parses, fminv, fmrep, valid_al_val ; t; eauto.
     Defined.
+*)
 
     (* same as above, but instead of parser_t(look G env x) we get parser_t(Var G x) *)
     Definition memovar(x:nat) : parser_t [Var G x].

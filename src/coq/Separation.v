@@ -363,6 +363,8 @@ Qed.
 
 Ltac simpl_conc t := search_conc ltac:(eapply himp_frame_conc; [ t | ]).
 
+Ltac simpl_cancel t := search_prem ltac:(search_conc ltac:(apply himp_split; [ t | ])).
+
 Ltac finisher := apply himp_refl
   || apply himp_any_conc.
 
