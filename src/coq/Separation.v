@@ -1,4 +1,4 @@
-(* Copyright (c) 2008, Harvard University
+(* Copyright (c) 2008-2009, Harvard University
  * All rights reserved.
  *
  * Authors: Adam Chlipala, Gregory Malecha
@@ -368,10 +368,13 @@ Ltac simpl_cancel t := search_prem ltac:(search_conc ltac:(apply himp_split; [ t
 Ltac finisher := apply himp_refl
   || apply himp_any_conc.
 
-Ltac premer := apply himp_empty_prem
-  || (apply himp_ex_prem; do 2 intro)
-    || (apply himp_inj_prem; intro)
-      || apply himp_unpack_prem.
+Ltac premer := idtac;
+  match goal with
+    | [ |- __ * _ ==> _ ] => apply himp_empty_prem
+    | [ |- hprop_ex _ * _ ==> _ ] => apply himp_ex_prem; do 2 intro
+    | [ |- [_] * _ ==> _ ] => apply himp_inj_prem; intro
+    | [ |- hprop_unpack [_]%inhabited _ * _ ==> _ ] => apply himp_unpack_prem
+  end.
 
 Ltac subst_inh := repeat
   match goal with
@@ -661,12 +664,16 @@ Ltac unfold_local :=
 
 Ltac sep stac tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
-  let concer := apply himp_empty_conc
-      || apply himp_ex_conc_trivial
-      || (apply himp_ex_conc; econstructor)
-      || (eapply himp_unpack_conc; [eassumption || reflexivity |])
-      || (apply himp_inj_conc; [s; fail | idtac])
-  in
+  let concer := idtac;
+    match goal with
+      | [ |- _ ==> __ * _ ] => apply himp_empty_conc
+      | [ |- _ ==> hprop_ex _ * _ ] => apply himp_ex_conc_trivial
+        || (apply himp_ex_conc; econstructor)
+      | [ |- _ ==> hprop_unpack _ _ * _ ] =>
+        eapply himp_unpack_conc; [eassumption || reflexivity |]
+      | [ |- _ ==> [_] * _ ] => apply himp_inj_conc; [s; fail | ]
+    end
+    in
   (intros; equater || specFinder stac; tac;
    repeat match goal with
             | [ x : inhabited _ |- _ ] => dependent inversion x; clear x
@@ -674,7 +681,18 @@ Ltac sep stac tac :=
    intros; s; tac;
      repeat ((
        search_prem ltac:(idtac;
-         search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
+         search_conc ltac:(idtac;
+           match goal with
+             | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
+             | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
+           end)) || search_conc concer
+       || search_prem ltac:(idtac;
+         search_conc ltac:(idtac;
+           match goal with
+             | [ |- _ * _ ==> _ * _ ] => apply himp_frame
+             | [ |- _ --> _ * _ ==> _ --> _ * _ ] =>
+               apply himp_frame_cell; trivial
+           end)));
      s);
      try finisher).
 

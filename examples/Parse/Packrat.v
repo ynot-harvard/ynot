@@ -1,7 +1,7 @@
 (* Copyright (c) 2009, Harvard University
  * All rights reserved.
  *
- * Author: Greg Morrisett
+ * Authors: Greg Morrisett, Adam Chlipala
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -413,7 +413,7 @@ Section Packrat.
       refine (
         fun penv ins n FM t => 
         {{Return (Some (0,tt)) <@> (rep ins n * fminv FM t)}}
-      ) ;t. rewrite plus_comm ; t. 
+      );t. rewrite plus_comm ; t.
     Defined.
 
     (* the always failing parser *)

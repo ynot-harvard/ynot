@@ -627,7 +627,33 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
                rr <- self (next nde) (ls ~~~ tail ls) <@> _;
                res <- cons (data nde) rr [q] (ls ~~~ tail ls) <@> _;
                {{Return res}}) p' ls');
-    clear self; solve [ t | rsep simp_prem simplr ].
+    clear self.
+
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    t.
+    rsep simp_prem simplr.
+    t.
+    t.
+
+    intros.
+    inhabiter.
+    simpl.
+    destruct res; [|t].
+    subst.
+
+
+    t.
+    subst res v.
+    
+
+
+; solve [ t | rsep simp_prem simplr ].
   Qed.
 
   Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) 
