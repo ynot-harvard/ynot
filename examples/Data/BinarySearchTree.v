@@ -121,8 +121,8 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Module T:=FINITE_MAP_T(A)(AT).
   Import A AT.
     
-  Ltac unfolder := idtac; apply rep2node_prem.
-  Ltac impsimpler := search_conc ltac:(apply rep2node_conc).
+  Ltac unfolder := idtac; sapply rep2node_prem.
+  Ltac impsimpler := search_conc ltac:(sapply rep2node_conc).
   Ltac t := unfold rep; unfold_local; repeat progress (
     repeat progress (sep ltac:(idtac; search_prem unfolder) AL.simpler; auto; impsimpler); simpler; autorewrite with AssocListModel).
 
@@ -239,7 +239,7 @@ Qed.
    Lemma perm_node_swap_frame n l l' P Q : Permutation l l' -> distinct l -> P ==> Q -> node_rep n l * P ==> node_rep n l' * Q.
    Proof. Hint Resolve perm_node_rep. intros. apply himp_split; auto. Qed.
 
-   Ltac nr_perm := search_conc ltac:(search_prem ltac:(apply perm_node_swap_frame)) || auto.
+   Ltac nr_perm := search_conc ltac:(search_prem ltac:(sapply perm_node_swap_frame)) || auto.
 (*
    Fixpoint find_max (l:alist_t) mk (mv:value_t mk) {struct l} :=
      match l with
@@ -351,8 +351,9 @@ search_prem ltac:(apply rep2node_prem). sep fail idtac.
              WhenGt {{lookup (node_right n) k l_right
                <@> (f --> Some n * 
                  (l_left ~~ [distinct l_left] * rep' (node_left n) l_left) * 
-                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}}))
-   ; t. Qed.
+                 (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}})).
+   Existential 5:=sym_eq H0. t. t. t. t. t. t. t. t. t. t.
+ Qed.
 
    Definition insert : T.insert.
    refine(Fix4 _ _ (fun (insert:T.insert) f k v l =>

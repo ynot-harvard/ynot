@@ -109,7 +109,7 @@ Module Stack : STACK.
       intros; refine (hd <- !s;
         nd <- New (Node x hd);
         {{s ::= Some nd}}
-      ); t.
+      ); t. 
     Qed.
 
     Definition pop : forall s ls,

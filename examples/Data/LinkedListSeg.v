@@ -467,10 +467,10 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
   Ltac simplr := repeat simplr''.
   
   Ltac unfolder := simpl_prem ltac:(
-       apply llseg_unfold_nil  || apply llseg_unfold_some_cons
-    || apply llseg_unfold_same || apply llseg_unfold_cons || apply llseg_unfold_head_none
-    || (apply llseg_unfold_some; solve [ congruence ])
-    || (apply llseg_unfold_tail_none; solve [ congruence ])).
+       sapply llseg_unfold_nil  || sapply llseg_unfold_some_cons
+    || sapply llseg_unfold_same || sapply llseg_unfold_cons || sapply llseg_unfold_head_none
+    || (sapply llseg_unfold_some; solve [ congruence ])
+    || (sapply llseg_unfold_tail_none; solve [ congruence ])).
 
   Ltac simp_prem := discriminate || (repeat (ondemand_subst || unfolder || expander)).
 

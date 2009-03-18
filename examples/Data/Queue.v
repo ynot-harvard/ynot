@@ -35,7 +35,6 @@ Set Implicit Arguments.
 
 Open Local Scope hprop_scope.
 
-
 Module Type QUEUE.
   Parameter t : Set -> Set.
   Parameter rep : forall T, t T -> list T -> hprop.
@@ -124,7 +123,7 @@ Module Queue : QUEUE.
     Lemma app_inj_tail' : forall (x1 : T) ls' x2 v v0,
       x1 :: ls' ++ x2 :: nil = v ++ v0 :: nil
       -> x1 :: ls' = v /\ x2 = v0.
-      intros; apply app_inj_tail; assumption.
+      intros; sapply app_inj_tail; assumption.
     Qed.
 
     Implicit Arguments app_inj_tail' [x1 ls' x2 v v0].
@@ -168,7 +167,7 @@ Module Queue : QUEUE.
 
     Ltac simp_prem :=
       idtac;
-      simpl_prem ltac:(apply rep_nil || apply rep'_Some1 || apply rep'_Some2).
+      simpl_prem ltac:(sapply rep_nil || sapply rep'_Some1 || sapply rep'_Some2).
 
     Ltac t := unfold rep; simpl_IfNull; sep simp_prem simplr.
     

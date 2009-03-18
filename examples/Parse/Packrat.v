@@ -32,7 +32,7 @@
 Require Import List. 
 Require Import Omega.
 Require Import Eqdep.
-Require Import Stream.
+Require Import Parse.Stream.
 Import INSTREAM.
 Set Implicit Arguments.
 
@@ -368,7 +368,7 @@ Section Packrat.
     Ltac mysep := 
       try autorewrite with PackRat; 
       match goal with
-        | [ |- (__ ==> [ _ ])%hprop ] => apply EmpImpInj
+        | [ |- (__ ==> [ _ ])%hprop ] => sapply EmpImpInj
         | [ |- evals _ (MReturn _ ?r) ?r ] => econstructor
         | [ |- evals _ (MBind _ _) _] => econstructor ; eauto ; simpl
         | [ |- context[if (?f ?c) then _ else _] ] => 
@@ -395,7 +395,7 @@ Section Packrat.
       try simpl_cancel ltac:(idtac;
         match goal with
           | [ |- rep _ _ ==> Exists m :@ nat, rep _ m ] =>
-            apply rep_ex
+            sapply rep_ex
         end).
 
     Ltac unfp := unfold parser_t, basic_parser_t.
@@ -502,7 +502,30 @@ Section Packrat.
             {{Return (Some (1, c))}}
           else
             {{Return None}}
-      ); t';
+      ).
+
+      cbv zeta in |- *; cbv zeta in |- *;
+        unfold ans_correct, rep_ans, parses in |- *.
+          intros; simple apply (unpack (h:=[n])); intro.
+            intro; cbv zeta in |- *; autorewrite with PackRat.
+              auto; intros; intuition; generalize (pack_injective H).
+                clear H; intro H; subst; simpl in *; autorewrite with PackRat.
+                  auto; autorewrite with PackRat ; auto; cbv beta in |- *.
+                  cbv beta in |- *. Debug Off. apply himp_comm_conc.
+       simple eapply himp_unpack_conc. reflexivity. apply himp_comm_conc. t. 
+
+                  t. simple apply himp_frame. cbv beta in |- *.
+       simple apply himp_empty_conc'.
+    reflexivity.
+    
+    intuition; subst; simpl in *; autorewrite with PackRat ; 
+    auto; cbv beta in |- *; simple apply himp_comm_conc;
+       simple apply himp_empty_conc.
+
+info t'.
+
+ t. t'. unfold fminv.
+
       repeat match goal with
                | [ |- context[if ?E then _ else _] ] => destruct E
                | [ H : Some _ = nth_error ?x ?x0 |- context[nthtail ?x ?x0] ] =>
@@ -852,7 +875,7 @@ Section Packrat.
     Ltac t := (idtac ; 
                match goal with 
                  [ |- _ ==> (Exists v :@ FiniteMapInterface.alist_t _, _) * _ ] => 
-                 eapply himp_ex_conc ; exists (@FiniteMapInterface.Nil_al key_t (value_t _))
+                 seapply himp_ex_conc ; exists (@FiniteMapInterface.Nil_al key_t (value_t _))
                | _ => auto
              end).
     refine (let penv := mkpenv G env in 

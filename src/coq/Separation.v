@@ -286,27 +286,27 @@ Ltac search_prem tac :=
   let rec search p :=
     let p := eval simpl in p in
       tac
-      || (apply himp_empty_prem'; tac)
+      || (sapply himp_empty_prem'; tac)
         || match p with
              | (?p1 * ?p2)%hprop =>
-               (apply himp_assoc_prem1; search p1)
-               || (apply himp_assoc_prem2; search p2)
+               (sapply himp_assoc_prem1; search p1)
+               || (sapply himp_assoc_prem2; search p2)
            end
     in cbv beta;
     match goal with
       | [ |- ?p * _ ==> _ ] => search p
-      | [ |- _ * ?p ==> _ ] => apply himp_comm_prem; search p
-      | [ |- _ ] => progress (tac || (apply himp_empty_prem'; tac))
+      | [ |- _ * ?p ==> _ ] => sapply himp_comm_prem; search p
+      | [ |- _ ] => progress (tac || (sapply himp_empty_prem'; tac))
     end.
     (*in match goal with
          | [ |- ?p * _ ==> _ ] => search p
-         | [ |- _ * ?p ==> _ ] => apply himp_comm_prem; search p
+         | [ |- _ * ?p ==> _ ] => sapply himp_comm_prem; search p
          | [ |- ?p ] =>
            let p := eval simpl in p in
            match p with
              | ?p' * _ => search p'
-             | _ * ?p' => apply himp_comm_prem; search p
-             | _ => progress (tac || (apply himp_empty_prem'; tac))
+             | _ * ?p' => sapply himp_comm_prem; search p
+             | _ => progress (tac || (sapply himp_empty_prem'; tac))
            end
        end.*)
     (*in match goal with
@@ -314,8 +314,8 @@ Ltac search_prem tac :=
            let p := (*eval cbv beta in*) p in
              match p with
                | ?p * _ => search p
-               | _ * ?p => apply himp_comm_prem; search p
-               | _ => progress (tac || (apply himp_empty_prem'; tac))
+               | _ * ?p => sapply himp_comm_prem; search p
+               | _ => progress (tac || (sapply himp_empty_prem'; tac))
              end
        end.*)
 
@@ -323,25 +323,25 @@ Ltac search_conc tac :=
   let rec search p :=
     let p := eval simpl in p in
       tac
-      || (apply himp_empty_conc'; tac)
+      || (sapply himp_empty_conc'; tac)
         || match p with
              | (?p1 * ?p2)%hprop =>
-               (apply himp_assoc_conc1; search p1)
-               || (apply himp_assoc_conc2; search p2)
+               (sapply himp_assoc_conc1; search p1)
+               || (sapply himp_assoc_conc2; search p2)
            end
     in cbv beta;
     match goal with
          | [ |- _ ==> ?p * _ ] => search p
-         | [ |- _ ==> _ * ?p ] => apply himp_comm_conc; search p
-         | [ |- _ ] => progress (tac || (apply himp_empty_conc'; tac))
+         | [ |- _ ==> _ * ?p ] => sapply himp_comm_conc; search p
+         | [ |- _ ] => progress (tac || (sapply himp_empty_conc'; tac))
       end.
     (*in match goal with
          | [ |- _ ==> ?p ] =>
            let p := (*eval cbv beta in*) p in
              match p with
                | ?p * _ => search p
-               | _ * ?p => apply himp_comm_conc; search p
-               | _ => progress (tac || (apply himp_empty_conc'; tac))
+               | _ * ?p => sapply himp_comm_conc; search p
+               | _ => progress (tac || (sapply himp_empty_conc'; tac))
              end
        end.*)
 
@@ -352,7 +352,7 @@ Theorem himp_frame_prem : forall p1 p2 q p1',
   unfold hprop_imp, hprop_sep; firstorder.
 Qed.
 
-Ltac simpl_prem t := search_prem ltac:(eapply himp_frame_prem; [ t | ]).
+Ltac simpl_prem t := search_prem ltac:(esapply himp_frame_prem; [ t | ]).
 
 Theorem himp_frame_conc : forall p q1 q2 q1',
   q1' ==> q1
@@ -361,17 +361,17 @@ Theorem himp_frame_conc : forall p q1 q2 q1',
   unfold hprop_imp, hprop_sep; firstorder.
 Qed.
 
-Ltac simpl_conc t := search_conc ltac:(eapply himp_frame_conc; [ t | ]).
+Ltac simpl_conc t := search_conc ltac:(esapply himp_frame_conc; [ t | ]).
 
-Ltac simpl_cancel t := search_prem ltac:(search_conc ltac:(apply himp_split; [ t | ])).
+Ltac simpl_cancel t := search_prem ltac:(search_conc ltac:(sapply himp_split; [ t | ])).
 
-Ltac finisher := apply himp_refl
-  || apply himp_any_conc.
+Ltac finisher := sapply himp_refl
+  || sapply himp_any_conc.
 
-Ltac premer := apply himp_empty_prem
-  || (apply himp_ex_prem; do 2 intro)
-    || (apply himp_inj_prem; intro)
-      || apply himp_unpack_prem.
+Ltac premer := sapply himp_empty_prem
+  || (sapply himp_ex_prem; do 2 intro)
+    || (sapply himp_inj_prem; intro)
+      || sapply himp_unpack_prem.
 
 Ltac subst_inh := repeat
   match goal with
@@ -383,7 +383,7 @@ Ltac subst_inh := repeat
          end
   end.
 
-Ltac simpler := repeat progress (intuition; subst_inh; subst; simpl in * ).
+Ltac simpler := repeat progress (intuition; subst_inh; safe_subst; simpl in * ).
 
 Ltac deExist P :=
   let F := fresh "F" in
@@ -439,7 +439,7 @@ Theorem himp_unpack_prem_eq : forall T h (x : T) p1 p2 p,
   -> p1 x * p2 ==> p
   -> hprop_unpack h p1 * p2 ==> p.
   intros; subst.
-  apply himp_unpack_prem; assumption.
+  sapply himp_unpack_prem; assumption.
 Qed.
 
 Theorem himp_unpack_prem_alone : forall T h (x : T) p1 p,
@@ -447,11 +447,11 @@ Theorem himp_unpack_prem_alone : forall T h (x : T) p1 p,
   -> p1 x ==> p
   -> hprop_unpack h p1 ==> p.
   intros.
-  apply himp_empty_prem'.
+  sapply himp_empty_prem'.
   rewrite H.
-  apply himp_unpack_prem.
-  apply himp_comm_prem.
-  apply himp_empty_prem.
+  sapply himp_unpack_prem.
+  sapply himp_comm_prem.
+  sapply himp_empty_prem.
   assumption.
 Qed.
 
@@ -470,21 +470,14 @@ Ltac findContents ptr P :=
     | _ => tt
   end.
 
-
-Ltac meta_fail x :=
-  match x with
-    | x => idtac
-    | _ => fail 1
-  end.
-
 Ltac unpack_conc := repeat search_conc ltac:(idtac;
   match goal with
     | [ |- _ ==> hprop_unpack ?M _ * _ ] =>
       match M with
-        | M => eapply himp_unpack_conc; [eassumption || reflexivity | ]
+        | M => esapply himp_unpack_conc; [eassumption || reflexivity | ]
         | _ => match M with 
                  | M => fail 2
-                 | _ => eapply himp_unpack_conc_meta
+                 | _ => esapply himp_unpack_conc_meta
                end
       end
   end).
@@ -494,32 +487,32 @@ Ltac inhabiter :=
            | [ x : [_] |- _ ] =>
              match goal with
                | [ _ : x = [_]%inhabited |- _ ] => fail 1
-               | _ => apply (unpack (h := x)); do 2 intro
+               | _ => sapply (unpack (h := x)); do 2 intro
              end
            | [|- context [hprop_unpack ?x _]] =>
              meta_fail x;
              match goal with
                | [ _ : x = [_]%inhabited |- _ ] => fail 1
-               | _ => apply (unpack (h := x)); do 2 intro
+               | _ => sapply (unpack (h := x)); do 2 intro
              end
          end;
 
-  repeat search_prem ltac:(eapply himp_unpack_prem_eq; [eassumption |]
-    || (apply himp_ex_prem; do 2 intro)).
+  repeat search_prem ltac:(esapply himp_unpack_prem_eq; [eassumption |]
+    || (sapply himp_ex_prem; do 2 intro)).
 
 Ltac canceler :=
   cbv zeta;
   repeat search_conc ltac:(idtac; (** Eliminate the empty heaps on the RHS **)
     match goal with
-      [ |- _ ==> __ * _ ] => apply himp_empty_conc
+      [ |- _ ==> __ * _ ] => sapply himp_empty_conc
     end);
   repeat search_prem ltac:(idtac;
-    apply himp_empty_prem || (** Eliminate empty heaps on LHS **)
+    sapply himp_empty_prem || (** Eliminate empty heaps on LHS **)
     search_conc ltac:(idtac; 
       (** Eliminate common heaps. The match prevents capturing existentials **)
       match goal with
-        | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
-        | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
+        | [ |- ?p * _ ==> ?p * _ ] => sapply himp_frame
+        | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => sapply himp_frame_cell; trivial
       end)). 
 
 Ltac specFinder stac :=
@@ -529,8 +522,8 @@ Ltac specFinder stac :=
         | [ |- ?P ==> Exists v :@ ?T, (?ptr --> v * ?Q v)%hprop ] =>
           match findContents ptr P with
             | (?V, ?P) =>
-              apply himp_empty_conc';
-                apply himp_ex_conc; exists V;
+              sapply himp_empty_conc';
+                sapply himp_ex_conc; exists V;
                   let Px := fresh "P" in
                     pose (Px := P);
                       pattern V in Px;
@@ -661,11 +654,11 @@ Ltac unfold_local :=
 
 Ltac sep stac tac :=
   let s := repeat progress (simpler; tac; try search_prem premer) in
-  let concer := apply himp_empty_conc
-      || apply himp_ex_conc_trivial
-      || (apply himp_ex_conc; econstructor)
-      || (eapply himp_unpack_conc; [eassumption || reflexivity |])
-      || (apply himp_inj_conc; [s; fail | idtac])
+  let concer := sapply himp_empty_conc
+      || sapply himp_ex_conc_trivial
+      || (sapply himp_ex_conc; econstructor)
+      || (esapply himp_unpack_conc; [eassumption || reflexivity |])
+      || (sapply himp_inj_conc; [s; fail | idtac])
   in
   (intros; equater || specFinder stac; tac;
    repeat match goal with
@@ -674,7 +667,7 @@ Ltac sep stac tac :=
    intros; s; tac;
      repeat ((
        search_prem ltac:(idtac;
-         search_conc ltac:(apply himp_frame || (apply himp_frame_cell; trivial))) || search_conc concer);
+         search_conc ltac:(sapply himp_frame || (sapply himp_frame_cell; trivial))) || search_conc concer);
      s);
      try finisher).
 
@@ -684,7 +677,7 @@ Ltac intro_pure :=
       | [ |- [?P] * _ ==> _ ] =>
         match goal with
           | [ H : P |- _ ] => fail 1
-          | _ => apply himp_inj_prem_keep; intro
+          | _ => sapply himp_inj_prem_keep; intro
         end
     end).
 
@@ -709,7 +702,7 @@ Ltac sep_change2 F :=
                 assert (H' : X1 = X2 \/ Y1 = Y2); [ tauto | ];
                   clear H';
                     replace (F X1 Y1) with (F X2 Y2); [
-                      | subst; simpl in *;
+                      | safe_subst; simpl in *;
                         repeat match goal with
                                  | [ H : [_]%inhabited = [_]%inhabited |- _ ] =>
                                    generalize (pack_injective H); clear H
@@ -733,8 +726,13 @@ Qed.
 Theorem himp_disjoint : forall S T p1 p2 (a1:S) (a2:T), 
   p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
   intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
-  exists ((x * x0)%heap). exists empty. sep fail auto. exists x. exists x0. sep fail auto. split_prover'. compute.
-  split. apply ext_eq. auto. intros. subst.
+  exists ((x * x0)%heap). exists empty. subst.
+  
+  sep fail auto. Ltac safe_subst ::= subst.
+  subst ; sep fail auto. sep fail auto.
+
+exists x. exists x0. sep fail auto. split_prover'. compute.
+  split. sapply ext_eq. auto. intros. subst.
   compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. 
 Qed.
 
