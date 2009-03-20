@@ -242,7 +242,7 @@ Module Queue : QUEUE.
           front q ::= next nd;;
 
           IfNull next nd As nnd Then
-            back q ::= None;;
+            back q ::= @None ptr;;
             {{Return (Some (data nd))}}
           Else    
             {{Return (Some (data nd))}}); t.

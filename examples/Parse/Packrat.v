@@ -42,33 +42,49 @@ Section Packrat.
   Variable char : Set.
   Variable char_eq : forall (c1 c2:char), {c1 = c2} + {c1 <> c2}.
 
+  Variable base_ty : Set.
+  Variable base_ty_denote : base_ty -> Set.
+
+  Inductive ty : Set :=
+  | Base : base_ty -> ty
+  | Unit : ty
+  | Char : ty
+  | Prod : ty -> ty -> ty.
+
+  Fixpoint tyDenote (t : ty) : Set :=
+    match t with
+      | Base bt => base_ty_denote bt
+      | Unit => unit
+      | Char => char
+      | Prod t1 t2 => tyDenote t1 * tyDenote t2
+    end%type.
+
   (* This section defines syntax and semantics of grammars *)
   Section GRAMMAR.
     (* we use DeBruijn indices to represented typed non-terminals within grammars *)
-    Definition Ctxt := list Set.
+    Definition Ctxt := list ty.
 
-    Fixpoint get (f:Set -> Set) (c:Ctxt) (n:nat) {struct n} : Set := 
+    Fixpoint get (c:Ctxt) (n:nat) {struct n} : ty := 
       match n, c with
-      | 0, T::rest => f T
-      | S m, T::rest => get f rest m
-      | _, _ => unit
+      | 0, T::rest => T
+      | S m, T::rest => get rest m
+      | _, _ => Unit
       end.
-    Definition id(x:Set) := x.
     
-    Fixpoint Env(f:Set -> Type)(G:Ctxt) {struct G} : Type := 
+    Fixpoint Env(f:ty -> Type)(G:Ctxt) {struct G} : Type := 
       match G with
         | nil => unit
         | T::rest => ((f T) * (Env f rest))%type
       end.
 
-    Fixpoint lookup(f:Set->Type)(default:f unit)(G:Ctxt) {struct G} : 
-      forall n:nat, Env f G -> f (get id G n) := 
-        match G return forall n, Env f G -> f (get id G n) with
-          | nil => fun n => match n return Env f nil -> f (get id nil n) with
+    Fixpoint lookup(f:ty->Type)(default:f Unit)(G:Ctxt) {struct G} : 
+      forall n:nat, Env f G -> f (get G n) := 
+        match G return forall n, Env f G -> f (get G n) with
+          | nil => fun n => match n return Env f nil -> f (get nil n) with
                               | 0 => fun _ => default
                               | _ => fun _ => default
                             end
-        | T::rest => fun n => match n return Env f (T::rest) -> f (get id (T::rest) n) with
+        | T::rest => fun n => match n return Env f (T::rest) -> f (get (T::rest) n) with
                                 | 0 => fun env => fst env
                                 | S n => fun env => lookup f default rest n (snd env)
                               end
@@ -77,16 +93,18 @@ Section Packrat.
     Variable G : Ctxt.
 
     (* A typed grammar term, following the ideas behind parsing expression grammars *)
-    Inductive term : Set -> Type := 
-    | Epsilon : term unit
-    | Void : forall t:Set, term t
-    | Lit : char -> term char
-    | Var : forall n, term (get id G n)
-    | Seq : forall (t1 t2:Set), term t1 -> term t2 -> term (t1 * t2)
-    | Alt : forall t:Set, term t -> term t -> term t
-    | FollowBy : forall t:Set, term t -> term t
-    | NotFollowBy : forall t:Set, term t -> term unit
-    | Map : forall (t1 t2:Set), (t1 -> t2) -> term t1 -> term t2.
+
+
+    Inductive term : ty -> Type := 
+    | Epsilon : term Unit
+    | Void : forall t, term t
+    | Lit : char -> term Char
+    | Var : forall n, term (get G n)
+    | Seq : forall t1 t2, term t1 -> term t2 -> term (Prod t1 t2)
+    | Alt : forall t, term t -> term t -> term t
+    | FollowBy : forall t, term t -> term t
+    | NotFollowBy : forall t, term t -> term Unit
+    | Map : forall t1 t2, (tyDenote t1 -> tyDenote t2) -> term t1 -> term t2.
 
     Variable env : Env term G.
 
@@ -105,7 +123,7 @@ Section Packrat.
     Inductive M : Set -> Type := 
     | MReturn : forall (t:Set), t -> M t
     | MBind : forall (t1 t2:Set), M t1 -> (t1 -> M t2) -> M t2
-    | MUnroll : forall (t:Set), term t -> list char -> M (ans_t t).
+    | MUnroll : forall t, term t -> list char -> M (ans_t (tyDenote t)).
     
     Notation "'Return' x" := (MReturn x) (at level 75) : gdenote_scope.
     Notation "x <- c1 ; c2" := (MBind c1 (fun x => c2)) 
@@ -124,8 +142,8 @@ Section Packrat.
      * a functional semantics (using an order that argues either the grammar term
      * gets smaller or we consume characters.)  I did this in another development,
      * but it was very ugly compared to this. *)
-    Fixpoint denote(t:Set)(e:term t)(s:list char) {struct e} : M (ans_t t) := 
-      match e in term t return M (ans_t t) with 
+    Fixpoint denote(t:ty)(e:term t)(s:list char) {struct e} : M (ans_t (tyDenote t)) := 
+      match e in term t return M (ans_t (tyDenote t)) with 
         | Epsilon => Return Succeed NoConsume s tt
         | Void _ => Return Fail _
         | Lit c => match s with 
@@ -181,7 +199,7 @@ Section Packrat.
     | evals_MReturn : forall (t:Set) (v:t), evals (MReturn v) v
     | evals_MBind : forall (t1 t2:Set) (c1:M t1) (v1:t1) (c2:t1 -> M t2) (v2:t2), 
       evals c1 v1 -> evals (c2 v1) v2 -> evals (MBind c1 c2) v2
-    | evals_MUnroll : forall (t:Set) (e:term t) (s:list char) (v:ans_t t), 
+    | evals_MUnroll : forall (t:ty) (e:term t) (s:list char) (v:ans_t (tyDenote t)), 
       evals (denote e s) v -> evals (MUnroll e s) v.
 
   End GRAMMAR.
@@ -203,14 +221,14 @@ Section Packrat.
 
   (* when e : grammar_t G, then gfix e can be used to build a suitable
    * recursive grammar. *)
-  Lemma getN(G:Ctxt)(n:nat)(T:Set) : nth_error G n = Some T -> get id G n = T.
-   induction G ; destruct n ; simpl ; unfold error, value, id in *; intros ; try congruence.
+  Lemma getN(G:Ctxt)(n:nat)T : nth_error G n = Some T -> get G n = T.
+   induction G ; destruct n ; simpl ; unfold error, value in *; intros ; try congruence.
     apply IHG ; auto.
   Defined.
 
-  Definition genvar(T:Set)(G G1 G2:Ctxt) : G = G1 ++ T::G2 -> term G T.
+  Definition genvar T (G G1 G2:Ctxt) : G = G1 ++ T::G2 -> term G T.
     intros.
-    assert (get id G (length G1) = T). apply (getN G (length G1)). rewrite H.
+    assert (get G (length G1) = T). apply (getN G (length G1)). rewrite H.
     clear H G ; induction G1 ; auto.
     pose (Var G (length G1)). clearbody t. rewrite H0 in t. apply t.
   Defined.
@@ -269,7 +287,7 @@ Section Packrat.
     (* Parsers return an option(nat * t) where None denotes parse failure and 
      * Some(n,v) denotes success, consuming n characters and returning semantic value v. 
      * This predicate connects answers to the specification above. *)
-    Definition parses(s:list char)(pos:nat)(t:Set)(e:term G t)(vopt:option (nat * t)) :Prop := 
+    Definition parses(s:list char)(pos:nat)(t:ty)(e:term G t)(vopt:option (nat * tyDenote t)) :Prop := 
       evals env (denote env e (nthtail s pos)) 
       match vopt with 
         | None => Fail _
@@ -279,7 +297,7 @@ Section Packrat.
                   v
       end.
 
-    Definition value_t(k:key_t) := option (nat * get id G (key_non_terminal k)).
+    Definition value_t(k:key_t) := option (nat * tyDenote (get G (key_non_terminal k))).
 
 (*
     (* Our finite-map is going to capture correctness in the result type -- minor hack
@@ -330,8 +348,8 @@ Section Packrat.
         | None => Exists m :@ nat, rep ins m
       end.
 
-    Definition ans_correct(ins:instream_t char)(n:nat)(T:Set)
-                          (e:[term G T])(a:option (nat * T)) := 
+    Definition ans_correct(ins:instream_t char)(n:nat)(T:ty)
+                          (e:[term G T])(a:option (nat * tyDenote T)) := 
       elts :~~ stream_elts ins in e ~~ [parses elts n e a]. 
 
     (* A basic parser for grammer e takes an input stream [ins], a 
@@ -341,10 +359,10 @@ Section Packrat.
      * respect to the specification above.  We also ensure that if the parse is
      * sucessful, then the input stream is advanced by the appropriate number of
      * characters, and that the finite map [t] is still valid. *)
-    Definition basic_parser_t(T:Set)(e:[term G T]) :=
+    Definition basic_parser_t(T:ty)(e:[term G T]) :=
       forall (ins:instream_t char)(n:nat)(FM:FM_t ins)(t:table_t FM), 
         STsep (rep ins n * fminv FM t) 
-              (fun a:option (nat * T) => 
+              (fun a:option (nat * tyDenote T) => 
                 ans_correct ins n e a * rep_ans ins n a * fminv FM t).
 
     (* The following defines an environment for the non-terminals, mapping each
@@ -359,7 +377,7 @@ Section Packrat.
      * that provides a basic parser for all of the non-terminals.  The environment
      * itself is under a computation because we need to build it using a fixed-point.
      *)
-    Definition parser_t(T:Set)(e:[term G T]) := 
+    Definition parser_t(T:ty)(e:[term G T]) := 
       forall (penv : STsep __ (fun penv : penv_t G env => __)), basic_parser_t e.
 
     Lemma EmpImpInj(P:Prop) : P -> __ ==> [P].
@@ -417,7 +435,7 @@ Section Packrat.
     Defined.
 
     (* the always failing parser *)
-    Definition void(T:Set) : parser_t [Void G T].
+    Definition void(T:ty) : parser_t [Void G T].
       unfp ; 
       refine (
         fun T penv ins n FM t => 
@@ -512,9 +530,9 @@ Section Packrat.
     Defined.
 
     (* a more efficient parser for sets of characters *)
-    Fixpoint charset(cs:list char) : term G char := 
+    Fixpoint charset(cs:list char) : term G Char := 
       match cs with 
-        | nil => Void G char
+        | nil => Void G Char
         | c::cs => Alt (Lit G c) (charset cs)
       end.
 
@@ -609,7 +627,7 @@ Section Packrat.
    Defined.
 
    (* the followby parser -- doesn't consume input *)
-   Definition followby(T:Set)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ FollowBy e).
+   Definition followby(T:ty)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ FollowBy e).
      unfp ; 
      refine (
        fun T e p penv ins n FM t => 
@@ -628,7 +646,7 @@ Section Packrat.
    Defined.
 
    (* the notfollowby parser -- doesn't consume input *)
-   Definition notfollowby(T:Set)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ NotFollowBy e).
+   Definition notfollowby(T:ty)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ NotFollowBy e).
      unfp ; 
      refine (
        fun T e p penv ins n FM t => 
@@ -647,7 +665,7 @@ Section Packrat.
      t ; rewrite plus_comm ; t.
    Defined.
 
-   Definition map(t1 t2:Set)(f:t1->t2)(e:[term G t1])(p:parser_t e) : parser_t(e ~~~ Map f e).
+   Definition map(t1 t2:ty)(f:tyDenote t1->tyDenote t2)(e:[term G t1])(p:parser_t e) : parser_t(e ~~~ Map _ f e).
      unfp ; 
      refine (
        fun t1 t2 f e p penv ins n FM t => 
@@ -702,7 +720,7 @@ Section Packrat.
             | Some (pair len v0) =>
               Succeed (if eq_nat_dec 0 len then NoConsume else Consume)
               (nthtail elts (len + key_pos k)) v0
-            | None => Fail (get id G (key_non_terminal k))
+            | None => Fail _
           end.
       induction al ; simpl ; intros. congruence. destruct (key_eq k0 k). inversion H0.
       unfold FiniteMapInterface.coerce_al. unfold eq_rec. unfold eq_rect. 
@@ -770,7 +788,7 @@ Section Packrat.
 
   (* Now that we have combinators for all of the grammar terms, we can map a grammar
    * to an imperative parser, given a suitable parser environment. *)
-  Fixpoint exp2parser(G:Ctxt)(t:Set)(e:term G t)(env : Env (term G) G) {struct e} :
+  Fixpoint exp2parser(G:Ctxt)(t:ty)(e:term G t)(env : Env (term G) G) {struct e} :
     parser_t env [e] := 
     match e return parser_t env [e] with 
       | Epsilon => @epsilon G env
@@ -845,9 +863,9 @@ Section Packrat.
    * construct parsers for all of the non-terminals using mkpenv, construct a
    * parser [p] for [e], build the hash-table used for memoizing things, run 
    * [p] to get the answer [ans], free the hash-table, and return [ans]. *)
-  Definition mkparser(G:Ctxt)(env:Env (term G) G)(t:Set)(e:term G t)(ins:instream_t char) n : 
+  Definition mkparser(G:Ctxt)(env:Env (term G) G)(t:ty)(e:term G t)(ins:instream_t char) n : 
     STsep (rep ins n)
-          (fun a:option (nat * t) => ans_correct env ins n [e] a * rep_ans ins n a).
+          (fun a:option (nat * tyDenote t) => ans_correct env ins n [e] a * rep_ans ins n a).
     intros.
     Ltac t := (idtac ; 
                match goal with 

@@ -185,7 +185,7 @@ Theorem himp_ex_conc_trivial : forall T p p1 p2,
   firstorder.
 Qed.
 
-Theorem himp_unpack_prem : forall T (x : T) p1 p2 p,
+Theorem himp_unpack_prem : forall (T : Set) (x : T) p1 p2 p,
   p1 x * p2 ==> p
   -> hprop_unpack [x] p1 * p2 ==> p.
   unfold hprop_imp, hprop_unpack, hprop_sep; firstorder.
@@ -258,7 +258,7 @@ Theorem himp_frame : forall p q1 q2,
   apply himp_split; [apply himp_refl | assumption].
 Qed.
 
-Theorem himp_frame_cell : forall n T (v1 v2 : T) q1 q2,
+Theorem himp_frame_cell : forall n (T : Set) (v1 v2 : T) q1 q2,
   v1 = v2
   -> q1 ==> q2
   -> n --> v1 * q1 ==> n --> v2 * q2.
@@ -439,7 +439,7 @@ Theorem unpack : forall T (h : [T]) (P : Prop),
   dependent inversion h; eauto.
 Qed.
 
-Theorem himp_unpack_prem_eq : forall T h (x : T) p1 p2 p,
+Theorem himp_unpack_prem_eq : forall (T : Set) h (x : T) p1 p2 p,
   h = [x]%inhabited
   -> p1 x * p2 ==> p
   -> hprop_unpack h p1 * p2 ==> p.
@@ -447,7 +447,7 @@ Theorem himp_unpack_prem_eq : forall T h (x : T) p1 p2 p,
   apply himp_unpack_prem; assumption.
 Qed.
 
-Theorem himp_unpack_prem_alone : forall T h (x : T) p1 p,
+Theorem himp_unpack_prem_alone : forall (T : Set) h (x : T) p1 p,
   h = [x]%inhabited
   -> p1 x ==> p
   -> hprop_unpack h p1 ==> p.
@@ -744,7 +744,7 @@ Lemma himp_prop_conc : forall (P : Prop) H1 H2,
   sep fail auto.
 Qed.
 
-Theorem himp_disjoint : forall S T p1 p2 (a1:S) (a2:T), 
+Theorem himp_disjoint : forall (S T : Set) p1 p2 (a1:S) (a2:T), 
   p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
   intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
   exists ((x * x0)%heap). exists empty. subst. sep fail auto.
@@ -757,7 +757,7 @@ Theorem himp_split_any : ?? * ?? ==> ??.
   unfold hprop_any, hprop_imp; trivial.
 Qed.
 
-Theorem himp_disjoint' : forall  h S T p (a1:S) (a2:T), 
+Theorem himp_disjoint' : forall  h (S T : Set) p (a1:S) (a2:T), 
   (p --> a1 * p --> a2)%hprop h -> False.
   intros; unfold hprop_imp; intros. repeat (destruct H). destruct H0. destruct H0. destruct H3. unfold disjoint1 in *. pose (H p). rewrite H0 in y. rewrite H3 in y. trivial.
 Qed.

@@ -30,7 +30,7 @@
 Module BinaryTree.
  
  (* The modelling type is a binary tree. *)
- Fixpoint btree A (n: nat) : Type:=
+ Fixpoint btree (A : Set) (n: nat) : Set :=
    match n with
      | 0 => A
      | S n' => prod (btree A n') (btree A n')
@@ -90,7 +90,7 @@ Module BinomialTree : BINOMIAL_TREE.
        roots of binomial trees of orders k-1, k-2... 1, 0,
        in this order. *)
 
- Fixpoint bltree (n: nat) : Type :=
+ Fixpoint bltree (n: nat) : Set :=
    match n with
      | 0 => A
      | S n' => prod ptr (bltree n')

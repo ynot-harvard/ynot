@@ -230,7 +230,7 @@ Theorem Some_inj : forall T (x y : T),
   intros; congruence.
 Qed.
 
-Theorem split_read_inj1 : forall h h1 h2 p T (v v1 : T),
+Theorem split_read_inj1 : forall h h1 h2 p (T : Set) (v v1 : T),
   h ~> h1 * h2
   -> h # p = Some (Dyn v)
   -> h1 # p = Some (Dyn v1)
@@ -243,7 +243,7 @@ Theorem split_read_inj1 : forall h h1 h2 p T (v v1 : T),
   apply Dyn_inj; auto.
 Qed.
 
-Theorem split_read_inj2 : forall h h1 h2 p T (v v1 : T),
+Theorem split_read_inj2 : forall h h1 h2 p (T : Set) (v v1 : T),
   h ~> h1 * h2
   -> h # p = Some (Dyn v)
   -> h2 # p = Some (Dyn v1)
@@ -261,7 +261,7 @@ Theorem split_read_inj2 : forall h h1 h2 p T (v v1 : T),
   apply Dyn_inj; auto.
 Qed.
 
-Theorem split_write1 : forall h h1 h2 p T T' (v : T) (v' : T'),
+Theorem split_write1 : forall h h1 h2 p (T T' : Set) (v : T) (v' : T'),
   h ~> h1 * h2
   -> h1 # p = Some (Dyn v)
   -> (h ## p <- Dyn v') ~> (h1 ## p <- Dyn v') * h2.
@@ -285,7 +285,7 @@ Theorem split_write1 : forall h h1 h2 p T T' (v : T) (v' : T'),
   destruct (ptr_eq_dec x p); trivial.
 Qed.
 
-Theorem split_write2 : forall h h1 h2 p T T' (v : T) (v' : T'),
+Theorem split_write2 : forall h h1 h2 p (T T' : Set) (v : T) (v' : T'),
   h ~> h1 * h2
   -> h2 # p = Some (Dyn v)
   -> (h ## p <- Dyn v') ~> h1 * (h2 ## p <- Dyn v').
@@ -318,7 +318,7 @@ Qed.
 
 Hint Resolve split_write1 split_write2 : Ynot.
 
-Theorem new_sep : forall h p T (v : T),
+Theorem new_sep : forall h p (T : Set) (v : T),
   h # p = None
   -> (h ## p <- Dyn v) ~> (p --> Dyn v) * h.
   intros.
@@ -369,7 +369,7 @@ Lemma Dyn_inj_Some' : forall (d1 d2 : dynamic),
   congruence.
 Qed.
 
-Theorem Dyn_inj_Some : forall T (x y : T),
+Theorem Dyn_inj_Some : forall (T : Set) (x y : T),
   Some (Dyn x) = Some (Dyn y)
   -> x = y.
   intros.
