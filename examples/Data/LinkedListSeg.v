@@ -235,11 +235,11 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
 
   Hint Resolve combine combine'.
   
-  Lemma locineq x y B C (w:B) (v:C) : x --> w * y --> v ==> [x <> y] * ??.
+  Lemma locineq x y (B C : Set) (w:B) (v:C) : x --> w * y --> v ==> [x <> y] * ??.
     intros; eapply (@himp_trans (x --> w * y --> v * [x <> y])); [ apply himp_disjoint | ]; sep fail auto.
   Qed.
 
-  Lemma mlocineq x y B (w:B) : x --> w * y ~~>? ==> [Some x <> y] * ??.
+  Lemma mlocineq x y (B : Set) (w:B) : x --> w * y ~~>? ==> [Some x <> y] * ??.
     Hint Resolve himp_disjoint.
     intros; unfold maybe_points_to; destruct y;
       [ apply (@himp_trans (x --> w * p -->? * [x <> p])) | sep fail ltac:(auto; try congruence) ].
@@ -265,13 +265,13 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
     destruct ls; sep fail auto; [ congruence | assert (t0 :: ls <> nil); [ firstorder | sep fail auto ] ].
   Qed.
   
-  Lemma add_mlocineq x y B (w:B) P Q :
+  Lemma add_mlocineq x y (B : Set) (w:B) P Q :
     (Some x <> y -> (x --> w * y ~~>? * P ==> Q)) ->
     (x --> w * y ~~>? * P ==> Q).
     intros; apply (add_fact (@mlocineq x y B w) H).
   Qed.
   
-  Lemma add_locineq x y B C (w:B) (v:C) P Q :
+  Lemma add_locineq x y (B C : Set) (w:B) (v:C) P Q :
     (x <> y -> (x --> w * y --> v * P ==> Q)) ->
     (x --> w * y --> v * P ==> Q).
     intros; apply (add_fact (@locineq x y B C w v) H).

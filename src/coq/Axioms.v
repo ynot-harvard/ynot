@@ -47,7 +47,7 @@ Ltac ext_eq := (apply ext_eq || apply ext_eqS); intro.
 
 (** * Hidden values *)
 
-Axiom pack_injective : forall T (x y : T),
+Axiom pack_injective : forall (T : Set) (x y : T),
   inhabits x = inhabits y
   -> x = y.
 
@@ -57,7 +57,7 @@ Axiom pack_injective : forall T (x y : T),
 Inductive dynamic : Type :=
   | Dyn : forall T, T -> dynamic.
 
-Theorem Dyn_inj : forall T (x y : T),
+Theorem Dyn_inj : forall (T : Set) (x y : T),
   Dyn x = Dyn y
   -> x = y.
   injection 1; intro.

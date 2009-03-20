@@ -40,7 +40,7 @@ Set Implicit Arguments.
 
 Notation "{{{ v }}}" := (STWeaken _ (STStrengthen _ v _) _) (at level 0).
 
-Definition STsep pre T (post : T -> hprop) : Set :=
+Definition STsep pre T (post : T -> hprop) : Type :=
   ST (pre * ??) (fun h v h' =>
     forall h1 h2, h ~> h1 * h2
       -> pre h1
@@ -124,7 +124,7 @@ Section Sep.
     refine {{{STContra (fun _ => post)}}}; ynot 1.
   Qed.
 
-  Definition SepFix : forall (dom : Type) (ran : dom -> Type)
+  Definition SepFix : forall dom (ran : dom -> Type)
     (pre : dom -> hprop) (post : forall v : dom, ran v -> hprop)
     (F : (forall v : dom, STsep (pre v) (post v))
       -> (forall v : dom, STsep (pre v) (post v)))
@@ -133,7 +133,7 @@ Section Sep.
     exact (STFix _ _ _ F v).
   Qed.
   
-  Definition SepNew T (v : T)
+  Definition SepNew (T : Set) (v : T)
     : STsep __ (fun p => p --> v)%hprop.
     t.
     refine {{{STNew v}}}; ynot 8.
@@ -145,7 +145,7 @@ Section Sep.
     refine {{{STFree p}}}; ynot 5.
   Qed.
 
-  Definition SepRead T (p : ptr) (P : T -> hprop)
+  Definition SepRead (T : Set) (p : ptr) (P : T -> hprop)
     : STsep (Exists v :@ T, p --> v * P v)%hprop (fun v => p --> v * P v)%hprop.
     t.
     refine {{{STRead T p}}}; ynot 5.
@@ -156,7 +156,7 @@ Section Sep.
     ynot 10.
   Qed.
 
-  Definition SepWrite T T' (p : ptr) (v : T')
+  Definition SepWrite (T T' : Set) (p : ptr) (v : T')
     : STsep (Exists v' :@ T, p --> v')%hprop (fun _ : unit => p --> v)%hprop.
     t.
     refine {{{STWrite T p v}}}; ynot 5.

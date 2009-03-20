@@ -69,7 +69,7 @@ Parameter free_array : forall (a:array),
                               (fun (_:unit) => __).
 
 (* Read index i from the array.  This is similar to the ref-read in ST *)
-Parameter sub_array : forall (A:Type)(a:array)(i:nat)(P : A -> hprop),
+Parameter sub_array : forall (A:Set)(a:array)(i:nat)(P : A -> hprop),
                         STsep (p :~~ array_plus a i in 
                                 Exists v :@ A, p --> v * P v)
                               (fun (v:A) => 
@@ -80,7 +80,7 @@ Parameter sub_array : forall (A:Type)(a:array)(i:nat)(P : A -> hprop),
  * In addition, note that this allows us to have arrays whose contents hold different
  * types of values at different indices. 
  *)
-Parameter upd_array : forall (A:Type)(a:array)(i:nat)(v:A),
+Parameter upd_array : forall (A:Set)(a:array)(i:nat)(v:A),
                         STsep (p :~~ array_plus a i in 
                                  Exists B :@ Set, Exists w :@ B, p --> w)
                               (fun (_:unit) => 
