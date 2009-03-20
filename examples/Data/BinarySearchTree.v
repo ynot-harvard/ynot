@@ -145,8 +145,9 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   ;; IfNull n 
      Then {{Return tt}}
      Else free (n_left n) (l ~~~ (filter_gte (node_key n) l)) <@> _
-       ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l))))
-  ; t; t. Qed.
+       ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l)))).
+  t. t. t. t. t. t. 2: t. t.
+Qed.
 
 Ltac perm_simpl := 
   match goal with
