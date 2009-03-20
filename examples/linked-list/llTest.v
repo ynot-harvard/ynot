@@ -92,9 +92,6 @@ Definition main : STsep (__) (fun _:unit => __).
      printStringLn' (str) <@> _;;
      hello_world <- CharLL.freeList hello_world None _;
      {{Return tt}}
-   );
-   try solve [ sep fail auto 
-             | intros; inhabiter; unpack_conc; sep fail auto ].
-   unfold CharLL.llist; intros; inhabiter; unpack_conc; sep fail auto.
-   unfold CharLL.llist; intros; inhabiter; unpack_conc; sep fail auto.
+   ); solve [ unfold CharLL.llist; intros; inhabiter; unpack_conc; sep fail auto
+   | sep fail auto ].
  Qed.

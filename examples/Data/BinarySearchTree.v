@@ -121,8 +121,8 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Module T:=FINITE_MAP_T(A)(AT).
   Import A AT.
     
-  Ltac unfolder := idtac; sapply rep2node_prem.
-  Ltac impsimpler := search_conc ltac:(sapply rep2node_conc).
+  Ltac unfolder := idtac; apply rep2node_prem.
+  Ltac impsimpler := search_conc ltac:(apply rep2node_conc).
   Ltac t := unfold rep; unfold_local; repeat progress (
     repeat progress (sep ltac:(idtac; search_prem unfolder) AL.simpler; auto; impsimpler); simpler; autorewrite with AssocListModel).
 
@@ -145,8 +145,8 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   ;; IfNull n 
      Then {{Return tt}}
      Else free (n_left n) (l ~~~ (filter_gte (node_key n) l)) <@> _
-       ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l))))
-  ; t; t. Qed.
+       ;; free (n_right n) (l ~~~ (filter_lte (node_key n) l)))).
+  t. t. t. t. t. t. 2:t. t. Qed.
 
 Ltac perm_simpl := 
   match goal with
@@ -239,7 +239,7 @@ Qed.
    Lemma perm_node_swap_frame n l l' P Q : Permutation l l' -> distinct l -> P ==> Q -> node_rep n l * P ==> node_rep n l' * Q.
    Proof. Hint Resolve perm_node_rep. intros. apply himp_split; auto. Qed.
 
-   Ltac nr_perm := search_conc ltac:(search_prem ltac:(sapply perm_node_swap_frame)) || auto.
+   Ltac nr_perm := search_conc ltac:(search_prem ltac:(apply perm_node_swap_frame)) || auto.
 (*
    Fixpoint find_max (l:alist_t) mk (mv:value_t mk) {struct l} :=
      match l with

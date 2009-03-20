@@ -1,7 +1,7 @@
 (* Copyright (c) 2009, Harvard University
  * All rights reserved.
  *
- * Author: Greg Morrisett
+ * Authors: Greg Morrisett, Adam Chlipala
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -368,7 +368,7 @@ Section Packrat.
     Ltac mysep := 
       try autorewrite with PackRat; 
       match goal with
-        | [ |- (__ ==> [ _ ])%hprop ] => sapply EmpImpInj
+        | [ |- (__ ==> [ _ ])%hprop ] => apply EmpImpInj
         | [ |- evals _ (MReturn _ ?r) ?r ] => econstructor
         | [ |- evals _ (MBind _ _) _] => econstructor ; eauto ; simpl
         | [ |- context[if (?f ?c) then _ else _] ] => 
@@ -385,27 +385,27 @@ Section Packrat.
       rep ins n ==> (Exists m :@ nat, rep ins m).
       sep fail idtac.
     Qed.
+    
+    Ltac destruct_pairs := 
+      repeat match goal with
+               | [ x : (_ * _)%type |- _ ] => goal_meta_fail ; destruct x
+             end.
 
     Ltac pre :=
-      simpl_IfNull;
-      repeat match goal with
-               | [ x : (_ * _)%type |- _ ] => destruct x
-             end;
+      simpl_IfNull; destruct_pairs ;
       canceler;
       try simpl_cancel ltac:(idtac;
         match goal with
-          | [ |- rep _ _ ==> Exists m :@ nat, rep _ m ] =>
-            sapply rep_ex
+          | [ |- rep _ _ ==> Exists m :@ nat, rep _ m ] => 
+            apply rep_ex
         end).
 
     Ltac unfp := unfold parser_t, basic_parser_t.
     Ltac unf := unfold ans_correct, rep_ans, parses; unfold_local.
     Ltac unf' := unfold fminv, fmrep, valid_al_val.
     Ltac t := unf ; sep fail mysep.
-    Ltac t' := cbv zeta; simpl_IfNull;
-      repeat match goal with
-               | [ x : (_ * _)%type |- _ ] => destruct x
-             end; canceler; unf; sep pre mysep.
+    Ltac t' := cbv zeta; simpl_IfNull; destruct_pairs;
+      canceler; unf; sep pre mysep.
 
     (* the empty parser *)
     Definition epsilon : parser_t [Epsilon G].
@@ -413,7 +413,7 @@ Section Packrat.
       refine (
         fun penv ins n FM t => 
         {{Return (Some (0,tt)) <@> (rep ins n * fminv FM t)}}
-      ) ;t. rewrite plus_comm ; t. 
+      );t. rewrite plus_comm ; t.
     Defined.
 
     (* the always failing parser *)
@@ -479,7 +479,7 @@ Section Packrat.
 
     Implicit Arguments NthTailPop [c' v2 n ls].
 
-    Ltac erewrite E :=
+    Ltac exrewrite E :=
       let H := fresh "H" in
         generalize E; intro H;
           repeat (let T := type of H in
@@ -502,36 +502,13 @@ Section Packrat.
             {{Return (Some (1, c))}}
           else
             {{Return None}}
-      ).
-
-      cbv zeta in |- *; cbv zeta in |- *;
-        unfold ans_correct, rep_ans, parses in |- *.
-          intros; simple apply (unpack (h:=[n])); intro.
-            intro; cbv zeta in |- *; autorewrite with PackRat.
-              auto; intros; intuition; generalize (pack_injective H).
-                clear H; intro H; subst; simpl in *; autorewrite with PackRat.
-                  auto; autorewrite with PackRat ; auto; cbv beta in |- *.
-                  cbv beta in |- *. Debug Off. apply himp_comm_conc.
-       simple eapply himp_unpack_conc. reflexivity. apply himp_comm_conc. t. 
-
-                  t. simple apply himp_frame. cbv beta in |- *.
-       simple apply himp_empty_conc'.
-    reflexivity.
-    
-    intuition; subst; simpl in *; autorewrite with PackRat ; 
-    auto; cbv beta in |- *; simple apply himp_comm_conc;
-       simple apply himp_empty_conc.
-
-info t'.
-
- t. t'. unfold fminv.
-
+      ); t';
       repeat match goal with
                | [ |- context[if ?E then _ else _] ] => destruct E
                | [ H : Some _ = nth_error ?x ?x0 |- context[nthtail ?x ?x0] ] =>
-                 erewrite (NthErrorSomeNthTail (sym_eq H))
+                 exrewrite (NthErrorSomeNthTail (sym_eq H))
                | [ H : nthtail _ _ = _ :: _ |- _ ] => rewrite (NthTailPop H)
-             end; t'.
+             end; t'. 
     Defined.
 
     (* a more efficient parser for sets of characters *)
@@ -596,7 +573,7 @@ info t'.
           {{ p2 penv ins n FM t <@> _ }}
         Else
           {{ Return ans1 }}
-      ); t'.
+      ). t'. t'. t'. t'. t'. t'. t. t.
     Defined.
 
    (* parser for p1 concatenated with p2 *)
@@ -775,7 +752,7 @@ info t'.
             (* then we can just return the cached result *)
             {{ Return (Some v) }}
       ); unf'; t';
-      match goal with
+      try match goal with
         | [ H : valid_al _ _, H' : Some _ = FiniteMapInterface.lookup_al _ _ _ |- _ ] =>
           generalize (lookup_valid H H')
       end; t'.
@@ -875,7 +852,7 @@ info t'.
     Ltac t := (idtac ; 
                match goal with 
                  [ |- _ ==> (Exists v :@ FiniteMapInterface.alist_t _, _) * _ ] => 
-                 seapply himp_ex_conc ; exists (@FiniteMapInterface.Nil_al key_t (value_t _))
+                 eapply himp_ex_conc ; exists (@FiniteMapInterface.Nil_al key_t (value_t _))
                | _ => auto
              end).
     refine (let penv := mkpenv G env in 
@@ -885,7 +862,7 @@ info t'.
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
             {{ Return ans }}
-           ); unfold fminv, fmrep ; sep fail t ; sep fail auto.
+           ); unfold fminv, fmrep; sep fail ltac:t ; sep fail auto.
   Defined.
 
 End Packrat.

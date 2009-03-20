@@ -53,22 +53,10 @@ Delimit Scope inhabited_scope with inhabited.
 
 Ltac hdestruct x := let y := fresh in (dependent inversion x as [y]; clear x; rename y into x; destruct x).
 
-Ltac sapply f := simple apply f.
-Ltac esapply f := simple eapply f.
-
 Ltac meta_fail x :=
   match x with
     | x => idtac
     | _ => fail 1
   end.
 
-Ltac reverse := repeat match goal with [ H : _ |- _ ] => revert H end.
-
-Ltac mysubst := reverse ; repeat 
-  match goal with
-    | [ |- forall H, _ ] => intro H ; try (rewrite H || rewrite <- H)
-    | [ |- ?X -> ?Y ] => let H := fresh in intro H ; try (rewrite H || rewrite <- H)
-  end.
-
-Ltac safe_subst := subst.
-(*   match goal with |- ?T => first [ meta_fail T ; subst || mysubst ] end. *)
+Ltac goal_meta_fail := match goal with |- ?T => meta_fail T end.

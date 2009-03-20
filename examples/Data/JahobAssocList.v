@@ -164,6 +164,13 @@ Ltac simplr := repeat (try discriminate;
              | Some _ => _
              | None   => _
            end ==> _] => destruct v
+    | [ |- _ ==> match ?v with
+             | Some _ => _
+                   | None   => _
+                 end ] =>
+      match type of v with
+        | option ?T => equate v (@None T)
+      end
     | [ H : _ :: _ = _ :: _ |- _ ] => injection H; clear H; intros; subst
     | [ H : next _ = _ |- _ ] => rewrite -> H
     | [ H : Some _ = Some _ |- _ ] => inversion H; clear H
@@ -300,7 +307,7 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
     refine {{ New (@None ptr) }}; t. Qed.
 
   Definition free  p: STsep (rep p nil) (fun _:unit => __).
-  intros; refine {{ Free p }}; t. Qed.   
+  intros; refine {{ Free p }}; t. Qed.
 
   Definition add: forall k v (p: t) (m: [list (prod K V)]),
    STsep (m ~~ rep p m * [lookup m k = None])

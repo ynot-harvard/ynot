@@ -123,7 +123,7 @@ Module Queue : QUEUE.
     Lemma app_inj_tail' : forall (x1 : T) ls' x2 v v0,
       x1 :: ls' ++ x2 :: nil = v ++ v0 :: nil
       -> x1 :: ls' = v /\ x2 = v0.
-      intros; sapply app_inj_tail; assumption.
+      intros; apply app_inj_tail; assumption.
     Qed.
 
     Implicit Arguments app_inj_tail' [x1 ls' x2 v v0].
@@ -167,7 +167,11 @@ Module Queue : QUEUE.
 
     Ltac simp_prem :=
       idtac;
-      simpl_prem ltac:(sapply rep_nil || sapply rep'_Some1 || sapply rep'_Some2).
+      simpl_prem ltac:(apply rep_nil ||
+        match goal with
+          | [|- rep' _ (Some _) _ ==> _] => apply rep'_Some1
+          | [|- rep' _ _ (Some _) ==> _] => apply rep'_Some2
+        end).
 
     Ltac t := unfold rep; simpl_IfNull; sep simp_prem simplr.
     

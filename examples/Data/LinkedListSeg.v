@@ -216,7 +216,7 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
     Exists nde :@ Node, p' --> nde * llseg (next nde) None (tail l) * [head l = Some (data nde)].
     destruct l; destruct p; sep fail ltac:(try congruence).
   Qed.
-
+  
   (** Folding Lemmas **)
   Lemma combine : forall nde ls p tl,
     Some p <> tl
@@ -465,12 +465,22 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
        end)).
 
   Ltac simplr := repeat simplr''.
-  
-  Ltac unfolder := simpl_prem ltac:(
-       sapply llseg_unfold_nil  || sapply llseg_unfold_some_cons
-    || sapply llseg_unfold_same || sapply llseg_unfold_cons || sapply llseg_unfold_head_none
-    || (sapply llseg_unfold_some; solve [ congruence ])
-    || (sapply llseg_unfold_tail_none; solve [ congruence ])).
+
+  Ltac llseg_unfolding := 
+    match goal with 
+      [ |- ?T ==> _ ] =>
+      match T with
+        | llseg _ _ nil => apply llseg_unfold_nil
+        | llseg (Some _) _ (_ :: _) => apply llseg_unfold_some_cons
+        | llseg (Some _) _ _ => apply llseg_unfold_some; try solve [congruence]
+        | llseg _ _ (_ :: _) => apply llseg_unfold_cons
+        | llseg ?p ?p _ => simple apply llseg_unfold_same
+        | llseg None _ _ => apply llseg_unfold_head_none
+        | llseg _ None _ => apply llseg_unfold_tail_none ; solve [congruence]
+      end
+    end.
+
+  Ltac unfolder := simpl_prem ltac:(idtac; llseg_unfolding).
 
   Ltac simp_prem := discriminate || (repeat (ondemand_subst || unfolder || expander)).
 
@@ -488,7 +498,7 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
                  end
              end; ondemand_subst; canceler;
       solve [ sep fail idtac | tac ].
-  
+  Debug Off.
   (** Implementation *********************************************************)
   Definition empty : STsep __ (fun r:LinkedList => llseg r None nil).
     refine ({{Return None}});
@@ -543,7 +553,7 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
             self (next nde) (ls ~~~ tail ls)
             )
       p' ls');
-    clear self; solve [ t ].
+    clear self; t.
   Qed.
 
   Definition elements : forall (p q : option ptr) (ls : [list A.A]),
@@ -627,7 +637,7 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
                rr <- self (next nde) (ls ~~~ tail ls) <@> _;
                res <- cons (data nde) rr [q] (ls ~~~ tail ls) <@> _;
                {{Return res}}) p' ls');
-    clear self; solve [ t | rsep simp_prem simplr ].
+    clear self; solve [ rsep simp_prem simplr | t ].
   Qed.
 
   Definition insertAt' : forall (p' : ptr) (idx' : nat) (a : A) 
