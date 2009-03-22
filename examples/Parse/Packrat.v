@@ -773,7 +773,7 @@ Section Packrat.
       try match goal with
         | [ H : valid_al _ _, H' : Some _ = FiniteMapInterface.lookup_al _ _ _ |- _ ] =>
           generalize (lookup_valid H H')
-      end; t'.
+      end; t'. 
     Defined.
 
     Hint Constructors evals.
@@ -880,7 +880,7 @@ Section Packrat.
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
             {{ Return ans }}
-           ); unfold fminv, fmrep; sep fail ltac:t ; sep fail auto.
+           ); unfold fminv, fmrep; sep fail t ; sep fail auto.
   Defined.
 
 End Packrat.

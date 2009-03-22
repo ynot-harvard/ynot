@@ -474,7 +474,7 @@ Module HeapLinkedList(AD : DECIDABLE_DOMAIN) : LinkedListSeg with Module A := AD
         | llseg (Some _) _ (_ :: _) => apply llseg_unfold_some_cons
         | llseg (Some _) _ _ => apply llseg_unfold_some; try solve [congruence]
         | llseg _ _ (_ :: _) => apply llseg_unfold_cons
-        | llseg ?p ?p _ => simple apply llseg_unfold_same
+        | llseg ?p ?p _ => apply llseg_unfold_same
         | llseg None _ _ => apply llseg_unfold_head_none
         | llseg _ None _ => apply llseg_unfold_tail_none ; solve [congruence]
       end
