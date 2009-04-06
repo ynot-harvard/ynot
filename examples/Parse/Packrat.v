@@ -880,7 +880,7 @@ Section Packrat.
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
             {{ Return ans }}
-           ); unfold fminv, fmrep; sep fail t ; sep fail auto.
+           ); unfold fminv, fmrep; sep fail ltac:t ; sep fail auto.
   Defined.
 
 End Packrat.
