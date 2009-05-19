@@ -1,24 +1,28 @@
+ROOT    := ../..
+
 VS      := $(wildcard *.v)
 MODULES := $(VS:%.v=%)
 
-.SUFFIXES: .v .vo
+include ../Makefile.ynot
 
-.PHONY: coq clean
+#.SUFFIXES: .v .vo
 
-coq: Makefile.coq
-	$(MAKE) -f Makefile.coq
+#.PHONY: coq clean
 
-R := -R ../../src/coq Ynot -R ../Data Data -R . Parse
+#coq: Makefile.coq
+#	$(MAKE) -f Makefile.coq
 
-Makefile.coq: Makefile $(VS)
-	coq_makefile $(VS) \
-		COQC = "coqc $(R)" \
-		COQDEP = "coqdep $(R)" \
-		-o Makefile.coq
+#R := -R ../../src/coq Ynot -R ../Data Data -R . Parse
 
-clean:: Makefile.coq
-	$(MAKE) -f Makefile.coq clean
-	rm -f Makefile.coq .depend
+#Makefile.coq: Makefile $(VS)
+#	coq_makefile $(VS) \
+#		COQC = "coqc $(R)" \
+#		COQDEP = "coqdep $(R)" \
+#		-o Makefile.coq
 
-.v.vo: $.v
-	coqc $(R) -q  -I . $(<:.v=)
+#clean:: Makefile.coq
+#	$(MAKE) -f Makefile.coq clean
+#	rm -f Makefile.coq .depend
+
+#.v.vo: $.v
+#	coqc $(R) -q  -I . $(<:.v=)

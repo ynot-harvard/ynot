@@ -108,7 +108,7 @@ Section STRING_INSTREAM.
   Open Local Scope hprop_scope.
 
   (* For string-streams, the internal state is just a ref to the current offset *)
-  Definition string_rep(s:list ascii)(x:ptr)(n:nat) : hprop := (x --> n)%hprop.
+  Definition string_rep(s:list ascii)(x:ptr)(n:nat) : hprop := (x ->> n)%hprop.
 
   (* Question: why won't this repeat on all of the sub goals that are produced by 
    * sep auto? *)
@@ -165,7 +165,7 @@ Section STRING_INSTREAM.
                                (string_next s x)
                                (string_position s x)
                                (string_seek s x)
-                               (string_close s x)) <@> (x --> 0)%hprop @> _) ;
+                               (string_close s x)) <@> (x ->> 0)%hprop @> _) ;
     str.
   Defined.
 

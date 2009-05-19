@@ -6,11 +6,11 @@ Open Local Scope stsepi_scope.
 (** List "normalization" **)
 Require Import List.
 
-Theorem nil_app : forall T (l : list T), nil ++ l = l.
-  auto.
+Theorem cons_app : forall T (a : T) (b c : list T) , (a :: b) ++ c = a :: (b ++ c). 
+  reflexivity.
 Qed.
-Theorem app_nil : forall T (l : list T), l ++ nil = l.
-  induction l; firstorder.
+Theorem nil_app : forall T (l : list T), nil ++ l = l.
+  reflexivity.
 Qed.
 Theorem map_nil : forall (T U : Type) (f : T -> U), map f nil = nil.
   reflexivity.
@@ -30,7 +30,8 @@ Ltac norm_list :=
   let t := progress ((repeat rewrite <- app_comm_cons);
                      (repeat rewrite app_ass);
                      (repeat rewrite nil_app);
-                     (repeat rewrite app_nil); 
+                     (repeat rewrite cons_app);
+                     (repeat rewrite <- app_nil_end); 
                      (repeat rewrite map_app);
                      (repeat rewrite map_cons);
                      (repeat rewrite map_nil);
@@ -40,14 +41,25 @@ Ltac norm_list_hyp H :=
   let t := progress ((repeat rewrite <- app_comm_cons in H);
                      (repeat rewrite app_ass in H);
                      (repeat rewrite nil_app in H);
-                     (repeat rewrite app_nil in H);
+                     (repeat rewrite cons_app in H);
+                     (repeat rewrite <- app_nil_end in H);
                      (repeat rewrite map_app in H);
                      (repeat rewrite map_cons in H);
                      (repeat rewrite map_nil in H);
                      (repeat rewrite foldr_cons in H)) in
     repeat t.
 
-Lemma decideable_in : forall T (dec : forall a b : T, {a = b} + {a <> b}) (a x : T) b,
+Theorem list_no_cycle : forall (T : Type) (l1 l2 : list T),
+  l2 <> nil -> l1 <> l2 ++ l1.
+  induction l1. 
+    auto.
+    intros. rewrite <- app_nil_end. auto.
+    intros. destruct l2. congruence. unfold not in *. intros. inversion H0.
+    norm_list_hyp H3. eapply IHl1. instantiate (1 := (l2 ++ t :: nil)). intros. destruct l2; discriminate.
+      norm_list; auto.
+Qed.
+
+Theorem decideable_in : forall T (dec : forall a b : T, {a = b} + {a <> b}) (a x : T) b,
   In x (a :: b) -> a = x \/ (x <> a /\ In x b).
   intros. destruct (dec x a); auto. 
   right. destruct H. congruence. auto.
@@ -182,6 +194,11 @@ Ltac red_conc tac := idtac;
       hred himp_assoc_conc1 himp_assoc_conc2 himp_comm_conc himp_empty_conc' P tac
   end.
 
+Lemma himp_trivial_prem : forall T (x:T) P Q,
+  P ==> Q -> [x = x] * P ==> Q.
+  sep fail auto.
+Qed.
+
 (** clean is an idempotent function which always succeeds. It takes a goal of the form
  **   P ==> Q, and
  ** - Eliminates all toplevel __ in P and Q
@@ -190,6 +207,7 @@ Ltac clean :=
   let rem_prem _ := idtac;
     match goal with 
       | [ |- __ * _ ==> _ ] => apply himp_empty_prem
+      | [ |- [?X = ?X] * _ ==> _ ] => apply himp_trivial_prem
     end
   in
   let rem_conc _ := idtac;
@@ -197,6 +215,9 @@ Ltac clean :=
       | [ |- _ ==> __ * _ ] => apply himp_empty_conc
     end
   in
+  (repeat match goal with 
+            | [ H : ?X = ?X |- _ ] => clear H
+          end);
   match goal with 
     | [ |- _ ==> __ ] => repeat red_prem rem_prem
     | [ |- __ ==> _ ] => repeat red_conc rem_conc
@@ -273,6 +294,11 @@ Ltac unpack_hypothesis := idtac;
              rwpack_hyp H X; rwpack_hyp H Y; rwpack_hyp H Z; unfold inhabit_unpack3 in H
            | [ H : inhabit_unpack3 ?X ?Y ?Z _ = _ |- _ ] =>
              rwpack_hyp H X; rwpack_hyp H Y; rwpack_hyp H Z; unfold inhabit_unpack3 in H
+
+           | [ H : _ = inhabit_unpack4 ?X ?Y ?Z ?A _ |- _ ] =>
+             rwpack_hyp H X; rwpack_hyp H Y; rwpack_hyp H Z; rwpack_hyp H A; unfold inhabit_unpack4 in H
+           | [ H : inhabit_unpack4 ?X ?Y ?Z ?A _ = _ |- _ ] =>
+             rwpack_hyp H X; rwpack_hyp H Y; rwpack_hyp H Z; rwpack_hyp H A; unfold inhabit_unpack4 in H
          end.
 
 Ltac rewrite_inhabits := idtac;
@@ -429,7 +455,7 @@ Ltac extension P HD solver :=
         | context H [ A _ ] =>
           match context H [__] with
             | context [ A _ ] => fail 4 (** Occurs multiple times, don't try anything **)
-            | _ => idtac HD;
+            | _ =>
               let r HD' :=
                 match HD' with 
                   | A _ => split_solve
@@ -608,7 +634,7 @@ Ltac finish_trivial solver :=
           | [_] => idtac "Warning: Forgetting Pure Information!!!" H; print_goal;
                    apply himp_empty_conc'; apply himp_inj_prem; [ intro ]
         end
-      in solve [ simpl; repeat red_prem forget; clean; simpl; trymeta ]
+      in solve [ clean; simpl; repeat red_prem forget; clean; simpl; trymeta ]
     | _ => solver; try solve [ apply himp_refl ]
   end.
 

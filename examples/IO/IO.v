@@ -66,5 +66,4 @@ Definition server_t (I: Trace -> Prop) (pf_startable: I nil) := forall (tr: [Tra
 (fun r:[Trace] => r ~~ tr ~~ traced (r ++ tr) * [I (r ++ tr)] * [r <> nil]).
 
 
-
-
+Require Export RSep.
