@@ -107,7 +107,7 @@ Module BuildApp (Y': Impl) : App.
   Definition build : forall (t : T) (m : [M]), 
     STsep (m ~~ [fst t = projT1 m])
           (fun res : [Y.Impl.M (fst t)] => m ~~ [fst t = projT1 m]).
-    intros. refine (pf <- shift ([fst t]%inhabited = (m ~~~ projT1 m)) <@> _ ; 
+    refine (fun t m => pf <- shift ([fst t]%inhabited = (m ~~~ projT1 m)) <@> _ ; 
                     {{ Return (@inhabit_unpack' _ _ m 
                                  (fun m pf' => @cast _ _ (projT2 m) _)) }}).
     unfold rep. rsep fail auto. rewrite H0. rsep fail auto.

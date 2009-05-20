@@ -140,7 +140,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
                 | Parsec.ERROR c _ => @Parsec.error AsciiCharset _ [0] is AI.grammar c
                 | Parsec.OKAY c n q => @Parsec.okay AsciiCharset _ [0] is AI.grammar c n q
               end).
-    intros. refine (
+    refine (fun str =>
       is  <- STRING_INSTREAM.instream_of_list_ascii str <@> _ ;
       ans <- AI.parser is (inhabits 0) <@> _ ;
       INSTREAM.close is <@> ([INSTREAM.stream_elts is = [str]%inhabited] *
@@ -167,13 +167,13 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
   Qed.
 
   Definition readQuery : forall (fp : list mode) (fm : fd_model) (fd : File fm fp) (pf : In R fp) (tr : [Trace]),
-    STsep (tr ~~ traced tr)
+    STsep (tr ~~ traced tr * handle fd)
           (fun res:((option string) * [list string]) => tr ~~ hprop_unpack (snd res) (fun strs =>
-            traced (ReadQuery fd strs ++ tr) * [QueryRead strs (fst res)])).
-    intros. refine (
-      {{ Fix2 (fun str strs => tr ~~ strs ~~ traced (ReadQuery fd strs ++ tr) * [str = List.fold_left (fun a c => String.append c a) strs EmptyString])
+            traced (ReadQuery fd strs ++ tr) * [QueryRead strs (fst res)] * handle fd)).
+    refine (fun fp fm fd pf tr =>
+      {{ Fix2 (fun str strs => tr ~~ strs ~~ traced (ReadQuery fd strs ++ tr) * [str = List.fold_left (fun a c => String.append c a) strs EmptyString] * handle fd)
               (fun str strs res => tr ~~ hprop_unpack (snd res) (fun strs =>
-                traced (ReadQuery fd strs ++ tr) * [QueryRead strs (fst res)]))
+                traced (ReadQuery fd strs ++ tr) * [QueryRead strs (fst res)] * handle fd))
               (fun self str strs =>
                 ln' <- readline fd pf (inhabit_unpack2 tr strs (fun tr strs =>  ReadQuery fd strs ++ tr)) <@> _ ;
                 let ln := la2str ln' in
@@ -197,7 +197,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
       match goal with 
         | [ |- _ ==> [?X] ] => assert X; [ | rsep fail auto ]
       end.
-    sep_pure. split. unfold ln in *. rewrite _0. auto.
+    sep_pure. split. unfold ln in *. rewrite _H0. auto.
     rewrite H2. pose (fl_app x (la2str ln') ""). simpl in e. rewrite e.
     Lemma string_app_nil : forall a, a = (a ++ "")%string.
       induction a; firstorder.
@@ -213,6 +213,37 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
     s.
   Qed.
 
+  Ltac combine_all :=
+    repeat match goal with
+      | [ H : ?P |- _ ] => 
+        match P with 
+          | context [ inhabit_unpack ?X _ ] =>
+            match goal with 
+              | [ H' : X = [_]%inhabited |- _ ] => rewrite H' in H; simpl inhabit_unpack in H
+            end
+          | context [ inhabit_unpack2 ?X _ _ ] => 
+            match goal with 
+              | [ H' : X = [_]%inhabited |- _ ] => rewrite H' in H; simpl inhabit_unpack2 in H
+            end
+          | context [ inhabit_unpack2 _ ?X _ ] => 
+            match goal with 
+              | [ H' : X = [_]%inhabited |- _ ] => rewrite H' in H; simpl inhabit_unpack2 in H
+            end
+          | context [ match ?X with | [_]%inhabited => _ end ] =>
+            match goal with 
+              | [ H' : X = [_]%inhabited |- _ ] => rewrite H' in H; simpl in H
+            end
+        end
+    end;
+    repeat match goal with 
+             | [ H : [_]%inhabited = [_]%inhabited |- _ ] => rewrite <- (pack_injective H)
+           end.
+
+  Ltac get_ex := idtac;
+    match goal with 
+      | [ |- context [ [?X]%inhabited = [_]%inhabited ] ] => exists X; split; auto
+    end.
+
   Definition io : forall (local remote : SockAddr)
     (fd : File (BoundSocketModel local remote) (R :: W :: nil)) (tr : [Trace])
     (ctx : context) (m : [cmodel]),
@@ -221,7 +252,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
             hprop_unpack (fst res') (fun tr' =>
               hprop_unpack (snd res') (fun m' =>
                 traced (tr' ++ tr) * [ccorrect fd m m' tr'] * rep ctx m' * [inv m']))).
-    intros. refine (
+    refine (fun local remote fd tr ctx m =>
       req' <- readQuery fd rw_readable tr <@> _ ;
       match req' as r' return req' = r' -> _ with 
         | (None,strs) => fun _ => 
@@ -230,13 +261,13 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
         | (Some req,strs) => fun _ =>
           (** Parse **)
           is <- STRING_INSTREAM.instream_of_list_ascii (str2la req) <@> _ ;
-          parse <- http_parse is (inhabits 0) <@> _ ;
+          parse <- http_parse is 0 <@> _ ;
           INSTREAM.close is <@> (m ~~ tr ~~ strs ~~
                                   hprop_unpack (INSTREAM.stream_elts is) (fun l0 : list ascii =>
                                     [l0 = str2la req] *
                                     traced (ReadQuery fd strs ++ tr) * [QueryRead strs (Some req)] *
                                     handle fd * rep ctx m * [inv m])) *
-                                (HTTP_correct is [0] parse) ;;
+                                (HTTP_correct is 0 parse) ;;
           let tr'' := inhabit_unpack2 strs tr (fun strs tr => (ReadQuery fd strs ++ tr)) in
 
           match parse as parse'
@@ -258,21 +289,21 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
                 return STsep (m ~~ tr ~~ hprop_unpack strs (fun strs : list string =>
                                 hprop_unpack (INSTREAM.stream_elts is) (fun l0 : list ascii =>
                                   [inv m] * rep ctx m * handle fd *
-                                  HTTP_correct is [0] (Some (c, (method, uri, version, headers, body))) *
+                                  HTTP_correct is 0 (Some (c, (method, uri, version, headers, body))) *
                                   [l0 = str2la req] *
                                   traced (ReadQuery fd strs ++ tr) * [QueryRead strs (Some req)])) *
-                                  (Exists is0 :@ INSTREAM.instream_t char,
+                                  (Exists is0 :@ INSTREAM.instream_t (Parsec.char AsciiCharset),
                                     [INSTREAM.stream_elts is0 = [query]%inhabited] *
                                     match pr' with
-                                      | OKAY c0 n q => okay [0] is0 AI.grammar c0 n q
-                                      | ERROR c0 _ => error [0] is0 AI.grammar c0
+                                      | Parsec.OKAY c0 n q => Parsec.okay [0] is0 AI.grammar c0 n q
+                                      | Parsec.ERROR c0 _ => Parsec.error [0] is0 AI.grammar c0
                                     end) )
                              (fun res':([Trace] * [cmodel]) => m ~~ tr ~~
                                hprop_unpack (fst res') (fun tr' =>
                                  hprop_unpack (snd res') (fun m' =>
                                    traced (tr' ++ tr) * [ccorrect fd m m' tr'] * rep ctx m' * [inv m'])))
                 with 
-                | ERROR e' c' =>
+                | Parsec.ERROR e' c' =>
                   writeline fd (HTTP_ok (List.length (AI.err e'))) rw_writeable tr'' <@> _ ;;
                   writeline fd (AI.err e') rw_writeable (tr'' ~~~ WroteString fd (HTTP_ok (List.length (AI.err e'))) ++ tr'') <@> _ ;;
                   flush fd (tr'' ~~~ WroteString fd (AI.err e') ++ WroteString fd (HTTP_ok (List.length (AI.err e'))) ++ tr'') rw_writeable <@> _ ;;
@@ -281,7 +312,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
                               Flush fd :: WroteString fd (AI.err e') ++ WroteString fd (HTTP_ok (List.length (AI.err e'))) ++ ReadQuery fd strs),
                             m)}}
                   
-                | OKAY c' n q =>
+                | Parsec.OKAY c' n q =>
                   res <- AP.exec ctx q m tr'' <@> _ ;
                   let tr''' := inhabit_unpack2 tr'' m (fun tr'' m => AP.AppIO q m res (snd (AP.func q m)) ++ tr'') in
                     writeline fd (HTTP_ok (List.length (AI.printer res))) rw_writeable tr''' <@> _ ;;
@@ -293,14 +324,14 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
                           m ~~~ (snd (AP.func q m)))}}
               end
           end
-      end (refl_equal _)); unfold AsciiCharset.char in *.
+      end (refl_equal _)); unfold char in *.
     s.
     s.
     s.
     s.
-    solve [ rsep fail auto; unfold char in *; unfold PackRatParser.AsciiCharset.char in *; rsep fail auto ].
+    solve [ rsep fail auto; unfold char in *; unfold Parsec.char in *; rsep fail auto ].
     s.
-    solve [ unfold rep_ans; rsep fail auto; destruct parse; sep fail auto ].
+    solve [ unfold rep; rsep fail auto; destruct parse; sep fail auto ].
     s.
     s.
     s.
@@ -312,108 +343,57 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
     s.
     solve [ unfold tr''',tr''; do 2 rsep fail auto ].
     s.
-    instantiate (1 := hprop_unpack strs
-     (fun l : list string =>
-      hprop_unpack (INSTREAM.stream_elts is)
-        (fun l0 : list ascii =>
-         hprop_unpack m
-           (fun c0 : cmodel =>
-            [AP.I (snd (AP.func q c0))] *
-            (AP.rep ctx (snd (AP.func q c0)) *
-             ([res = fst (AP.func q c0)] *
-              [snd (AP.func q c0) = snd (AP.func q c0)]) *
-             (HTTP_correct is [0]
-                (Some (c, (method, uri, version, headers, body))) *
-              ([inv c0]) * [l0 = str2la req] *
-              ((Exists is0 :@ INSTREAM.instream_t char,
-                [INSTREAM.stream_elts is0 = [query]%inhabited] *
-                okay [0] is0 AI.grammar c' n q) * [QueryRead l (Some req)])))))) *
-   hprop_unpack
-     (inhabit_unpack tr'''
-        (fun tr'''0 : list Action =>
-         WroteString fd (AI.printer res) ++ WroteString fd (HTTP_ok (List.length (AI.printer res))) ++ tr'''0))
-     (fun tr0 : Trace => traced (Flush fd :: tr0))).
-    solve [ unfold cmodel; rsep fail auto ].
+    inhabiter. canceler. sep fail auto.
     s.
     solve [ unfold tr''',tr''; do 2 rsep fail auto ].
-    unfold rep, inv.
-    rsep fail auto. rewrite H9 in H12. simpl in H12. rewrite <- (pack_injective H12). rsep fail auto. rewrite H9 in H11. simpl in H11. rewrite <- (pack_injective H11). rsep fail auto. norm_list. rsep fail auto.
-    unfold okay. unfold HTTP_correct. inhabiter. unfold PackRatParser.AsciiParser.ans_correct. unpack_premise. intro_pure.
-    cut_pure.
-      unfold ccorrect. pose (@RWCorrect local remote fd (WroteString fd (AI.printer res) ++ WroteString fd (HTTP_ok (List.length (AI.printer res))) ++ AP.AppIO q x2 res (snd (AP.func q x2))) x2 (snd (AP.func q x2)) (str2la req) x0). norm_list_hyp c0. apply c0; try (rewrite str2la_inv_la2str; assumption).
-      pose (@HttpOk local remote fd (str2la req) query x2 (snd (AP.func q x2)) (AI.printer res) (AP.AppIO q x2 res (snd (AP.func q x2))) is c method uri version headers body). norm_list. norm_list_hyp h. apply h.
-      pose (@AppOk query c' (nthtail query (n + 0)) q x2 (snd (AP.func q x2)) res). apply a; trivial. rewrite <- (pack_injective H17) in H23. unfold_all. rewrite H19 in H22. rewrite (pack_injective H22) in H23. simpl in H23. trivial. rewrite H0 in *. clear H0. subst. simpl in *. trivial.
-        unfold HTTP_correct. unfold PackRatParser.AsciiParser.ans_correct. unfold_all. rewrite H1. unfold hprop_unpack. exists x1. split; trivial. exists 0. split; trivial. unfold hprop_inj. split; trivial. subst. simpl in *.
-        unfold_all.  rewrite H20 in H1. rewrite <- (pack_injective H1). trivial. unfold query. rewrite str2la_inv_la2str. auto.
-
+    unfold tr''', tr'', rep, inv,Parsec.okay. intros. rsep fail auto. inhabiter. intro_pure. rewrite H in *. 
+    simpl in *.
+    combine_all. norm_list. unfold rep, inv. rsep fail auto.
+    unfold HTTP_correct,Packrat.Packrat.ans_correct. simpl. rewrite H8. inhabiter. intro_pure.
+    cut_pure. sep fail auto.
+      unfold ccorrect. pose (@RWCorrect local remote fd (WroteString fd (AI.printer res) ++ WroteString fd (HTTP_ok (List.length (AI.printer res))) ++ AP.AppIO q x res (snd (AP.func q x))) x (snd (AP.func q x)) (str2la req) x5). norm_list_hyp c0. apply c0; try (rewrite str2la_inv_la2str; assumption).
+      pose (@HttpOk local remote fd (str2la req) query x (snd (AP.func q x)) (AI.printer res) (AP.AppIO q x res (snd (AP.func q x))) is c method uri version headers body). norm_list. norm_list_hyp h. apply h.
+      pose (@AppOk query c' (Parsec.nthtail query (n + 0)) q x (snd (AP.func q x)) res). apply a; trivial. rewrite H16 in *. auto. 
+        unfold HTTP_correct. unfold Packrat.Packrat.ans_correct. unfold_all. simpl. rewrite H8. unfold hprop_unpack. exists x7. split; trivial.
+        get_ex. unfold hprop_inj. split; auto. rewrite (pack_injective H25). rewrite (pack_injective H24). auto. unfold query. rewrite str2la_inv_la2str. auto.
     solve [ unfold tr'' in *; do 2 rsep fail auto ].
     s.
     solve [ unfold tr'' in *; do 2 rsep fail auto ].
     s.
     solve [ unfold tr'' in *; do 2 rsep fail auto ].
     s.
-    solve [ instantiate (1 := m ~~
-      hprop_unpack strs
-        (fun l : list string =>
-         hprop_unpack (INSTREAM.stream_elts is)
-           (fun l0 : list ascii =>
-            [l0 = str2la req] *
-            (HTTP_correct is [0]
-               (Some (c, (method, uri, version, headers, body))) *
-             rep ctx m * [inv m]) *
-            ((Exists is0 :@ INSTREAM.instream_t char,
-              [INSTREAM.stream_elts is0 = [query]%inhabited] *
-              error [0] is0 AI.grammar e') * [QueryRead l (Some req)]))) *
-   hprop_unpack
-     (inhabit_unpack tr''
-        (fun tr''0 : list Action =>
-         WroteString fd (AI.err e') ++ WroteString fd (HTTP_ok (List.length (AI.err e'))) ++ tr''0))
-     (fun tr0 : Trace => traced (Flush fd :: tr0)));
-    unfold tr'' in *; do 2 rsep fail auto ].
+    inhabiter. canceler. sep fail auto.
     s.
     s.
     
-    unfold tr'' in *; rsep fail auto. rewrite H3 in *. simpl in H8, H9. rewrite <- (pack_injective H8). rewrite <- (pack_injective H9). norm_list. canceler.
-    unfold error, HTTP_correct, PackRatParser.AsciiParser.ans_correct. unpack_premise. inhabiter. unpack_premise. intro_pure.
+    unfold tr'' in *; rsep fail auto. inhabiter. rewrite H in *. simpl in *.
+    combine_all. norm_list. canceler. unfold Parsec.error. unfold HTTP_correct. inhabiter. intro_pure. simpl in H8. rewrite <- (pack_injective H8).
+    unfold rep, inv,Packrat.Packrat.ans_correct. inhabiter. intro_pure. norm_list. canceler. rewrite H0 in H3. rewrite (pack_injective H3). canceler.
     cut_pure.
-    unfold ccorrect. pose (CC := @RWCorrect local remote fd (WroteString fd (AI.err e') ++ WroteString fd (HTTP_ok (List.length (AI.err e')))) x x (str2la req) x0). norm_list. norm_list_hyp CC. apply CC; trivial.
-    pose (CCC := @HttpOk local remote fd (str2la req) query x x (AI.err e') nil is c method uri version headers body); norm_list_hyp CCC; apply CCC.
-    apply (@AppErr query e' x x); trivial.
-      rewrite <- (pack_injective H13) in H16. unfold_all. rewrite H15 in H17. rewrite (pack_injective H17) in H16. simpl in H16. trivial.
-      unfold_all. subst. trivial.
-      unfold HTTP_correct. unfold PackRatParser.AsciiParser.ans_correct. unfold hprop_unpack. exists x7. split; trivial. exists 0. split; trivial. unfold hprop_inj. split; trivial.
+    unfold ccorrect. pose (CC := @RWCorrect local remote fd (WroteString fd (AI.err e') ++ WroteString fd (HTTP_ok (List.length (AI.err e')))) x2 x2 (str2la req) x4). norm_list. norm_list_hyp CC. apply CC; trivial.
+    pose (CCC := @HttpOk local remote fd (str2la req) query x2 x2 (AI.err e') nil is c method uri version headers body); norm_list_hyp CCC; apply CCC.
+    apply (@AppErr query e' x2 x2); trivial.
+      rewrite <- (pack_injective H10) in *. unfold_all. simpl in *. rewrite H13 in H11. rewrite (pack_injective H11) in *. assumption. rewrite H15 in *. auto.
+      unfold HTTP_correct. unfold Packrat.Packrat.ans_correct. unfold hprop_unpack. exists x6. split; auto.
+      get_ex. unfold hprop_inj. split; auto. rewrite (pack_injective H19). simpl in *. rewrite H7 in H18. rewrite (pack_injective H18). auto.
       unfold query. rewrite str2la_inv_la2str. trivial. rewrite str2la_inv_la2str; trivial.
 
     solve [ unfold tr''; do 2 rsep fail auto ].
     s.
     solve [ unfold tr''; do 2 rsep fail auto ].
     s.
-    instantiate (1 := hprop_unpack m
-     (fun c : cmodel =>
-      hprop_unpack strs
-        (fun l : list string =>
-         hprop_unpack (INSTREAM.stream_elts is)
-           (fun l0 : list ascii =>
-            [QueryRead l (Some req)] *
-            (
-             (rep ctx c *
-              (HTTP_correct is [0] None * ([inv c] * [parse = None])))) *
-            [l0 = str2la req]))) *
-   hprop_unpack
-     (inhabit_unpack tr''
-        (fun tr''0 : list Action => WroteString fd HTTP_bad ++ tr''0))
-     (fun tr0 : Trace => traced (Flush fd :: tr0))). unfold tr''. rsep fail auto.
+    inhabiter; canceler; sep fail auto.
     s.
     s.
-  
-    rsep fail auto. rewrite H7 in H9,H10; simpl in H9,H10. rewrite <- (pack_injective H9). rewrite <- (pack_injective H10). norm_list. canceler. unfold tr'' in *. simpl in H11. subst. simpl in H11. rewrite <- (pack_injective H11). norm_list. canceler.
-    unfold HTTP_correct, PackRatParser.AsciiParser.ans_correct. unpack_premise. inhabiter. unpack_premise. intro_pure.
+
+    unfold inv,rep,HTTP_correct,Packrat.Packrat.ans_correct. intros; inhabiter. intro_pure. rewrite H14 in *. simpl in *. unfold tr'' in H.
+    combine_all. rsep fail auto. rewrite H1 in *. rewrite (pack_injective H8). canceler. unfold tr'' in H17. rewrite H0 in H17. rewrite H2 in H17. simpl in H17. rewrite <- (pack_injective H17). norm_list. canceler.
     cut_pure.
       unfold ccorrect. 
-      apply (@RWCorrect local remote fd (WroteString fd HTTP_bad) x0 x0 (str2la req) x1).
-      econstructor. trivial. eassumption. unfold HTTP_correct. unfold PackRatParser.AsciiParser.ans_correct. unfold_all. rewrite H2. unfold hprop_unpack. exists (str2la req). split; trivial. exists 0. split; trivial. unfold hprop_inj. split; trivial.
-      unfold_all. rewrite H2 in H0. rewrite (pack_injective H0). trivial.
-      rewrite str2la_inv_la2str; trivial.
+      apply (@RWCorrect local remote fd (WroteString fd HTTP_bad) x8 x8 (str2la req) x0).
+      econstructor. trivial. rewrite H13 in *. eassumption. unfold HTTP_correct. unfold Packrat.Packrat.ans_correct. unfold_all. simpl in *. rewrite H5. unfold hprop_unpack. exists (str2la req). split. rewrite H13; auto. 
+      get_ex. unfold hprop_inj. split; auto. rewrite (pack_injective H6). rewrite H13 in *. auto.
+      unfold QueryRead. rewrite str2la_inv_la2str. auto.
 
     s.
     s.

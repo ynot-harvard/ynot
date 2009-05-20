@@ -69,13 +69,13 @@ Module GradesStoreMapping.
 
 (* *)
 
-  Fixpoint nthget' n a { struct a }: Tuple n -> option nat :=
+  Fixpoint nthget' {n} a { struct a }: Tuple n -> option nat :=
     match a with
       | 0 => match n return Tuple n -> option nat with
                | 0 => fun _ => None
                | S n' => fun x => Some (fst x)
              end
-      | S a' => match n return Tuple n -> option nat with
+      | S a' => match n as n return Tuple n -> option nat with
                   | 0 => fun _ => None 
                   | S n'  => fun x => nthget' a' (snd x)
                 end
@@ -84,7 +84,7 @@ Module GradesStoreMapping.
   Fixpoint nthget n a (l: Table n) {struct l} := 
     match l with
       | nil => None
-      | x :: _ => Some (nthget' n (S a) x)
+      | x :: _ => Some (nthget' (S a) x)
     end.
 
   Fixpoint nthset (size : nat) (idx v' : nat) (tpl : Tuple size) {struct size} : Tuple size :=
@@ -126,7 +126,7 @@ Module GradesStoreMapping.
 
   Lemma gg_ret : forall w' l0 n assign,
     n = length l0
-    -> nthget' n assign (List2Tuple' l0 n) = Some w'
+    -> nthget' assign (List2Tuple' l0 n) = Some w'
     -> nth_get assign l0 = Some w'.
     induction l0.
       simpl. intros. subst. simpl in *. destruct assign; simpl in *; congruence.
@@ -203,7 +203,7 @@ Qed.
   
     Lemma gg_bad : forall l0 n assign, 
       n = length l0
-      -> nthget' n assign (List2Tuple' l0 n) = None
+      -> nthget' assign (List2Tuple' l0 n) = None
       -> nth_get assign l0 = None.
       induction l0.
         intros; subst; simpl in *; congruence.
@@ -266,7 +266,7 @@ Qed.
           simpl. unfold set_query. destruct a. simpl. simpl in HeqRM, n. rewrite <- HeqRM. destruct (id_dec i id); try congruence.
           simpl. inv auto. apply IHl; auto. simpl in H. rewrite <- HeqRM in H. auto. simpl in H1. destruct (lookup i l); try congruence. all; auto.
        Qed.
-     apply proof'. auto. eapply grade_count; eauto. unfold store_inv. unfold Bool.andb. each; auto. auto.
+     apply proof'. auto. eapply grade_count; eauto. unfold store_inv. each; auto. auto.
   Qed.
 
   Theorem SetGrade_OK_ret : forall x user pass id assign grade,
@@ -351,7 +351,7 @@ Qed.
             induction ll.
               reflexivity.
               intros. simpl. destruct a. rewrite simpl_fst in *. cut (lookup i ll = None). intro. rewrite H1.
-              unfold Bool.andb. each. simpl in H0. rewrite H1 in H0. all.
+              each. simpl in H0. rewrite H1 in H0. all.
               Lemma in_dec_in : forall i s x,
                 in_dec i s = true -> i <> x -> in_dec i (remove id_dec s x) = true.
                 induction s. 
@@ -436,7 +436,7 @@ Qed.
     intros. assert (forall (x : ID) (x0 : list Grade), lookup x l = Some x0 -> length x0 = length (totals c)). intros; eapply grade_count; eauto.
     unfold store_inv in H. assert (config_inv c = true). all; auto.  rewrite H1 in H.
     assert (
-        (Bool.andb (Bool.andb (store_inv1 l c) (total_dec (students c) l))
+        (andb (andb (store_inv1 l c) (total_dec (students c) l))
            (noduples (students c) l)) = true).  all; each; auto.  clear H.  rename H2 into H. clear H1. all. clear F. clear F0. generalize dependent H0. intro.
     induction l.
       simpl. trivial.
@@ -562,7 +562,7 @@ Module GradebookStoreImpl (s: Store) : GradebookImpl.
               [private (fst t) (GetGrade user pass id assign) = true])
           (fun r : Status => m ~~ [r  = fst (mutate (GetGrade user pass id assign)  m)] * 
               rep t (snd (mutate (GetGrade user pass id assign) m)) * [store_inv (snd m) (fst m) = true]).
-    intros. refine (
+    refine (fun user pass id assign m t =>
       xx <- s.select (snd t) (get_query id (fst t)) (m ~~~ List2Table (snd m)  (length (totals (fst t))) ) <@> _ ;
       match nthget assign xx as R return  nthget assign xx = R  -> _  with 
         | None => fun pf => {{ !!! }}
@@ -591,14 +591,13 @@ Module GradebookStoreImpl (s: Store) : GradebookImpl.
     rsep fail auto.
   Qed.
 
+Require Import Lt.
 Definition F_avg user pass assign m t : 
   STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * 
     [private (fst t) (Average user pass assign) = true])
   (fun r : Status => m ~~ [r  = fst (mutate (Average user pass assign)  m)] * 
     rep t (snd (mutate (Average user pass assign) m)) * [store_inv (snd m) (fst m) = true]).
-intros.
-Require Import Lt.
-refine ( 
+  refine (fun user pass assign m t =>
   match validAssignment (fst t) assign with
     | left pf =>
       x <- s.project (snd t) (@GET_COL _ (S assign) (lt_n_S _ _ pf)) (m ~~~ List2Table (snd m)  (length (totals (fst t)))) <@> _  ;
@@ -637,7 +636,8 @@ Definition F (q: Command) m t :
   STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * [private (fst t) q = true])
         (fun r : Status => m ~~ [r  = fst (mutate q m)] * 
                rep t (snd (mutate q m)) * [store_inv (snd m) (fst m) = true]).
-  intros; refine (match q as q 
+refine (fun q m t => 
+  match q as q 
     return STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * [private (fst t) q = true])
                  (fun r : Status => m ~~ [r  = fst (mutate q m)] * 
                      rep t (snd (mutate q m)) * [store_inv (snd m) (fst m) = true])
@@ -652,7 +652,7 @@ Definition exec' : forall (t : T) (q : ParseCommand) (m : [(Config * list (ID * 
   STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] ) 
   (fun r : Status => m ~~ [r  = fst (mutate (compileCommand (fst m) q) m)] * 
     rep t (snd (mutate (compileCommand (fst m) q) m)) * [store_inv (snd m) (fst m) = true] ).
-intros. refine (
+refine (fun t q m =>
 let q := compileCommand (fst t) q in
 {{match private (fst t) q as p'
     return STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * [private (fst t) q = p'])
@@ -690,7 +690,7 @@ Export ExampleConfig.
   Definition cleanup : forall (t : T) (m : [(Config * list (ID * list Grade))]),
     STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true])
           (fun _:unit => __).
-    intros; refine {{s.free (snd t) (m ~~~ List2Table (snd m) (length (totals (fst t)))) }};
+    refine (fun t m => {{s.free (snd t) (m ~~~ List2Table (snd m) (length (totals (fst t)))) }});
     unfold rep; sep fail auto.
   Qed.
 
