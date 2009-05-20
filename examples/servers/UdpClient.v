@@ -26,7 +26,7 @@ Definition waitReceive : forall (local remote : Net.SockAddr) (tr : [Trace]),
   STsep (tr ~~ IO.traced tr)
         (fun res:(list ascii * [Trace]) => tr ~~ 
           im :~~ (snd res) in IO.traced (UDP.Recd local remote (fst res) :: (im ++ tr))).
-  intros. refine (
+  refine (fun local remote tr =>
     {{Fix (fun im => im ~~ tr ~~ IO.traced (im ++ tr))
         (fun _ (res:list ascii * [Trace]) => tr ~~
            im :~~ (snd res) in IO.traced (UDP.Recd local remote (fst res) :: (im ++ tr)))
@@ -42,39 +42,21 @@ Definition waitReceive : forall (local remote : Net.SockAddr) (tr : [Trace]),
 Qed.
 
 Definition iter : forall (local remote : Net.SockAddr) (tr : [Trace]),
-  STsep (tr ~~ IO.traced tr)
+  STsep (tr ~~ IO.traced tr * handle FS.stdin * handle FS.stdout)
         (fun _:unit => tr ~~ Exists request :@ list ascii, Exists reply :@ list ascii, Exists q :@ Trace,
+          handle FS.stdin * handle FS.stdout *
           IO.traced (WroteString FS.stdout reply  ++
             (UDP.Recd local remote reply :: (q ++ UDP.Sent local remote request ::
               (ReadLine FS.stdin request ++ tr))))).
-  intros. refine (
-    ln <- readline FS.stdin FS.ro_readable tr;
-    UDP.send local remote ln (tr ~~~ ReadLine FS.stdin ln ++ tr);;
+  refine (fun local remote tr =>
+    ln <- readline FS.stdin FS.ro_readable tr <@> _ ;
+    UDP.send local remote ln (tr ~~~ ReadLine FS.stdin ln ++ tr) <@> _ ;;
     reply <- waitReceive local remote (tr ~~~ UDP.Sent local remote ln :: (ReadLine FS.stdin ln ++ tr)) <@> _;
     writeline FS.stdout (fst reply) FS.wo_writeable (inhabit_unpack2 tr (snd reply) 
       (fun tr q => (UDP.Recd local remote (fst reply)) :: q ++ (UDP.Sent local remote ln ::
-        (ReadLine FS.stdin ln ++ tr))));;
-    {{Return tt}}).
-  sep fail auto.
-  sep fail auto.
-  sep fail auto.
-  sep fail auto.
-  sep fail auto.
-  sep fail auto.
-  sep fail auto. destruct reply. simpl in *. pose (pack_type_inv i). destruct e. rewrite -> H in H1. sep fail auto.
-  sep fail auto.
-  sep fail auto.
-  intros; inhabiter. simpl in *. destruct reply; simpl in *. pose (pack_type_inv i). destruct e. rewrite H in H0. rewrite H1 in H0. simpl in *. apply pack_injective in H0. rewrite <- H0. sep fail auto.
-Qed.
-
-Theorem list_no_cycle : forall (T : Type) (l1 l2 : list T),
-  l2 <> nil -> l1 <> l2 ++ l1.
-  induction l1. 
-    auto.
-    intros. rewrite <- app_nil_end. auto.
-    intros. destruct l2. congruence. unfold not in *. intros. inversion H0.
-    rewrite <- nil_cons_app in H3. eapply IHl1. instantiate (1 := (l2 ++ t :: nil)). intros. destruct l2; discriminate.
-     auto.
+        (ReadLine FS.stdin ln ++ tr)))) <@> _ ;;
+    {{Return tt}});
+  solve [ inhabiter; unpack_conc; rsep fail auto; sep fail auto; rsep fail auto ].
 Qed.
 
 Theorem list_no_cycle' : forall (T : Type) (l1 l2 : list T),
@@ -83,9 +65,9 @@ Theorem list_no_cycle' : forall (T : Type) (l1 l2 : list T),
 Qed.
 
 Definition client : forall (local remote : Net.SockAddr) (tr : [Trace]),
-  STsep (tr ~~ [trace local remote tr] * IO.traced tr)
+  STsep (tr ~~ [trace local remote tr] * IO.traced tr * handle FS.stdin * handle FS.stdout)
         (fun _:unit => tr ~~ Exists v :@ Trace, [v <> tr] * [trace local remote tr] *
-             IO.traced v).
+             IO.traced v * handle FS.stdin * handle FS.stdout).
   intros. refine ({{iter local remote tr <@> (tr ~~ [trace local remote tr])}}).
   sep fail auto.
   intros; inhabiter. sep fail auto. assert (WroteString stdout v1 ++

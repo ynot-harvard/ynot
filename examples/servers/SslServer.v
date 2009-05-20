@@ -104,21 +104,6 @@ Module ExecModel(A : STATE_EXECPARAMS).
 
 End ExecModel.
 
-Lemma nil_cons_app : forall (A : Type) (l2 : list A) (a : A) (l1 : list A),
-  (l1 ++ a :: nil) ++ l2 = l1 ++ a :: l2.
-  induction l1; auto. simpl. rewrite IHl1. auto.
-Qed.
-
-Theorem list_no_cycle : forall (T : Type) (l1 l2 : list T),
-  l2 <> nil -> l1 <> l2 ++ l1.
-  induction l1. 
-    auto.
-    intros. rewrite <- app_nil_end. auto.
-    intros. destruct l2. congruence. unfold not in *. intros. inversion H0.
-    rewrite <- nil_cons_app in H3. eapply IHl1. instantiate (1 := (l2 ++ t :: nil)). intros. destruct l2; discriminate.
-     auto.
-Qed.
-
 Module ExecImpl(A : STATE_EXECPARAMS).
   Module A := A.
   Module AL := ExecModel(A).

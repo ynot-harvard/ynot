@@ -28,28 +28,19 @@ Definition iter_post (local remote : Net.SockAddr) (req rep : list ascii)
 
 Definition iter : forall (local remote : Net.SockAddr)
   (fd : File (BoundSocketModel local remote) (R :: W :: nil)) (tr : [Trace]),
-  STsep (tr ~~ IO.traced tr)
+  STsep (tr ~~ IO.traced tr * handle FS.stdin * handle FS.stdout * handle fd)
         (fun _:unit => tr ~~ Exists req :@ list ascii, Exists rep :@ list ascii,
+          handle FS.stdin * handle FS.stdout * handle fd *
           traced (iter_post req rep fd tr)).
-  intros. refine (
+  refine (fun local remote fd tr =>
     ln <- readline FS.stdin FS.ro_readable tr <@> _ ;
     writeline fd ln rw_writeable (tr ~~~ ReadLine stdin ln ++ tr) <@> _ ;;
     flush fd (tr ~~~ WroteString fd ln ++ ReadLine stdin ln ++ tr) rw_writeable <@> _;;
     reply <- readline fd rw_readable (tr ~~~ Flush fd :: WroteString fd ln ++ ReadLine stdin ln ++ tr) <@> _ ;
-    writeline FS.stdout reply FS.wo_writeable (tr ~~~ ReadLine fd reply ++ Flush fd :: WroteString fd ln ++ ReadLine stdin ln ++ tr) ;;
+    writeline FS.stdout reply FS.wo_writeable (tr ~~~ ReadLine fd reply ++ Flush fd :: WroteString fd ln ++ ReadLine stdin ln ++ tr) <@> _ ;;
     {{Return tt}});
-  sep fail auto.
-  instantiate (1:=reply). instantiate (1:=ln). unfold iter_post. sep fail auto.
-Qed.
-
-Theorem list_no_cycle : forall (T : Type) (l1 l2 : list T),
-  l2 <> nil -> l1 <> l2 ++ l1.
-  induction l1. 
-    auto.
-    intros. rewrite <- app_nil_end. auto.
-    intros. destruct l2. congruence. unfold not in *. intros. inversion H0.
-    rewrite <- nil_cons_app in H3. eapply IHl1. instantiate (1 := (l2 ++ t :: nil)). intros. destruct l2; discriminate.
-     auto.
+  solve [ inhabiter; unpack_conc; canceler; subst; rsep fail auto
+        | sep fail auto ].
 Qed.
 
 Theorem list_no_cycle' : forall (T : Type) (l1 l2 : list T),
@@ -63,13 +54,13 @@ Lemma list_fix : forall T (x y z : list T) a,
 Qed.
 
 Definition client : forall (local remote : Net.SockAddr) (tr : [Trace]),
-  STsep (tr ~~ IO.traced nil)
-        (fun _:unit => tr ~~ Exists v :@ Trace, IO.traced v).
-  intros. refine (
+  STsep (tr ~~ IO.traced nil * handle FS.stdin * handle FS.stdout)
+        (fun _:unit => tr ~~ Exists v :@ Trace, IO.traced v * handle FS.stdin * handle FS.stdout).
+  refine (fun local remote tr =>
     skt <- TCP.bindSocket local remote <@> _ ;
 
     xxx <- IO.forever 
-             (fun t:Trace => [trace skt t] * handle skt)
+             (fun t:Trace => [trace skt t] * handle skt * handle FS.stdin * handle FS.stdout)
              (fun t:[Trace] => 
                {{iter skt t <@> _}})
              [nil] ;

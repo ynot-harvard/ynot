@@ -84,7 +84,7 @@ Module Spec <: Model.
       [ exhaustive assumption
       | simpl in *; exhaustive assumption
       | simpl in *; exhaustive assumption ].
-    unfold store_inv in *. symmetry in HeqRM. all.
+    unfold store_inv in *. all.
     Hint Resolve insert_preserves_noduples.
     Hint Resolve insert_preserves_total_dec.
     Hint Resolve insert_preserves_inv.

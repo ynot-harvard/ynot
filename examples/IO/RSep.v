@@ -26,6 +26,11 @@ Qed.
 Theorem foldr_cons : forall (T U:Type) (f: U -> T -> T) a b v, fold_right f v (a :: b) = f a (fold_right f v b).
   reflexivity.
 Qed.
+Theorem nil_cons_app : forall (A : Type) (l2 : list A) (a : A) (l1 : list A),
+  (l1 ++ a :: nil) ++ l2 = l1 ++ a :: l2.
+  induction l1; auto. simpl. rewrite IHl1. auto.
+Qed.
+
 Ltac norm_list :=
   let t := progress ((repeat rewrite <- app_comm_cons);
                      (repeat rewrite app_ass);

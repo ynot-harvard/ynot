@@ -5,7 +5,7 @@ Require Import TcpServer SslServer.
 Require Import Stream HttpParser.
 Require Import AppServer.
 Require Import RSep.
-Require Import Charset2.
+Require Import Charset.
 
 Opaque ReadString.
 Opaque WroteString.
@@ -26,8 +26,6 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
 
   Definition mutate a (b : cmodel) := snd (AP.func a b).
   Definition reply  a (b : cmodel) := fst (AP.func a b).
-
-  Import PackRatParser.AsciiParser.
 
   Definition crlf : string := String (ascii_of_nat 13) (String (ascii_of_nat 10) EmptyString).
 
@@ -64,7 +62,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
       | "E" => 14
       | "F" => 15
       | _ => 0
-    end.
+    end%char.
 
   Definition unify (c1 : ascii) (c2 : ascii) : ascii :=
     ascii_of_nat ((hexDig c1) * 16 + (hexDig c2)).
@@ -88,10 +86,10 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
   Inductive acorrect (str : list ascii) : cmodel -> cmodel -> list ascii -> Trace -> Prop :=
   | AppOk  : forall p1 p3 (q: AP.Q) (m m' : cmodel) (r: AP.RR),
        m' = snd (AP.func q m) -> r = fst (AP.func q m) -> 
-       Charset2.AsciiParser.parses AI.grammar str (Charset2.AsciiParser.Okay p1 q p3) ->
+       Parsec.parses AI.grammar str (Parsec.Okay AsciiCharset p1 q p3) ->
        acorrect str m m' (AI.printer r) (AP.AppIO q m r m')
   | AppErr : forall e (m m' : cmodel),
-       m' = m -> Charset2.AsciiParser.parses AI.grammar str (Charset2.AsciiParser.Error e) ->
+       m' = m -> Parsec.parses AI.grammar str (Parsec.Error AsciiCharset _ e) ->
        acorrect str m m (AI.err e) nil.
 
   Inductive hcorrect (local remote : SockAddr) 
@@ -100,14 +98,14 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
   | HttpOk  : forall (q: list ascii) (m m' : cmodel) resp proc is n method uri ver headers body,
        acorrect q m m' resp proc ->
        INSTREAM.stream_elts is = [str]%inhabited ->
-       (HTTP_correct is [0] (Some (n, ((method, uri, ver), headers, body)))) empty ->
+       (HTTP_correct is 0 (Some (n, ((method, uri, ver), headers, body)))) empty ->
        la2str q = extractQuery uri ->
        hcorrect fd str m m' (WroteString fd resp ++ WroteString fd (HTTP_ok (List.length resp)) ++ proc)
 
   | HttpErr : forall (m m' : cmodel) is,
        m = m' -> 
        INSTREAM.stream_elts is = [str]%inhabited ->
-       (HTTP_correct is [0] None) empty ->
+       (HTTP_correct is 0 None) empty ->
        hcorrect fd str m m' (WroteString fd HTTP_bad).
 
   Inductive ccorrect' (local remote : SockAddr) 
@@ -127,8 +125,8 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
             (fun m => rep (fst cm) m * [inv m])).
     refine AP.init.
   Qed.
-
-  Ltac unfold_all := repeat progress unfold AsciiCharset.char,PackRatParser.AsciiCharset.char,char in *.
+  
+  Ltac unfold_all := repeat progress unfold Parsec.char, char, AsciiCharset, Parsec.ans_str_correct, Parsec.okay, Parsec.error, Parsec.okaystr, Parsec.errorstr in *.
 
   Ltac solver := auto.
 
@@ -136,23 +134,23 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
 
   Definition delegateParse (str : list ascii) :
     STsep (__)
-          (fun res:parse_reply_t AP.Q =>
-           Exists is :@ INSTREAM.instream_t char, [INSTREAM.stream_elts is = [str]%inhabited] * 
+          (fun res:Parsec.parse_reply_t AP.Q =>
+           Exists is :@ INSTREAM.instream_t ascii, [INSTREAM.stream_elts is = [str]%inhabited] * 
               match res with 
-                | ERROR c _ => error [0] is AI.grammar c
-                | OKAY c n q => okay [0] is AI.grammar c n q
+                | Parsec.ERROR c _ => @Parsec.error AsciiCharset _ [0] is AI.grammar c
+                | Parsec.OKAY c n q => @Parsec.okay AsciiCharset _ [0] is AI.grammar c n q
               end).
     intros. refine (
       is  <- STRING_INSTREAM.instream_of_list_ascii str <@> _ ;
       ans <- AI.parser is (inhabits 0) <@> _ ;
       INSTREAM.close is <@> ([INSTREAM.stream_elts is = [str]%inhabited] *
                                match ans with 
-                                 | ERROR c _ => error [0] is AI.grammar c
-                                 | OKAY c n q => okay [0] is AI.grammar c n q
+                                 | Parsec.ERROR c _ => @Parsec.error AsciiCharset _ [0] is AI.grammar c
+                                 | Parsec.OKAY c n q => @Parsec.okay AsciiCharset _ [0] is AI.grammar c n q
                                end) ;;
-      {{Return ans}}); unfold AsciiCharset.char;
+      {{Return ans}}); unfold char;
     solve [ s 
-          | rsep fail auto; unfold ans_str_correct, okay, error, okaystr, errorstr; destruct ans; sep fail auto
+          | rsep fail auto; unfold_all; destruct ans; sep fail auto
           | rsep fail auto; rewrite H0; sep fail auto ].
   Qed.
 
