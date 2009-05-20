@@ -40,7 +40,7 @@ Set Implicit Arguments.
 
 Notation "{{{ v }}}" := (STWeaken _ (STStrengthen _ v _) _) (at level 0).
 
-Definition STsep pre T (post : T -> hprop) : Type :=
+Definition STsep pre T (post : T -> hprop) : Set :=
   ST (pre * ??) (fun h v h' =>
     forall h1 h2, h ~> h1 * h2
       -> pre h1

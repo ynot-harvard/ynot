@@ -41,7 +41,7 @@ Definition hpost T := heap -> T -> hprop.
 
 Open Local Scope heap_scope.
 
-Parameter ST : hpre -> forall T, hpost T -> Type.
+Parameter ST : hpre -> forall T, hpost T -> Set.
 
 Parameter STReturn : forall T (v : T), ST (fun _ => True) (fun h v' h' => h' = h /\ v' = v).
 
