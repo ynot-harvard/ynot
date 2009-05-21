@@ -69,20 +69,20 @@ Qed.
 (** Functions **)
 Axiom axiom_read : forall (m : fd_model) (ms : list mode) (fd : File m ms) (tr : [Trace])
   (allow : In R ms),
-  STsep (tr ~~ traced tr)
-        (fun chr:option ascii => tr ~~ traced (Read fd chr :: tr)).
+  STsep (tr ~~ traced tr * handle fd)
+        (fun chr:option ascii => tr ~~ traced (Read fd chr :: tr) * handle fd).
 Definition read := axiom_read.
 
 Axiom axiom_write : forall (m : fd_model) (ms : list mode) (fd : File m ms) (chr : ascii)
   (tr : [Trace]) (allow : In W ms),
-  STsep (tr ~~ traced tr)
-        (fun _:unit => tr ~~ traced (Write fd chr :: tr)).
+  STsep (tr ~~ traced tr * handle fd)
+        (fun _:unit => tr ~~ traced (Write fd chr :: tr) * handle fd).
 Definition write := axiom_write.
 
 Axiom axiom_flush : forall (m : fd_model) (ms : list mode) (fd : File m ms) (tr :[Trace])
   (allow : In W ms),
-  STsep (tr ~~ traced tr)
-        (fun _:unit => tr ~~ traced (Flush fd :: tr)).
+  STsep (tr ~~ traced tr * handle fd)
+        (fun _:unit => tr ~~ traced (Flush fd :: tr) * handle fd).
 Definition flush := axiom_flush.
 
 Axiom axiom_close : forall (m : fd_model) (ms : list mode) (fd : File m ms),
@@ -90,30 +90,21 @@ Axiom axiom_close : forall (m : fd_model) (ms : list mode) (fd : File m ms),
         (fun _:unit => __).
 Definition close := axiom_close.
 
-Axiom axiom_FileModel : list ascii -> fd_model.
+Axiom axiom_FileModel : string -> fd_model.
 Definition FileModel := axiom_FileModel.
 
-(**
-Axiom axiom_open : forall (ms : list mode) (path : list ascii),
+Axiom axiom_AccessibleFile : string -> Prop.
+Definition AccessibleFile := axiom_AccessibleFile.
+
+Axiom axiom_open : forall (ms : list mode) (path : string),
   STsep (__)
-        (fun ofd:option File => match ofd with
-                                  | None => __
-                                  | Some fd => handle fd ms (FileModel path)
+        (fun ofd:option (File (FileModel path) ms) => match ofd with
+                                  | None => [~AccessibleFile path]
+                                  | Some fd => handle fd * [AccessibleFile path]
                                 end).
 Definition open := axiom_open.
-**)
 
 (** Derived Equations **)
-Lemma map_app : forall (A B : Type) (f : A -> B) (l2 : list A) (c : A) (l1 : list A),
-  map f (l1 ++ c :: l2) = (map f l1) ++ (f c) :: map f l2.
-  induction l1; auto. simpl. rewrite <- IHl1. auto.
-Qed.
-
-Lemma nil_cons_app : forall (A : Type) (l2 : list A) (a : A) (l1 : list A),
-  (l1 ++ a :: nil) ++ l2 = l1 ++ a :: l2.
-  induction l1; auto. simpl. rewrite IHl1. auto.
-Qed.
-
 Definition WroteString (m : fd_model) (ms : list mode) (fd : File m ms)
   (str : list ascii) : Trace :=
   map (fun c => Write fd c) (rev str).
@@ -144,12 +135,12 @@ Qed.
 (** TODO: Can make this type stronger **)
 Definition readline : forall (fm : fd_model) (ms : list mode) (fd : File fm ms) (pf : In R ms)
   (tr : [Trace]),
-  STsep (tr ~~ traced tr)
-        (fun str:list ascii => tr ~~ traced (ReadLine fd str ++ tr)).
+  STsep (tr ~~ traced tr * handle fd)
+        (fun str:list ascii => tr ~~ traced (ReadLine fd str ++ tr) * handle fd).
   intros; refine (
   Fix
-    (fun tr => tr ~~ traced tr)
-    (fun tr r => tr ~~ traced (ReadLine fd r ++ tr))
+    (fun tr => tr ~~ traced tr * handle fd)
+    (fun tr r => tr ~~ traced (ReadLine fd r ++ tr) * handle fd)
     (fun self tr => 
       c' <- read fd _ _;
       match c' as c'' return c'' = c' -> _ with
@@ -168,15 +159,15 @@ Qed.
 
 Definition writeline : forall (fm : fd_model) (ms : list mode) (fd : File fm ms) (str : list ascii)
   (pf : In W ms) (tr : [Trace]),
-  STsep (tr ~~ traced tr)
-        (fun _:unit => tr ~~ traced (WroteString fd str ++ tr)).
+  STsep (tr ~~ traced tr * handle fd)
+        (fun _:unit => tr ~~ traced (WroteString fd str ++ tr) * handle fd).
   intros; refine (
-    Fix2 (fun str tr => tr ~~ traced tr)
-         (fun str tr (_:unit) => tr ~~ traced (WroteString fd str ++ tr))
+    Fix2 (fun str tr => tr ~~ traced tr * handle fd)
+         (fun str tr (_:unit) => tr ~~ traced (WroteString fd str ++ tr) * handle fd)
          (fun self str tr =>
            match str as str 
-             return STsep (tr ~~ traced tr)
-                          (fun (_:unit) => tr ~~ traced ((map (fun c => Write fd c) (rev str)) ++ tr)) with
+             return STsep (tr ~~ traced tr * handle fd)
+                          (fun (_:unit) => tr ~~ traced ((map (fun c => Write fd c) (rev str)) ++ tr) * handle fd) with
              | nil => {{Return tt}}
              | c :: cs => 
                write fd c tr pf;;
@@ -184,11 +175,41 @@ Definition writeline : forall (fm : fd_model) (ms : list mode) (fd : File fm ms)
            end)
          str tr);
   solve [ sep fail auto
-        | sep fail auto; rewrite map_app; sep fail auto; rewrite nil_cons_app; sep fail idtac ].
+        | sep fail auto; rewrite map_app; sep fail auto; norm_list; sep fail idtac ].
 Qed.
 
 (** ReadContents **)
+Fixpoint ReadFile (fm : fd_model) (ms : list mode) (fd : File fm ms) (str : string) {struct str} : Trace :=
+  match str with
+    | EmptyString => Read fd None :: nil
+    | String a b => (ReadFile fd b) ++ (Read fd (Some a) :: nil)
+  end.
 
+Definition readFile (fm : fd_model) (ms : list mode) (fd : File fm ms) (pf : In R ms) (tr : [Trace]) :
+  STsep (tr ~~ traced tr * handle fd)
+        (fun rt:string  => tr ~~ traced (ReadFile fd rt ++ tr) * handle fd).
+  intros. refine (
+    Fix (fun tr => tr ~~ traced tr * handle fd)
+        (fun tr r => tr ~~ traced (ReadFile fd r ++ tr) * handle fd)
+        (fun self tr => 
+          c' <- read fd _ _;
+          match c' as c'' return c'' = c' -> _ with
+            | None => fun _ => {{ Return EmptyString }}
+            | Some c => fun _ =>
+              rm <- self (tr ~~~ Read fd (Some c) :: tr) <@> _;
+              {{Return (String c rm)}}
+          end (refl_equal _))
+        tr); try clear self;
+  solve [ assumption
+        | rsep ltac:(subst; simpl) ltac:(norm_list; auto); rsep fail auto ].
+Qed.
+
+(**
+Definition pipe (sfm tfm : fd_model) (sms tms : list mode) (src : File sfm sms) (trg : File tfm tms)
+  (pfR : In R sms) (pfW : In W tms) (tr : [Trace]),
+  STsep (tr ~~ traced tr)
+        (fun 
+**)
 
 Definition ReadAll (fp : list mode) (fm : fd_model) (fd : File fm fp) strs :=
   ReadLine fd nil ++ (List.fold_right (fun str l => ReadLine fd (str2la str) ++ l) nil strs).
@@ -220,20 +241,20 @@ Qed.
 Require Import RSep.
 
 Definition readAll' (fp : list mode) (fm : fd_model) (fd : File fm fp) (pf : In R fp) (tr : [Trace]) :
-  STsep (tr ~~ traced tr)
+  STsep (tr ~~ traced tr * handle fd)
         (fun res : (string * [list string]) =>
           tr ~~ hprop_unpack (snd res) (fun strs =>
             traced (ReadLine fd nil ++ (List.fold_right (fun str l => ReadLine fd (str2la str) ++ l) nil strs) ++ tr) *
-            [fst res = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)])).
+            [fst res = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)]) * handle fd).
   Hint Resolve fold_append.
   intros. refine (
     {{Fix2 (fun str strs => tr ~~ strs ~~
                traced ((List.fold_right (fun str l => ReadLine fd (str2la str) ++ l) nil strs) ++ tr) *
-                  [str = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)])
+                  [str = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)] * handle fd)
             (fun _ _ (res:string * [list string]) =>
               tr ~~ hprop_unpack (snd res) (fun strs =>
                 traced (ReadLine fd nil ++ (List.fold_right (fun str l => ReadLine fd (str2la str) ++ l) nil strs) ++ tr) *
-                  [fst res = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)]))
+                  [fst res = List.fold_right (fun a b => String.append a b) EmptyString (rev strs)]) * handle fd)
             (fun self str strs =>
               x <- readline fd pf (inhabit_unpack2 strs tr (fun strs tr => (List.fold_right (fun str l => ReadLine fd (str2la str) ++ l) nil strs) ++ tr)) <@>  _;
               if is_nil x then
@@ -247,15 +268,11 @@ Definition readAll' (fp : list mode) (fm : fd_model) (fd : File fm fp) (pf : In 
 Qed.
 
 Definition readAll (fp : list mode) (fm : fd_model) (fd : File fm fp) (pf : In R fp) (tr : [Trace]) :
-  STsep (tr ~~ traced tr)
+  STsep (tr ~~ traced tr * handle fd)
         (fun res : (string * [list string]) =>
           tr ~~ hprop_unpack (snd res) (fun strs =>
-            traced (ReadAll fd strs ++ tr) * [ReadAs (fst res) strs])).
+            traced (ReadAll fd strs ++ tr) * [ReadAs (fst res) strs]) * handle fd).
   refine readAll'.
 Qed.
-
-Opaque ReadLine.
-Opaque ReadString.
-Opaque WroteString.
 
 Require Export List.

@@ -33,14 +33,18 @@ Require Import List.
 Require Import Omega.
 Require Import Eqdep.
 Require Import Parse.Stream.
+Require Import Charset.
 Import INSTREAM.
 Set Implicit Arguments.
 
 Module Packrat.
 Section Packrat.
+
+  Variable cs : Charset.
+
   (* Parsers are parameterized by a character set *)
-  Variable char : Set.
-  Variable char_eq : forall (c1 c2:char), {c1 = c2} + {c1 <> c2}.
+  Definition char := char cs.
+  Definition char_eq := char_eq cs.
 
   Variable base_ty : Set.
   Variable base_ty_denote : base_ty -> Set.
@@ -99,6 +103,7 @@ Section Packrat.
     | Epsilon : term Unit
     | Void : forall t, term t
     | Lit : char -> term Char
+    | LitClass : CharClass cs -> term Char
     | Var : forall n, term (get G n)
     | Seq : forall t1 t2, term t1 -> term t2 -> term (Prod t1 t2)
     | Alt : forall t, term t -> term t -> term t
@@ -151,6 +156,12 @@ Section Packrat.
                      | c'::s' => if char_eq c c' then Return Succeed Consume s' c
                        else Return Fail _
                    end
+        | LitClass c => match s with 
+                          | nil => Return Fail _
+                          | c'::s' => if In_CharClass_dec c c' 
+                            then Return Succeed Consume s' c'
+                            else Return Fail _
+                        end
         | Seq t1 t2 e1 e2 => 
           a1 <- denote e1 s ; 
           match a1 with 
@@ -529,6 +540,25 @@ Section Packrat.
              end; t'. 
     Defined.
 
+    (* parser for a literal character c *)
+    Definition litclass(cl: CharClass cs) : parser_t ([LitClass G cl]).
+      unfold parser_t, basic_parser_t ; intros.
+      refine (copt <- next ins [n]%inhabited <@> _; 
+        IfNull copt As c' Then
+          {{ Return None }}
+        Else
+          if In_CharClass_dec cl c' then
+            {{ Return (Some (1,c')) }}
+          else
+            {{ Return None }}); t';
+      repeat match goal with
+               | [ |- context[if ?E then _ else _] ] => destruct E
+               | [ H : Some _ = nth_error ?x ?x0 |- context[nthtail ?x ?x0] ] =>
+                 exrewrite (NthErrorSomeNthTail (sym_eq H))
+               | [ H : nthtail _ _ = _ :: _ |- _ ] => rewrite (NthTailPop H)
+             end; t'.
+    Defined.
+
     (* a more efficient parser for sets of characters *)
     Fixpoint charset(cs:list char) : term G Char := 
       match cs with 
@@ -556,16 +586,16 @@ Section Packrat.
                       | None => None
                       | Some c => if f c then Some (1,c) else None
                     end)}}
-      ) ; t. pose (NthError x x0) ; destruct o.
+      ) ; t. destruct (NthError x x0).
       rewrite H0 ; rewrite (NthErrorNoneNthTail _ _ H0) ; t. clear f.
-      induction cs ; t. econstructor. apply IHcs. destruct H0 ; rewrite H0 ; 
+      induction cs0 ; t. econstructor. apply IHcs0. destruct H0 ; rewrite H0 ; 
       destruct (NthErrorSomeNthTail H0) as [v1 [v2 [H3 H4]]].
       rewrite H4. destruct (f x1). rewrite (plus_comm x0 1). t.
       pose (NthTailSucc _ _ H4). simpl in *. rewrite e. clear f.
-      induction cs. simpl in *. contradiction m. simpl. destruct (char_eq a x1).
+      induction cs0. simpl in *. contradiction m. simpl. destruct (char_eq a x1).
       econstructor. econstructor. simpl. rewrite e0. constructor.
-      destruct m. congruence. econstructor. econstructor. simpl. apply IHcs. auto.
-      t. clear f. induction cs. simpl ; constructor. simpl in *.
+      destruct m. congruence. econstructor. econstructor. simpl. apply IHcs0. auto.
+      t. clear f. induction cs0. simpl ; constructor. simpl in *.
       destruct (char_eq a x1). assert False. apply f0. left. symmetry. auto. contradiction.
       t. econstructor. simpl. auto.
     Defined.
@@ -794,6 +824,7 @@ Section Packrat.
       | Epsilon => @epsilon G env
       | Void t => void env t
       | Lit c => @lit G env c
+      | LitClass cl => @litclass G env cl
       | Alt t e1 e2 => @alt G env t [e1] [e2] (@exp2parser G t e1 env) (@exp2parser G t e2 env)
       | Seq t1 t2 e1 e2 => 
         @seq G env t1 t2 [e1] [e2] (@exp2parser G t1 e1 env) (@exp2parser G t2 e2 env)
@@ -880,12 +911,7 @@ Section Packrat.
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
             {{ Return ans }}
-           ); unfold fminv, fmrep;
-    (cbv zeta;
-      solve [ sep fail ltac:t
-        | simpl; match goal with
-                   | [ |- ?P1 * ?P2 * _ ==> ?Q * _ ] => equate (P1 * P2) Q
-                 end; sep fail ltac:t ]).
+           ); unfold fminv, fmrep; sep fail ltac:t ; sep fail auto.
   Defined.
 
 End Packrat.

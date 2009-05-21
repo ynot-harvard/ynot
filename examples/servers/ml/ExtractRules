@@ -1,0 +1,82 @@
+Require Import IO FS Net.
+Require Import Stream.
+Require Import List.
+
+(** IO **)
+Extract Constant IO.axiom_Action => "unit".
+Extract Constant IO.axiom_traced => "(** traces must be irrelevant **)".
+
+Extract Constant IO.axiom_getT => "IOImpl.axiom_getT".
+
+(** Net **)
+Extract Inlined Constant Net.axiom_SockAddr => "NetImpl.axiom_SockAddr".
+Extract Inlined Constant Net.axiom_sockaddr => "NetImpl.axiom_sockaddr".
+Extract Inlined Constant Net.axiom_sock_eq  => "NetImpl.axiom_sockeq".
+
+(** Net.UDP **)
+Extract Inlined Constant Net.axiom_UDP_Recd => "NetImpl.axiom_UDP_Recd".
+Extract Inlined Constant Net.axiom_UDP_Sent => "NetImpl.axiom_UDP_Sent".
+
+Extract Inlined Constant Net.axiom_UDP_send => "NetImpl.axiom_UDP_send".
+Extract Inlined Constant Net.axiom_UDP_recv => "NetImpl.axiom_UDP_recv".
+
+(** Net.TCP **)
+Extract Inlined Constant Net.axiom_BoundSocketModel => "NetImpl.axiom_BoundSocketModel".
+Extract Inlined Constant Net.axiom_ListenSocketModel => "NetImpl.axiom_ListenSocketModel".
+
+Extract Inlined Constant Net.axiom_TCP_Accept => "NetImpl.axiom_TCP_Accept".
+
+Extract Inlined Constant Net.axiom_TCP_listenSocket => "NetImpl.axiom_TCP_listenSocket".
+Extract Inlined Constant Net.axiom_TCP_bindSocket => "NetImpl.axiom_TCP_bindSocket".
+Extract Inlined Constant Net.axiom_TCP_accept => "NetImpl.axiom_TCP_accept".
+
+(** Net.SSL **)
+Extract Inlined Constant Net.axiom_SslListenSocketModel => "NetImpl.axiom_SslListenSocketModel".
+Extract Inlined Constant Net.axiom_SSL_secure => "(** secure must be irrelevant **)".
+
+Extract Inlined Constant Net.axiom_SSL_listenSocket => "NetImpl.axiom_SSL_listenSocket".
+Extract Inlined Constant Net.axiom_SSL_bindSocket => "NetImpl.axiom_SSL_bindSocket".
+Extract Inlined Constant Net.axiom_SSL_accept => "NetImpl.axiom_SSL_accept".
+
+(** FS **)
+Extract Constant FS.axiom_handle => "(** handles must be irrelevant **)".
+
+Extract Inlined Constant FS.axiom_fd_model  => "FSImpl.axiom_fd_model".
+Extract Inlined Constant FS.axiom_TtyModel  => "FSImpl.axiom_TtyModel".
+Extract Inlined Constant FS.axiom_FileModel => "FSImpl.axiom_FileModel".
+
+Extract Inlined Constant FS.axiom_Read => "FSImpl.axiom_Read".
+Extract Inlined Constant FS.axiom_Write => "FSImpl.axiom_Write".
+Extract Inlined Constant FS.axiom_Flush => "FSImpl.axiom_Flush".
+Extract Inlined Constant FS.axiom_Close => "FSImpl.axiom_Close".
+
+Extract Inlined Constant FS.axiom_File => "FSImpl.file_descriptor".
+
+Extract Inlined Constant FS.axiom_stdin => "FSImpl.stdin".
+Extract Inlined Constant FS.axiom_stdout => "FSImpl.stdout".
+
+Extract Inlined Constant FS.axiom_read => "FSImpl.axiom_read".
+Extract Inlined Constant FS.axiom_write => "FSImpl.axiom_write".
+Extract Inlined Constant FS.axiom_flush => "FSImpl.axiom_flush".
+Extract Inlined Constant FS.axiom_close => "FSImpl.axiom_close".
+
+(** TODO: These should be removed!!! **)
+(** Array **)
+Require Import CoqArray.
+Extract Inlined Constant axiom_array => "ArrayImpl.c_array".
+
+Extract Inlined Constant axiom_array_length => "ArrayImpl.array_length".
+
+Extract Inlined Constant axiom_new_array => "ArrayImpl.new_array".
+Extract Inlined Constant axiom_free_array => "ArrayImpl.free_array".
+
+Extract Inlined Constant axiom_upd_array => "ArrayImpl.upd_array".
+Extract Inlined Constant axiom_sub_array => "ArrayImpl.sub_array".
+
+(** Shifting (for PackRatParser) **)
+Require PackRatParser.
+Extract Inlined Constant PackRatParser.shift => "PackRatParserImpl.shift".
+
+(**
+Unset Extraction Optimize.
+**)
