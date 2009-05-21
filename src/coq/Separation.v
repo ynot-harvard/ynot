@@ -744,7 +744,7 @@ Lemma himp_prop_conc : forall (P : Prop) H1 H2,
   sep fail auto.
 Qed.
 
-Theorem himp_disjoint : forall (S T : Set) p1 p2 (a1:S) (a2:T), 
+Theorem himp_disjoint : forall (S T : Type) p1 p2 (a1:S) (a2:T), 
   p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
   intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
   exists ((x * x0)%heap). exists empty. subst. sep fail auto.

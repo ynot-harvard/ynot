@@ -21,6 +21,7 @@ private/papers/*/*.pdf
 *.cma
 *.cmxa
 *.a
+*.glob
 
 *.make
 *.bbl

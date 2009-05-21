@@ -1,7 +1,7 @@
-MODULES    := Counter Stack Reverse Queue Array Stream AssocListModel \
+MODULES    := Counter Stack Reverse Queue Array AssocListModel \
 	AssocListOrdModel FiniteMap RefFiniteMap HashTable \
-	JahobAssocList BinomialTree LinkedListSeg Parse2 FiniteMap2 \
-	BinarySearchTree
+	JahobAssocList BinomialTree LinkedListSeg FiniteMap2 \
+	BinarySearchTree Stream
 
 VS         := $(MODULES:%=%.v)
 
