@@ -27,7 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Arith List.
+Require Import Arith List QArith Bool.
+Require Import Qcanon.
 
 Require Import Ynot.Axioms.
 Require Import Ynot.Util.
@@ -41,7 +42,6 @@ Definition hprop := heap -> Prop.
 Bind Scope hprop_scope with hprop.
 Delimit Scope hprop_scope with hprop.
 
-
 Definition hprop_empty : hprop := eq empty.
 Notation "'__'" := hprop_empty : hprop_scope.
 
@@ -53,27 +53,37 @@ Open Local Scope heap_scope.
 Definition hprop_inj (P : Prop) : hprop := fun h => h = empty /\ P.
 Notation "[ P ]" := (hprop_inj P) (at level 0, P at level 99) : hprop_scope.
 
-Definition hprop_cell (p : ptr) T (v : T) : hprop := fun h =>
-  h#p = Some (Dyn v) /\ forall p', p' <> p -> h#p' = None.
-Infix "-->" := hprop_cell (at level 38, no associativity) : hprop_scope.
+Definition hprop_cell (p : ptr) T (v : T) (pi:Qc): hprop := fun h =>
+  h#p = Some (Dyn v, pi) /\ forall p', p' <> p -> h#p' = None.
 
-Definition disjoint1 (h1 h2 : heap) : Prop :=
-  forall p,
+Notation "p -0-> v" := (hprop_cell p v 0) (at level 38, no associativity) : hprop_scope.
+Notation "p -[ f ]-> v" := (hprop_cell p v f) (at level 38, no associativity) : hprop_scope.
+
+Local Open Scope hprop_scope.
+
+Definition disjoint (h1 h2 : heap) : Prop :=
+  forall p, 
     match h1#p with
       | None => True
-      | Some _ => match h2#p with
-                    | None => True
-                    | Some _ => False
+      | Some v1 => match h2#p with
+                     | None => True
+                     | Some v2 => val v1 = val v2
                   end
     end.
 
-Infix "<##>" := disjoint1 (at level 40, no associativity) : hprop_scope.
-
-Open Local Scope hprop_scope.
-
-Definition disjoint (h1 h2 : heap) : Prop := h1 <##> h2 /\ h2 <##> h1.
-
 Infix "<#>" := disjoint (at level 40, no associativity) : hprop_scope.
+
+Definition join_valid (h1 h2 : heap) : Prop :=
+  forall p, 
+    match h1#p with
+      | None => True
+      | Some v1 => match h2#p with
+                     | None => True
+                     | Some v2 => (frac v1)<>0 /\ (frac v2)<>0
+                  end
+    end.
+
+Infix "<*>" := join_valid (at level 40, no associativity) : hprop_scope.
 
 Definition split (h h1 h2 : heap) : Prop := h1 <#> h2 /\ h = h1 * h2.
 
@@ -84,6 +94,15 @@ Definition hprop_sep (p1 p2 : hprop) : hprop := fun h =>
     /\ p1 h1
     /\ p2 h2.
 Infix "*" := hprop_sep (at level 40, left associativity) : hprop_scope.
+
+Definition hprop_sep_valid (p1 p2 : hprop) : hprop := fun h =>
+  exists h1, exists h2, h ~> h1 * h2
+    /\ h1 <*> h2
+    /\ p1 h1
+    /\ p2 h2.
+
+Infix "*!" := hprop_sep_valid (at level 40, left associativity) : hprop_scope.
+
 
 Definition hprop_and (p1 p2 : hprop) : hprop := fun h => p1 h /\ p2 h.
 Infix "&" := hprop_and (at level 39, left associativity) : hprop_scope.
@@ -131,95 +150,171 @@ Notation "inh ~~~' f" := (inhabit_unpack inh (fun inh => f))
 
 Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
 
-Definition ptsto_any(p:ptr) : hprop := Exists A :@ Set, Exists v :@ A, p --> v.
-Notation "p '-->?'" := (ptsto_any p) (at level 38, no associativity) : hprop_scope.
+Definition ptsto_any(p:ptr) (q:Qc): hprop := Exists A :@ Set, Exists v :@ A, p -[q]-> v.
+Notation "p '-->?'" := (ptsto_any p 0) (at level 38, no associativity) : hprop_scope.
+Notation "p '-[' q ']->?'" := (ptsto_any p q) (at level 38, no associativity) : hprop_scope.
 
 (* iterating, separating conjunction -- should go in a separate file *)
 Fixpoint iter_sep(P:nat->hprop)(start len:nat) {struct len} : hprop :=
   match len with
-  | 0 => __
+  | 0%nat => __
   | S m => (P start) * (iter_sep P (1 + start) m)
   end.
 Notation "{@ P | i <- s + l }" := (iter_sep (fun i => P) s l) (i ident, s at next level) : hprop_scope.
 
 Definition hprop_imp (p1 p2 : hprop) : Prop := forall h, p1 h -> p2 h.
-Infix "==>" := hprop_imp (right associativity, at level 85).
-
+Infix "==>" := hprop_imp (right associativity, at level 55).
 
 (** * Theorems *)
 
 Theorem sep_id : forall h p, (p * __)%hprop h -> p h.
   intuition.
-  red in H.
+  red in H. unfold hprop_empty in H.
   firstorder; subst.
-
-  replace (x * x0)%heap with x; auto.
-
-  unfold heap; ext_eq.
-
-  unfold join.
-  destruct (x x1); auto.
-  red in H2.
-  rewrite <- H2.
-  trivial.
+  autorewrite with Ynot. trivial.
 Qed.
 
-Theorem disjoint1_empty1 : forall h, h <##> empty.
+Ltac hval_plus_solve := 
+  try unfold hval_plus; 
+  repeat match goal with
+    | [|- Some _ = Some _ ] => f_equal
+    | [|- (_, _) = (_, _) ] => f_equal
+  end;  simpl; try (congruence || ring).
+
+Ltac split_prover' :=
+  unfold split, disjoint, join_valid, join, read, heap, hvalo_plus; intuition; subst; try ext_eq;
+    repeat match goal with
+             | [ H : _, p : ptr |- _ ] => generalize (H p); clear H; intro H
+           end.
+
+Ltac split_prover_up :=
+  split_prover';
+  (repeat match goal with
+           | [ H : context[match ?X with Some _ => _ | None => _ end] |- _ ] => 
+             (* do inner matches first *)
+             match X with
+               | context[match ?X with Some _ => _ | None => _ end] => fail 1
+               | _ => destruct X; simpl in *; intuition
+             end
+         end);
+  try hval_plus_solve.
+
+Ltac split_prover_down :=
+  split_prover';
+  (repeat match goal with
+           | [ |- context[match ?X with Some _ => _ | None => _ end] ] => 
+             match X with
+               | context[match ?X with Some _ => _ | None => _ end] => fail 1
+               | _ => destruct X; intuition
+             end
+           | [ H : context[match ?X with Some _ => _ | None => _ end] |- _ ] => 
+             match X with
+               | context[match ?X with Some _ => _ | None => _ end] => fail 1
+               | _ => destruct X; simpl in *; intuition
+             end
+         end); 
+  try hval_plus_solve.
+
+Hint Resolve valid_plus_comm : Ynot.
+
+Lemma disjoint_comm (h1 h2 : heap) : (h1 <#> h2 -> h2 <#> h1).
+Proof.
+  split_prover_down.
+Qed.
+
+Hint Resolve disjoint_comm : Ynot.
+
+Lemma join_valid_comm (h1 h2 : heap) : h1 <*> h2 -> h2 <*> h1.
+Proof.
+  split_prover_down.
+Qed.
+
+Lemma join_valid_empty (h : heap) : h <*> empty.
+Proof.
+  unfold join_valid, empty, read; split_prover_down.
+Qed.
+  
+Hint Resolve join_valid_comm join_valid_empty : Ynot.
+
+Theorem split_comm : forall h h1 h2,
+  h ~> h1 * h2
+  -> h ~> h2 * h1.
+  unfold split, disjoint; intuition; subst.
+
+  generalize (H0 p); clear H0; intro H0.
+  destruct (h1 # p); destruct (h2 # p);
+  intuition; auto with Ynot.
+  
+  unfold heap, join; ext_eq.
+  generalize (H0 x); unfold read.
+  destruct (h1 x); destruct (h2 x); intuition.
+  simpl. rewrite hval_plus_comm; trivial.
+Qed.
+
+Hint Resolve split_comm : Ynot.
+
+Theorem disjoint_empty : forall h, h <#> empty.
   intros; red; intros.
   destruct (h # p); simpl; auto.
 Qed.
 
-Theorem disjoint1_empty2 : forall h, empty <##> h.
-  intros; red; intros.
-  destruct (h # p); simpl; auto.
-Qed.
+Hint Resolve disjoint_empty : Ynot.
 
-Hint Resolve disjoint1_empty1 disjoint1_empty2 : Ynot.
-
-Theorem disjoint_empty1 : forall h, h <#> empty.
+Theorem split_id : forall h, h ~> h * empty.
   intros; red; intuition auto with Ynot.
 Qed.
 
-Theorem disjoint_empty2 : forall h, empty <#> h.
-  intros; red; intuition auto with Ynot.
+Hint Resolve split_id : Ynot.
+
+Ltac disj_read_finder :=
+repeat match goal with
+    | [H: ?h1 # ?p = _ |- _] => rewrite H in *; clear H
+    | [H: ?h2 # ?p = _ |- _] => rewrite H in *; clear H
+    | [H: ?h1 <#> ?h2, H2:context [?h1 # ?p] |- _] => extend (H p)
+    | [H: ?h1 <#> ?h2, H2:context [?h2 # ?p] |- _] => extend ((disjoint_comm H) p)
+       end.
+Lemma disjoint_both_eq : forall h1 h2 p v1 v2,
+  h1 <#> h2 -> h1 # p = Some v1 -> h2 # p = Some v2 -> val v1 = val v2.
+Proof.
+  intuition; disj_read_finder; intuition.
 Qed.
 
-Hint Resolve disjoint_empty1 disjoint_empty2 : Ynot.
+Definition add_qopl (a:option hval) (q:Qc) :=
+    match a with
+      | None => q
+      | Some v2 => q + frac v2
+    end.
 
-Theorem split_id1 : forall h, h ~> h * empty.
-  intros; red; intuition auto with Ynot.
-Qed.
-
-Theorem split_id2 : forall h, h ~> empty * h.
-  intros; red; intuition auto with Ynot.
-Qed.
-
-Hint Resolve split_id1 split_id2 : Ynot.
+Definition add_qopr (a:option hval) (q:Qc) :=
+    match a with
+      | None => q
+      | Some v2 => frac v2 + q
+    end.
 
 Theorem split_read1 : forall h h1 h2 p v,
   h ~> h1 * h2
   -> h1 # p = Some v
-  -> h # p = Some v.
+  -> h  # p = Some (val v, add_qopl (h2#p) (frac v)).
   intuition.
   red in H; intuition; subst.
+  red in H1; intuition. 
   unfold join, read in *.
-  rewrite H0; trivial.
+  rewrite H0 in *; subst. simpl. unfold hval_plus.
+  destruct (h2 p); destruct v; simpl; auto.
 Qed.
 
 Theorem split_read2 : forall h h1 h2 p v,
   h ~> h1 * h2
   -> h2 # p = Some v
-  -> h # p = Some v.
+  -> h  # p = Some (val v, add_qopr (h1#p) (frac v)).
   intuition.
   red in H; intuition; subst.
-
-  red in H1; intuition.
-  generalize (H p).
-
+  generalize (H1 p); intro.
   unfold join, read in *.
-  rewrite H0; trivial.
-
-  destruct (h1 p); tauto.
+  rewrite H0 in *; subst.
+  destruct (h1 p); intuition; simpl; unfold hval_plus; simpl; auto.
+  rewrite H. trivial.
+  destruct v; trivial.
 Qed.
 
 Hint Resolve split_read1 split_read2 : Ynot.
@@ -230,120 +325,118 @@ Theorem Some_inj : forall T (x y : T),
   intros; congruence.
 Qed.
 
-Theorem split_read_inj1 : forall h h1 h2 p (T : Set) (v v1 : T),
+Theorem split_read_inj1 : forall h h1 h2 p (T : Set) (v v1 : T) q1 q2,
   h ~> h1 * h2
-  -> h # p = Some (Dyn v)
-  -> h1 # p = Some (Dyn v1)
+  -> h # p = Some (Dyn v, q1)
+  -> h1 # p = Some (Dyn v1, q2)
   -> v = v1.
   intros.
   red in H; intuition; subst.
+  generalize (H2 p). intro.
   unfold join, read in *.
-  rewrite H1 in H0.
+  rewrite H1 in *. simpl in *.
+  destruct (h2 p). 
   generalize (Some_inj H0); clear H0; intro H0.
-  apply Dyn_inj; auto.
+  unfold hval_plus in H0. simpl in H0.
+  apply Dyn_inj. congruence. 
+  apply Dyn_inj. congruence.
 Qed.
 
-Theorem split_read_inj2 : forall h h1 h2 p (T : Set) (v v1 : T),
+Theorem split_read_inj2 : forall h h1 h2 p (T : Set) (v v1 : T) q1 q2,
   h ~> h1 * h2
-  -> h # p = Some (Dyn v)
-  -> h2 # p = Some (Dyn v1)
+  -> h # p = Some (Dyn v, q1)
+  -> h2 # p = Some (Dyn v1, q2)
   -> v = v1.
   intros.
   red in H; intuition; subst.
-  red in H2; intuition.
-  generalize (H3 p); intro Hdisj.
+  generalize (H2 p). intro.
   unfold join, read in *.
-  rewrite H1 in Hdisj.
-  destruct (h1 p); auto.
-  tauto.
-  rewrite H1 in H0.
-  generalize (Some_inj H0); clear H0; intro H0.
-  apply Dyn_inj; auto.
+  rewrite H1 in *. simpl in *.
+  unfold hvalo_plus, hval_plus in H0.
+  destruct (h1 p);
+  generalize (Some_inj H0); clear H0; intro H0;
+  intuition;
+  apply Dyn_inj; congruence.
 Qed.
 
-Theorem split_write1 : forall h h1 h2 p (T T' : Set) (v : T) (v' : T'),
+Theorem split_writeSN : forall h h1 h2 p (T T' : Set) (v : T) (v' : T') q1,
   h ~> h1 * h2
-  -> h1 # p = Some (Dyn v)
-  -> (h ## p <- Dyn v') ~> (h1 ## p <- Dyn v') * h2.
-  unfold split, disjoint, disjoint1, join, write, read; intuition; subst.
+  -> h1 # p = Some (Dyn v, q1)
+  -> h2 # p = None
+  -> (h ## p <- (Dyn v', q1)) ~> (h1 ## p <- (Dyn v', q1)) * h2.
 
-  destruct (ptr_eq_dec p0 p); subst.
-  generalize (H3 p); intro Hp.
-  destruct (h2 p); trivial.
-  rewrite H0 in Hp; trivial.
+  intros.
+  red in H; intuition; subst.
+  unfold split, disjoint, join, write, read; intuition; subst.
 
-  apply H.
+  destruct (ptr_eq_dec p0 p); subst; unfold join, read in *.
+    rewrite H1 in *; trivial.    
+    apply (H2 p0).
 
-  generalize (H3 p0); intro Hp0.
-  destruct (h2 p0); trivial.
+  unfold heap; ext_eq.
+  destruct (ptr_eq_dec x p); trivial.
+  unfold read in *; simpl; subst. rewrite H1. trivial.
+Qed.
 
-  destruct (ptr_eq_dec p0 p); subst; trivial.
+Theorem split_writeNS : forall h h1 h2 p (T T' : Set) (v : T) (v' : T') q2,
+  h ~> h1 * h2
+  -> h1 # p = None
+  -> h2 # p = Some (Dyn v, q2)
+  -> (h ## p <- (Dyn v', q2)) ~> h1 * (h2 ## p <- (Dyn v', q2)).
+  
+  intros.
+  
+  red in H; intuition; subst.
+  unfold split, disjoint, join, write, read; intuition; subst.
 
-  rewrite H0 in Hp0; trivial.
+  destruct (ptr_eq_dec p0 p); subst; unfold join, read in *.
+    rewrite H0 in *; trivial.    
+    apply (H2 p0).
+
+  unfold heap; ext_eq.
+  destruct (ptr_eq_dec x p); trivial.
+  unfold read in *; simpl; subst. rewrite H0. trivial.
+Qed.
+
+Theorem split_writeSS : forall h h1 h2 p (T T' : Set) (v : T) (v' : T') q1 q2,
+  h ~> h1 * h2
+  -> h1 # p = Some (Dyn v, q1)
+  -> h2 # p = Some (Dyn v, q2)
+  -> (h ## p <- (Dyn v', q1+q2)) ~> (h1 ## p <- (Dyn v', q1)) * (h2 ## p <- (Dyn v', q2)).
+
+  intros.
+  red in H; intuition; subst.
+  unfold split, disjoint, join, write, read; intuition; subst.
+
+  destruct (ptr_eq_dec p0 p); subst; unfold join, read in *.
+    generalize (H2 p); unfold read; rewrite H0; rewrite H1; intuition.
+    apply (H2 p0).
 
   unfold heap; ext_eq.
   destruct (ptr_eq_dec x p); trivial.
 Qed.
 
-Theorem split_write2 : forall h h1 h2 p (T T' : Set) (v : T) (v' : T'),
-  h ~> h1 * h2
-  -> h2 # p = Some (Dyn v)
-  -> (h ## p <- Dyn v') ~> h1 * (h2 ## p <- Dyn v').
-  intros.
-  red in H; intuition; subst.
-  red in H1; intuition.
-  red; intuition.
-  red; intuition.
+Hint Resolve split_writeSN split_writeNS split_writeSS : Ynot.
 
-  intro.
-  generalize (H p0).
-  unfold write, read in *.
-  destruct (h1 p0); trivial.
-  destruct (ptr_eq_dec p0 p); subst; auto.
-  rewrite H0; auto.
-
-  intro.
-  generalize (H2 p0).
-  unfold write, read in *.
-  destruct (ptr_eq_dec p0 p); subst; auto.
-  rewrite H0; auto.
-
-  generalize (H p); intro Hp.
-  unfold read, write, join, heap in *.
-  ext_eq.
-  destruct (ptr_eq_dec x p); subst; trivial.
-  destruct (h1 p); trivial.
-  rewrite H0 in Hp; tauto.
-Qed.
-
-Hint Resolve split_write1 split_write2 : Ynot.
-
-Theorem new_sep : forall h p (T : Set) (v : T),
+Theorem new_sep : forall h p (T : Set) (v : T) q,
   h # p = None
-  -> (h ## p <- Dyn v) ~> (p --> Dyn v) * h.
+  -> (h ## p <- (Dyn v, q)) ~> (p |--> (Dyn v, q)) * h.
   intros.
   red; intuition.
   red; intuition.
 
-  intro.
   unfold singleton, read in *.
   destruct (ptr_eq_dec p0 p); subst; trivial.
   rewrite H; trivial.
 
-  intro.
-  unfold read, write, singleton in *.
-  destruct (ptr_eq_dec p0 p); subst; trivial.
-  rewrite H; trivial.
-
-  destruct (h p0); trivial.
-
   unfold read, write, singleton, join, heap in *; ext_eq.
   destruct (ptr_eq_dec x p); subst; trivial.
+  rewrite H. trivial.
 Qed.
 
 Hint Resolve new_sep : Ynot.
 
-Theorem split_id1_invert : forall h h',
+Theorem split_id_invert : forall h h',
   h ~> empty * h'
   -> h = h'.
   intros.
@@ -356,9 +449,13 @@ Theorem split2_read : forall h h1 h2 h3 h4 p d,
   h ~> h1 * h2
   -> h1 ~> h3 * h4
   -> h3 # p = Some d
-  -> h # p = Some d.
-  unfold split, disjoint, disjoint1, read, join; intuition; subst.
-  rewrite H1; trivial.
+  -> h # p = Some (val d, 
+    add_qopl (h2 # p) (add_qopl (h4 # p) (frac d))).
+  unfold split, disjoint, read, join; intuition; subst.
+  rewrite H1.
+  generalize (H2 p). generalize (H p).
+  destruct (h2 p); destruct (h3 p); destruct (h4 p); simpl;
+    unfold hval_plus; simpl; intuition; destruct d; simpl; intuition.
 Qed.
 
 Hint Resolve split2_read : Ynot.
@@ -378,30 +475,17 @@ Theorem Dyn_inj_Some : forall (T : Set) (x y : T),
   trivial.
 Qed.
 
-Ltac split_prover' :=
-  unfold split, disjoint, disjoint1, join, read, heap; intuition; subst; try ext_eq;
-    repeat match goal with
-             | [ H : _, p : ptr |- _ ] => generalize (H p); clear H; intro H
-           end.
-
-Ltac split_prover_up :=
-  split_prover';
-  repeat match goal with
-           | [ H : context[match ?X with Some _ => _ | None => _ end] |- _ ] => destruct X; intuition
-         end.
-
-Ltac split_prover_down :=
-  split_prover';
-  repeat match goal with
-           | [ |- context[match ?X with Some _ => _ | None => _ end] ] => destruct X; intuition
-           | [ H : context[match ?X with Some _ => _ | None => _ end] |- _ ] => destruct X; intuition
-         end.
+Theorem join_assoc (h1 h2 h3 : heap) : (h1 * (h2 * h3) = (h1 * h2) * h3)%heap.
+Proof.
+  unfold join, heap. intros. ext_eq.
+  split_prover_down.
+Qed.
 
 Theorem split_splice : forall h h1 h2 h3 h4,
   h ~> h1 * h2
   -> h1 ~> h3 * h4
   -> h ~> h4 * (h2 * h3).
-  split_prover_up.
+  split_prover_up. split_prover_down.
 Qed.
 
 Hint Resolve split_splice : Ynot.
@@ -410,7 +494,7 @@ Theorem split_splice' : forall h x x0 x1 x2,
   h ~> x * x0
   -> x ~> x1 * x2
   -> h ~> x1 * (x2 * x0).
-  split_prover_up.  
+  split_prover_up.
 Qed.
 
 Theorem split_splice'' : forall h x x0 x1 x2,
@@ -425,55 +509,18 @@ Theorem split_shuffle : forall h h1 h2 h3 h' h'' h''',
   -> h' ~> h'' * h2
   -> h'' ~> h3 * h'''
   -> h ~> (h1 * h3) * h2.
-  split_prover'.
-
-  destruct (h1 p); trivial.
-  destruct (h2 p); trivial.
-
-  destruct (h3 p); trivial.
-
-  destruct (h2 p); trivial.
-  destruct (h1 p); trivial.
-  destruct (h3 p); trivial.
-
-  destruct (h1 x); trivial.
-  destruct (h2 x).
-  destruct (h3 x); tauto.
-
-  destruct (h3 x); trivial.
+  split_prover_down.
 Qed.
 
 Hint Resolve split_shuffle : Ynot.
 
 Theorem split_comm' : forall h1 h2 h h',
-  h ~> h1 * (h' * h2)
+  h ~> h1 * (h2 * h')
   -> (h1 * h2) ~> h2 * h1.
-  split_prover'.
-
-  destruct (h2 p); trivial.
-  destruct (h1 p); trivial.
-  destruct (h' p); trivial.
-
-  destruct (h1 p); trivial.
-  destruct (h2 p); trivial.
-  destruct (h' p); trivial.
-
-  destruct (h1 x).
-  destruct (h2 x); trivial.
-  destruct (h' x); tauto.
-  destruct (h2 x); trivial.
+  split_prover_down.
 Qed.
 
 Hint Resolve split_comm' : Ynot.
-
-Theorem split_comm : forall h h1 h2,
-  h ~> h1 * h2
-  -> h ~> h2 * h1.
-  unfold split, disjoint; intuition; subst.
-  unfold heap, join; ext_eq.
-  generalize (H x); unfold read.
-  destruct (h1 x); destruct (h2 x); tauto.
-Qed.
 
 Theorem split_self : forall h x x0 x1 x2,
   h ~> x * x0
@@ -507,24 +554,17 @@ Theorem split_free : forall h h1 h2 p d,
   h ~> h1 * h2
   -> h1 # p = Some d
   -> (forall p' : ptr, (p' = p -> False) -> h1 # p' = None)
-  -> (h ### p) ~> empty * h2.
+  -> (h ### p) ~> empty * (h2 ### p).
   intros.
 
-  replace (h ### p) with h2.
+  replace (h ### p) with (h2 ### p).
   auto with Ynot.
   unfold free, heap; ext_eq.
-  destruct (ptr_eq_dec x p); subst.
-
-  red in H; intuition.
-  red in H2; intuition.
-  generalize (H p).
-  rewrite H0.
-  unfold read.
-  destruct (h2 p); tauto.
-
+  destruct (ptr_eq_dec x p); auto.
+  generalize (H1 _ n); intro.
   red in H; intuition; subst.
-  unfold join, read in *.
-  rewrite (H1 _ n); trivial.
+  unfold join, hvalo_plus. unfold read in H2.
+  rewrite H2; trivial.
 Qed.
 
 Theorem pack_type_inv : forall (T : Type) (a : inhabited T),

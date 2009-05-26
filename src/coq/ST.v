@@ -27,7 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Arith.
+Require Import Arith Qcanon.
 
 Require Import Ynot.Axioms.
 Require Import Ynot.Heap.
@@ -62,16 +62,17 @@ Parameter STFix : forall dom (ran : dom -> Type)
   (v : dom), ST (pre v) (post v).
 
 Parameter STNew : forall T (v : T),
-  ST (fun _ => True) (fun h p h' => h # p = None /\ h' = h##p <- Dyn v).
+  ST (fun _ => True) (fun h p h' => h # p = None /\ h' = h##p <- (Dyn v, 0)).
 
 Parameter STFree : forall p,
-  ST (fun h => exists d, h#p = Some d) (fun h (_ : unit) h' => h' = h###p).
+  ST (fun h => exists d, h#p = Some (d,0)) (fun h (_ : unit) h' => h' = h###p).
 
 Parameter STRead : forall T (p : ptr),
-  ST (fun h => exists v : T, h#p = Some (Dyn v)) (fun h (v : T) h' => h' = h /\ h#p = Some (Dyn v)).
+  ST (fun h => exists v : T, exists q : Qc, h#p = Some (Dyn v,q)) 
+  (fun h (v : T) h' => h' = h /\ exists q : Qc, h#p = Some (Dyn v,q)).
 
 Parameter STWrite : forall T T' (p : ptr) (v : T'),
-  ST (fun h => exists v : T, h#p = Some (Dyn v)) (fun h (_ : unit) h' => h' = h##p <- Dyn v).
+  ST (fun h => exists v : T, h#p = Some (Dyn v,0)) (fun h (_ : unit) h' => h' = h##p <- (Dyn v,0)).
 
 Parameter STStrengthen : forall pre T (post : hpost T) (pre' : hpre),
   ST pre post

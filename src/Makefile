@@ -1,4 +1,4 @@
-MODULES    := Axioms Util Heap Hprop ST STsep Separation Hprop2 Case Basis \
+MODULES    := Axioms Util PermModel Heap Hprop ST STsep Separation Hprop2 Case Basis \
 	Ynot Extract
 VS         := $(MODULES:%=%.v)
 

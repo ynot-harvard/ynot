@@ -27,9 +27,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Arith.
+Require Import Arith QArith Bool.
 
-Require Import Ynot.Axioms.
+Require Import Ynot.Axioms Ynot.PermModel.
 
 Set Implicit Arguments.
 
@@ -42,32 +42,61 @@ Axiom axiom_ptr_eq_dec : forall (a b : ptr), {a = b} + {a <> b}.
 Definition ptr_eq_dec := axiom_ptr_eq_dec.
 (** Definition ptr := nat. **)
 
-Definition heap := ptr -> option dynamic.
+Definition hval := (dynamic * perm)%type.
 
-Definition empty : heap := fun _ => None.
-Definition singleton (p : ptr) (v : dynamic) : heap :=
-  fun p' => if ptr_eq_dec p' p then Some v else None.
-Definition read (h : heap) (p : ptr) : option dynamic := h p.
-Definition write (h : heap) (p : ptr) (v : dynamic) : heap :=
-  fun p' => if ptr_eq_dec p' p then Some v else h p'.
-Definition free (h : heap) (p : ptr) : heap :=
-  fun p' => if ptr_eq_dec p' p then None else h p'.
+Definition heap := ptr -> option hval.
 
-Infix "-->" := singleton (at level 38, no associativity) : heap_scope.
-Infix "#" := read (right associativity, at level 60) : heap_scope.
-Notation "h ## p <- v" := (write h p v) (no associativity, at level 60, p at next level) : heap_scope.
-Infix "###" := free (no associativity, at level 60) : heap_scope.
+Definition val (v:hval) := fst v.
+Definition frac (v:hval) := snd v.
+
+Definition hval_plus (v1 v2 : hval) :=
+  (val v1,frac v1+frac v2).
+
+Lemma hval_plus_comm (v1 v2 : hval) : val v1 = val v2 -> hval_plus v1 v2 = hval_plus v2 v1.
+Proof.
+  intros. unfold hval_plus. rewrite H. rewrite Qcplus_comm. trivial.
+Qed.
+
+
+Definition hvalo_plus (v1 v2 : option hval) :=
+  match v1 with
+    | None => v2
+    | Some v1' =>
+      match v2 with
+        | None => v1
+        | Some v2' => Some (hval_plus v1' v2')
+      end
+  end.
 
 Bind Scope heap_scope with heap.
 Delimit Scope heap_scope with heap.
 
-Open Local Scope heap_scope.
+Local Open Scope heap_scope.
 
+Notation "v1 +o v2" := (hvalo_plus v1 v2) (at level 60, no associativity) : heap_scope.
+
+(* Lemma ofrac_hvalo_plus (v1 v2 : option hval) (pf:v1|+?|v2): ofrac (v1 +o v2) == (ofrac v1) + (ofrac v2).
+Proof. destruct v1; destruct v2; intuition (simpl; ring). Qed. *)
+
+Definition empty : heap := fun _ => None.
+Definition singleton (p : ptr) (v : hval) : heap :=
+  fun p' => if ptr_eq_dec p' p then Some v else None.
+Definition read (h : heap) (p : ptr) : option hval := h p.
+Definition write (h : heap) (p : ptr) (v : hval) : heap :=
+  fun p' => if ptr_eq_dec p' p then Some v else h p'.
+Definition free (h : heap) (p : ptr) : heap :=
+  fun p' => if ptr_eq_dec p' p then None else h p'.
+
+Infix "|-->" := singleton (at level 35, no associativity) : heap_scope.
+Notation "a # b" := (read a b) (at level 55, no associativity) : heap_scope.
+Notation "h ## p <- v" := (write h p v) (no associativity, at level 60, p at next level) : heap_scope.
+Infix "###" := free (no associativity, at level 60) : heap_scope.
+
+(*Definition join_valid (h1 h2:heap) := forall p, (p h1) |+?| (p h2).
+Infix "|*|" := join_valid (at level 40, left associativity) : heap_scope.
+*)
 Definition join (h1 h2 : heap) : heap := fun p =>
-  match h1 p with
-    | None => h2 p
-    | v => v
-  end.
+  (h1 p) +o (h2 p).
 
 Infix "*" := join (at level 40, left associativity) : heap_scope.
 
@@ -90,20 +119,109 @@ Qed.
 Hint Resolve join_id1 join_id2 : Ynot.
 Hint Rewrite join_id1 join_id2 : Ynot.
 
+Ltac notHyp P :=
+  match goal with
+    | [ _ : P |- _ ] => fail 1
+    | _ => idtac
+  end.
+
+Ltac extend pf :=
+  let t := type of pf in
+    notHyp t; generalize pf; intro.
+
+(*
+Add Morphism Qeq_bool 
+  with signature Qeq ==> Qeq ==> eq
+  as Qeq_bool_compat.
+Proof.
+  intros. 
+  repeat match goal with
+    [|- context [Qeq_bool ?x ?y]] =>  generalize (Qeq_bool_iff x y); intro; destruct (Qeq_bool x y)
+  end; trivial;
+
+  repeat match goal with
+    | [H: ?x = ?x <-> ?P |- _] => generalize ((proj1 H) (refl_equal x)); clear H; intro H
+    | [H: ?k1 == ?k2 |- _] => extend (Qeq_sym _ _ H)
+    | [H1:?k1 == ?k2, H2:?k1 == ?k3 |- _] => extend (Qeq_trans _ _ _ (Qeq_sym _ _ H1) H2)
+    | [H1: ?x <-> ?y, H2:?y |- _] => generalize ((proj2 H1) H2); clear H1; intro H1
+  end;
+
+  discriminate.
+Qed.
+
+Add Morphism Qle_bool 
+  with signature Qeq ==> Qeq ==> eq
+  as Qle_bool_compat.
+Proof.
+  intros.
+  assert (HH: x1 <= x2 /\ x2 <= x1). rewrite H. split; apply Qle_refl.
+  assert (HH2: x0 <= x3 /\ x3 <= x0). rewrite H0. split; apply Qle_refl.
+  destruct HH; destruct HH2.
+  repeat match goal with
+    [|- context [Qle_bool ?x ?y]] =>  generalize (Qle_bool_iff x y); intro; destruct (Qle_bool x y)
+  end; trivial;
+
+  repeat match goal with
+    | [H: ?x = ?x <-> ?P |- _] => generalize ((proj1 H) (refl_equal x)); clear H; intro H
+    | [H1:?k1 <= ?k2, H2:?k2 <= ?k3 |- _] => extend (Qle_trans _ _ _ H1 H2)
+    | [H1: ?x <-> ?y, H2:?y |- _] => generalize ((proj2 H1) H2); clear H1; intro H1
+  end;
+
+  discriminate.
+Qed.
+
+Add Morphism Qlt_bool 
+  with signature Qeq ==> Qeq ==> eq
+  as Qlt_bool_compat.
+Proof.
+  intros. unfold Qlt_bool.
+  rewrite H. rewrite H0. trivial.
+Qed.
+
+Add Morphism valid_plus_bool
+  with signature Qeq ==> Qeq ==> eq 
+    as valid_plus_bool_compat.
+Proof.
+  intros. unfold valid_plus_bool.
+  rewrite H. rewrite H0. trivial.
+Qed.
+
+Add Morphism valid_plus 
+  with signature Qeq ==> Qeq ==> iff
+    as valid_plus_compat.
+Proof.
+  unfold valid_plus. intros.
+  rewrite H. rewrite H0. intuition.
+Qed.
+*)
+Lemma valid_plus_bool_comm (q1 q2 : Qc) : valid_plus_bool q1 q2 = valid_plus_bool q2 q1.
+Proof. intros. unfold valid_plus_bool.
+       rewrite Qcplus_comm. 
+       rewrite andb_comm. f_equal.
+       rewrite orb_comm. f_equal.
+Qed.
+
+Lemma valid_plus_comm (q1 q2 : Qc) : q1 |+| q2 -> q2 |+| q1.
+Proof.
+  intros. unfold valid_plus. rewrite valid_plus_bool_comm. trivial. 
+Qed.
+
+Hint Resolve valid_plus_comm : Ynot.
+
 Theorem read_empty : forall p,
   empty # p = None.
   trivial.
 Qed.
 
 Theorem read_singleton_same : forall p d,
-  (p --> d) # p = Some d.
+  (p |--> d) # p = Some d.
   unfold read, singleton; intros.
   destruct (ptr_eq_dec p p); tauto.
 Qed.
 
 Theorem read_singleton_diff : forall p d p',
   p' <> p
-  -> (p --> d) # p' = None.
+  -> (p |--> d) # p' = None.
   unfold read, singleton; intros.
   destruct (ptr_eq_dec p' p); tauto.
 Qed.
@@ -125,3 +243,33 @@ Hint Rewrite read_empty read_singleton_same read_write_same : Ynot.
 Hint Rewrite read_singleton_diff read_write_diff using (auto; fail) : Ynot.
 
 Hint Extern 1 (_ # _ = _) => autorewrite with Ynot in * : Ynot.
+
+(* in a total heap, everything has permission 0 *)
+
+Definition total_heap (h:heap) := forall p, 
+  match (h p) with
+    | None => True
+    | Some v => frac v = 0
+  end.
+
+Theorem total_heap_empty : total_heap empty.
+Proof. 
+  unfold total_heap, empty; intuition.
+Qed.
+
+Lemma total_heap_new h p A (v:A): total_heap h -> total_heap (h ## p <- (Dyn v, 0)).
+Proof.
+  unfold write, total_heap; intuition.
+  destruct (ptr_eq_dec p0 p); simpl; trivial.
+  generalize (H p0). destruct (h p0); trivial.
+Qed.
+
+Lemma total_heap_free h p : total_heap h -> total_heap (h ### p).
+Proof.
+  unfold free, total_heap; intuition.
+  destruct (ptr_eq_dec p0 p); simpl; trivial.
+  generalize (H p0). destruct (h p0); trivial.
+Qed.
+
+Hint Resolve total_heap_empty total_heap_new total_heap_free : Ynot.
+
