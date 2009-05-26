@@ -34,58 +34,66 @@ Require Import Ynot.Axioms.
 
 Set Implicit Arguments.
 
+(* zeroth some general lemmas that are not specific to this particular development *)
+
+Lemma Qcle_bool_iff (x y : Qc) : Qle_bool x y = true <-> (x <= y)%Qc.
+Proof. unfold Qcle. intros. apply Qle_bool_iff. Qed.
+
+Theorem Some_inj : forall T (x y : T),
+  Some x = Some y
+  -> x = y.
+  intros; congruence.
+Qed.
+
 (* first we define the underlying set of permissions and its partial additive function *)
-Definition perm_base := Qc.
+Definition perm := Qc.
 
 (* notations and basic lemmas *)
 Definition Qc0 := (Q2Qc (Qmake Z0 xH)).
 Notation "00" := Qc0.
 
-Definition top_base : perm_base := 00.
+Definition top : perm := 00.
 
-Lemma Qcle_bool_iff (x y : Qc) : Qle_bool x y = true <-> (x <= y)%Qc.
-Proof. unfold Qcle. intros. apply Qle_bool_iff. Qed.
-
-(* The definition of compatibility: 
+(* The definition of compatibility (not in-compatible): 
  *  two permissions are in-compatible if 
  *     (p1 >= 0 /\ p2 >= 0)
  *  \/ (   (p1 >= 0 \/ p2 >= 0) 
  *      /\ p1 + p2 < 0)
  *)
 
-Definition compatibleb (q1 q2 : perm_base) : bool :=
-let q1pos := Qle_bool 00 q1 in
-  let q2pos := Qle_bool 00 q2 in
+Definition compatibleb (p1 p2 : perm) : bool :=
+let p1pos := Qle_bool 00 p1 in
+  let p2pos := Qle_bool 00 p2 in
     negb (
-         (q1pos && q2pos)
-      || ((q1pos || q2pos) && (negb (Qle_bool 00 ((q1 + q2)%Qc)))))%Qc.
+         (p1pos && p2pos)
+      || ((p1pos || p2pos) && (negb (Qle_bool 00 ((p1 + p2)%Qc)))))%Qc.
 
-Definition compatible (q1 q2 : perm_base) := compatibleb q1 q2 = true.
-
-(* Infix "|#|" := compatible (at level 60, no associativity). *)
-
-Theorem compatibleb_comm (q1 q2 : perm_base) : compatibleb q1 q2 = compatibleb q2 q1.
+Theorem compatibleb_comm (p1 p2 : perm) : compatibleb p1 p2 = compatibleb p2 p1.
 Proof.  intros. unfold compatibleb.
        rewrite Qcplus_comm. 
        rewrite andb_comm. f_equal. f_equal. f_equal.
        rewrite orb_comm. f_equal.
 Qed.
 
-Theorem compatibleb_top (p : perm_base) : compatibleb p top_base = false.
+Theorem compatibleb_top (p : perm) : compatibleb p top = false.
 Proof.
-  unfold compatibleb, top_base. intros. 
+  unfold compatibleb, top. intros. 
   rewrite andb_true_r. rewrite orb_true_r. simpl.
   rewrite <- (negb_involutive false). f_equal. simpl.
   rewrite Qcplus_0_r.
   destruct (Qle_bool 00 p); intuition.
 Qed.
 
-Lemma compatible_sym (q1 q2 : perm_base) : compatible q1 q2 -> compatible q2 q1.
+Definition compatible (p1 p2 : perm) := compatibleb p1 p2 = true.
+
+(* Infix "|#|" := compatible (at level 60, no associativity). *)
+
+Lemma compatible_sym (p1 p2 : perm) : compatible p1 p2 -> compatible p2 p1.
 Proof. unfold compatible. intros. rewrite compatibleb_comm. trivial. Qed.
 
-Theorem compatible_opp (p : perm_base) : p <> top_base -> compatible p (- p).
+Theorem compatible_opp (p : perm) : p <> top -> compatible p (- p).
 Proof.
-  unfold compatible, compatibleb, top_base. intros.
+  unfold compatible, compatibleb, top. intros.
   rewrite Qcplus_opp_r. simpl.
   rewrite andb_false_r. rewrite orb_false_r.
   generalize (Qle_bool_iff 0 p); intro; destruct (Qle_bool 00 p); simpl; trivial.
@@ -100,60 +108,67 @@ Proof.
   intro. apply Qc_is_canon. symmetry. auto.
 Qed.
 
-Definition perm_base_plus (q1 q2 : perm_base) : option perm_base := 
-  if compatibleb q1 q2 then Some (q1 + q2) else None.
+(* adding two permissions.  Addition is a partial function.
+ * Only compatible permissions can be added. 
+ *)
 
-Infix "+pb" := perm_base_plus (at level 60, no associativity).
+Definition perm_plus (p1 p2 : perm) : option perm := 
+  if compatibleb p1 p2 then Some (p1 + p2) else None.
 
-Theorem perm_base_plus_comm (p1 p2 : perm_base) : p1 +pb p2 = p2 +pb p1.
+Infix "+p" := perm_plus (at level 60, no associativity).
+
+Definition perm_plus_compat (p1 p2 : perm) (pf:compatible p1 p2) : perm := p1 + p2.
+
+Lemma perm_plus_is_compat (p1 p2 : perm) (pf:compatible p1 p2) : perm_plus p1 p2 = Some (perm_plus_compat pf).
+Proof. unfold compatible, perm_plus, perm_plus_compat. intros. rewrite pf. trivial. Qed.
+
+(* We show it has some nice properties as in section 3 of Brookes *)
+(* SYM *)
+Theorem perm_plus_comm (p1 p2 : perm) : p1 +p p2 = p2 +p p1.
 Proof.
-  unfold perm_base_plus. intros. rewrite Qcplus_comm. rewrite compatibleb_comm. trivial.
+  unfold perm_plus. intros. rewrite Qcplus_comm. rewrite compatibleb_comm. trivial.
 Qed.
 
-
-
-Theorem Some_inj : forall T (x y : T),
-  Some x = Some y
-  -> x = y.
-  intros; congruence.
-Qed.
-
-Theorem perm_base_plus_cancel (p p1 p2 : perm_base) : compatible p p1 -> (p +pb p1) = (p +pb p2) -> p1 = p2.
+(* CANC *)
+Theorem perm_plus_cancel (p p1 p2 : perm) : compatible p p1 -> (p +p p1) = (p +p p2) -> p1 = p2.
 Proof.
-  unfold perm_base_plus, compatible.  intros. 
+  unfold perm_plus, compatible.  intros. 
   rewrite H in H0. destruct (compatibleb p p2); try discriminate.
   generalize (Some_inj H0). intro.
-  unfold perm_base in *.
+  unfold perm in *.
   assert (C: -p + (p + p1) = -p + (p + p2)) by (rewrite H1; trivial).
   replace (-p + (p + p1)) with (p1) in C by ring.
   replace (-p + (p + p2)) with (p2) in C by ring.
   trivial. 
 Qed.
 
-(* We now lift this to a set of optional permissions with total + *)
-Definition perm := option perm_base.
-
-Definition perm_valid (p:perm) := if p then True else False.
-
-Definition perm_plus (p1 p2 : perm) : perm :=
-  match p1 with
-    | None => None
-    | Some p1' => 
-      match p2 with
-        | None => None
-        | Some p2' => p1' +pb p2'
-      end
-  end.
-
-Infix "+p" := perm_plus (at level 59, left associativity).
-
-Definition compatiblep (p1 p2 : perm) := perm_valid (p1 +p p2).
-
-Theorem perm_plus_comm (p1 p2 : perm) : p1 +p p2 = p2 +p p1.
+(* TOP *)
+Theorem perm_plus_top (p : perm) : top +p p = None.
 Proof.
-  destruct p1; destruct p2; simpl; trivial. apply perm_base_plus_comm.
+  unfold perm_plus. intros. rewrite compatibleb_comm. rewrite compatibleb_top. trivial.
 Qed.
 
+(* NON-ZERO *)
+Theorem perm_plus_nonzero (p p' : perm) : compatible p p' -> p +p p' <> Some p.
+Proof.
+  unfold compatible, perm_plus.
+  intros.
+  rewrite H. intro.
+  generalize (Some_inj H0). clear H0; intro H0.
+  generalize (f_equal (Qcplus (- p)) H0).
+  intro. ring_simplify in H1.
+  rewrite H1 in H.
+  generalize (perm_plus_top p). rewrite perm_plus_comm.
+  unfold perm_plus, top, Q2Qc. simpl; intro.
+  rewrite H in H2. discriminate.
+Qed.
+
+(* COMP *)
+Theorem perm_comp (p : perm) : p <> top -> p +p (- p) = Some top.
+Proof.
+  unfold perm_plus. intros. rewrite compatible_opp; auto.
+  rewrite Qcplus_opp_r. auto.
+Qed.
 
 Ltac notHyp P :=
   match goal with
@@ -183,11 +198,11 @@ Qed.
 Lemma negb_inv b1 b2 : negb b1 = negb b2 -> b1 = b2.
 Proof. destruct b1; destruct b2; auto. Qed.
 
-Lemma Qle_bool_false (q1 q2 : Qc) : Qle_bool q1 q2 = false -> (q2 < q1).
+Lemma Qle_bool_false (p1 p2 : Qc) : Qle_bool p1 p2 = false -> (p2 < p1).
 Proof.
   intros.
-  generalize ((proj2 (Qle_bool_iff q1 q2))). rewrite H.
-  destruct (Qlt_le_dec q2 q1); intuition; try discriminate.
+  generalize ((proj2 (Qle_bool_iff p1 p2))). rewrite H.
+  destruct (Qlt_le_dec p2 p1); intuition; try discriminate.
 Qed.
 
 Lemma neg_neg_npos p0 p1 : 
@@ -215,9 +230,6 @@ Ltac desb :=
          end; simpl; trivial.
 
 
-(* wow, does this need cleanup *)
-Theorem perm_plus_ass (p1 p2 p3 : perm) : p1 +p (p2 +p p3) = (p1 +p p2) +p p3.
-Proof.
 
   Ltac btol := repeat match goal with
     | [H: ?x = ?x |- _] => clear H
@@ -250,7 +262,85 @@ Proof.
     | _ =>   rewrite negb_andb in *; rewrite negb_involutive in *
   end.
 
-  unfold perm_plus, perm_base_plus.
+Theorem perm_plus_ass (p1 p2 p3 : perm) : 
+  match p2 +p p3 with
+    | None => None
+    | Some p2p3 => p1 +p p2p3
+  end =
+  match p1 +p p2 with
+    | None => None
+    | Some p1p2 => p1p2 +p p3
+  end.
+Proof.
+  unfold perm_plus.
+  intros p p0 p1.
+  desb;
+(*  remember (compatibleb p0 p1) as p0p1; destruct p0p1; 
+  remember (compatibleb p p0) as pp0; destruct pp0; trivial.
+  rewrite Qcplus_assoc. desb; trivial. *)
+  
+  (* sub-goal 1:1 *)
+  unfold compatibleb in *;
+  remember (Qle_bool 0%Qc p) as b; destruct b;
+  remember (Qle_bool 0%Qc p0) as b; destruct b;
+  remember (Qle_bool 0%Qc p1) as b; destruct b;
+(*  remember (Qlt_bool (p + p0) 0%Qc) as b; destruct b; simpl; trivial; *)
+  simpl in *; try discriminate; repeat rewrite negb_involutive in *;
+  repeat rewrite negb_orb in *;
+  repeat progress (repeat match goal with
+    [H: _ = _ |- _] => rewrite <- H in *
+  end; simpl in *; 
+  try rewrite negb_involutive in *; 
+  try rewrite Qcplus_assoc in *;
+  try rewrite andb_false_l in *; try rewrite andb_false_r in *;
+  try rewrite andb_true_l in *;  try rewrite andb_true_r in *;
+  try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
+  try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
+  try discriminate; bool_to_logic; btol;
+    try (elimtype False; eauto).
+
+  (* remaining sub-goal 1/2 *)
+  generalize (Qclt_le_trans _ _ _ HeqHH HeqHH1). intro.
+  generalize ((proj1 (Qclt_minus_iff _ _)) H). intro.
+  ring_simplify in H0.
+  elim (Qclt_not_le _ _ H0). apply Qclt_le_weak; auto.
+
+  generalize (Qclt_le_trans _ _ _ HeqHH H0). intro.
+  generalize ((proj1 (Qclt_minus_iff _ _)) H1). intro.
+  ring_simplify in H2.
+  elim (Qclt_not_le _ _ H2). apply Qclt_le_weak; auto.
+Qed.
+
+
+(* We now lift this to a set of optional permissions with total + *)
+Definition permo := option perm.
+
+Definition permo_valid (p:permo) := if p then True else False.
+
+Definition permo_plus (p1 p2 : permo) : permo :=
+  match p1 with
+    | None => None
+    | Some p1' => 
+      match p2 with
+        | None => None
+        | Some p2' => p1' +p p2'
+      end
+  end.
+
+Infix "+po" := permo_plus (at level 59, left associativity).
+
+Definition compatiblep (p1 p2 : permo) := permo_valid (p1 +po p2).
+
+Theorem permo_plus_comm (p1 p2 : permo) : p1 +po p2 = p2 +po p1.
+Proof.
+  destruct p1; destruct p2; simpl; trivial. apply perm_plus_comm.
+Qed.
+
+
+(* wow, does this need cleanup *)
+Theorem permo_plus_ass (p1 p2 p3 : permo) : p1 +po (p2 +po p3) = (p1 +po p2) +po p3.
+Proof.
+  unfold permo_plus, perm_plus.
   destruct p1; trivial. 
   destruct p2; trivial.
   
@@ -292,7 +382,8 @@ desb;
   elim (Qclt_not_le _ _ H2). apply Qclt_le_weak; auto.
 Qed.
 
-Definition compatiblep_alt (p1 p2 : perm) :=
+
+Definition compatiblep_alt (p1 p2 : permo) :=
   match p1 with
     | None => False
     | Some p1' => 
@@ -302,56 +393,36 @@ Definition compatiblep_alt (p1 p2 : perm) :=
       end
   end.
 
-Lemma compatiblep_to_alt (p1 p2 : perm) : compatiblep p1 p2 -> compatiblep_alt p1 p2.
+Lemma compatiblep_to_alt (p1 p2 : permo) : compatiblep p1 p2 -> compatiblep_alt p1 p2.
 Proof.
-  unfold compatiblep, compatiblep_alt, perm_valid, perm_plus, perm_base_plus, compatible.
+  unfold compatiblep, compatiblep_alt, permo_valid, permo_plus, perm_plus, compatible.
   destruct p1; intuition. 
   destruct p2; intuition.
   destruct (compatibleb p p0); intuition.
 Qed.
 
-Theorem perm_plus_cancel (p p1 p2 : perm) : compatiblep p p1 -> (p +p p1) = (p +p p2) -> p1 = p2.
+Theorem permo_plus_cancel (p p1 p2 : permo) : compatiblep p p1 -> (p +po p1) = (p +po p2) -> p1 = p2.
 Proof.
   intros.
   generalize (compatiblep_to_alt _ _ H). unfold compatiblep_alt. intro.
   destruct p; destruct p1; destruct p2; simpl in *; intuition.
-  f_equal. eapply perm_base_plus_cancel; eauto.
-  unfold perm_base_plus in H0.
+  f_equal. eapply perm_plus_cancel; eauto.
+  unfold perm_plus in H0.
   rewrite H1 in H0. discriminate.
 Qed.
 
-Definition top : perm := Some top_base.
+Definition topo : permo := Some top.
 
-Theorem perm_plus_top p : p +p top = None.
+Theorem permo_plus_topo p : topo +po p = None.
 Proof.
-  intros. unfold perm_plus, perm_base_plus.
+  intros. unfold permo_plus.
   destruct p; trivial.
-  simpl. rewrite perm_base_plus_top. trivial.
+  simpl. apply perm_plus_top.
 Qed.
 
-Theorem perm_base_plus_nonzero (p p' : perm_base) : compatible p p' -> p +pb p' <> Some p.
-Proof.
-  unfold compatible, perm_base_plus.
-  intros.
-  rewrite H. intro.
-  generalize (Some_inj H0). clear H0; intro H0.
-  generalize (f_equal (Qcplus (- p)) H0).
-  intro. ring_simplify in H1.
-  rewrite H1 in H.
-  generalize (perm_base_plus_top p).
-  unfold top_base, Q2Qc. simpl; intro.
-  rewrite H in H2. discriminate.
-Qed.
-
-Theorem perm_plus_nonzero (p p' :perm) : compatiblep p p' -> p +p p' <> p.
+Theorem permo_plus_nonzero (p p' :permo) : compatiblep p p' -> p +po p' <> p.
 Proof.
   intros. generalize (compatiblep_to_alt _ _ H).  unfold compatiblep_alt.
   destruct p; destruct p'; intuition.
-  simpl in H1. eapply perm_base_plus_nonzero; eauto.
-Qed.
-
-Theorem perm_base_comp (p : perm_base) : p <> top_base -> p +pb (- p) = Some top_base.
-Proof.
-  unfold perm_base_plus. intros. rewrite compatible_opp; auto.
-  rewrite Qcplus_opp_r. auto.
+  simpl in H1. eapply perm_plus_nonzero; eauto.
 Qed.
