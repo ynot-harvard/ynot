@@ -29,23 +29,29 @@
 
 Require Import Arith QArith Bool.
 Require Export Qcanon.
-Opaque Qcplus.
+Opaque Qcplus. Opaque Qcopp.
 Require Import Ynot.Axioms.
 
 Set Implicit Arguments.
 
 (* first we define the underlying set of permissions and its partial additive function *)
 Definition perm_base := Qc.
-Definition top_base : perm_base := (0%Qc).
 
 (* notations and basic lemmas *)
 Definition Qc0 := (Q2Qc (Qmake Z0 xH)).
 Notation "00" := Qc0.
 
+Definition top_base : perm_base := 00.
+
 Lemma Qcle_bool_iff (x y : Qc) : Qle_bool x y = true <-> (x <= y)%Qc.
 Proof. unfold Qcle. intros. apply Qle_bool_iff. Qed.
 
-Definition Qlt_bool (q1 q2 : perm_base) := (Qle_bool q1 q2) && negb (Qeq_bool q1 q2).
+(* The definition of compatibility: 
+ *  two permissions are in-compatible if 
+ *     (p1 >= 0 /\ p2 >= 0)
+ *  \/ (   (p1 >= 0 \/ p2 >= 0) 
+ *      /\ p1 + p2 < 0)
+ *)
 
 Definition compatibleb (q1 q2 : perm_base) : bool :=
 let q1pos := Qle_bool 00 q1 in
@@ -56,9 +62,6 @@ let q1pos := Qle_bool 00 q1 in
 
 Definition compatible (q1 q2 : perm_base) := compatibleb q1 q2 = true.
 
-Definition compatible_dec (q1 q2 : perm_base) : {compatible q1 q2} + {~ compatible q1 q2}.
-Proof. unfold compatible. decide equality. Qed.
-
 (* Infix "|#|" := compatible (at level 60, no associativity). *)
 
 Theorem compatibleb_comm (q1 q2 : perm_base) : compatibleb q1 q2 = compatibleb q2 q1.
@@ -68,7 +71,7 @@ Proof.  intros. unfold compatibleb.
        rewrite orb_comm. f_equal.
 Qed.
 
-Theorem perm_base_plus_top (p : perm_base) : compatibleb p top_base = false.
+Theorem compatibleb_top (p : perm_base) : compatibleb p top_base = false.
 Proof.
   unfold compatibleb, top_base. intros. 
   rewrite andb_true_r. rewrite orb_true_r. simpl.
@@ -80,6 +83,23 @@ Qed.
 Lemma compatible_sym (q1 q2 : perm_base) : compatible q1 q2 -> compatible q2 q1.
 Proof. unfold compatible. intros. rewrite compatibleb_comm. trivial. Qed.
 
+Theorem compatible_opp (p : perm_base) : p <> top_base -> compatible p (- p).
+Proof.
+  unfold compatible, compatibleb, top_base. intros.
+  rewrite Qcplus_opp_r. simpl.
+  rewrite andb_false_r. rewrite orb_false_r.
+  generalize (Qle_bool_iff 0 p); intro; destruct (Qle_bool 00 p); simpl; trivial.
+  generalize (Qle_bool_iff 0 (- p)%Qc); intro; destruct (Qle_bool 0 (- p)%Qc); simpl; trivial.
+  generalize (((proj1 H0) (eq_refl true))); clear H0; intro H0.
+  generalize (((proj1 H1) (eq_refl true))); clear H1; intro H1.
+  generalize (proj2 (Qcle_minus_iff p 0)). simpl.
+  rewrite Qcplus_0_l. intro.
+  generalize (H2 H1). intro.
+  elim H.
+  generalize (Qle_antisym _ _ H0 H3).
+  intro. apply Qc_is_canon. symmetry. auto.
+Qed.
+
 Definition perm_base_plus (q1 q2 : perm_base) : option perm_base := 
   if compatibleb q1 q2 then Some (q1 + q2) else None.
 
@@ -89,6 +109,7 @@ Theorem perm_base_plus_comm (p1 p2 : perm_base) : p1 +pb p2 = p2 +pb p1.
 Proof.
   unfold perm_base_plus. intros. rewrite Qcplus_comm. rewrite compatibleb_comm. trivial.
 Qed.
+
 
 
 Theorem Some_inj : forall T (x y : T),
@@ -308,3 +329,29 @@ Proof.
   simpl. rewrite perm_base_plus_top. trivial.
 Qed.
 
+Theorem perm_base_plus_nonzero (p p' : perm_base) : compatible p p' -> p +pb p' <> Some p.
+Proof.
+  unfold compatible, perm_base_plus.
+  intros.
+  rewrite H. intro.
+  generalize (Some_inj H0). clear H0; intro H0.
+  generalize (f_equal (Qcplus (- p)) H0).
+  intro. ring_simplify in H1.
+  rewrite H1 in H.
+  generalize (perm_base_plus_top p).
+  unfold top_base, Q2Qc. simpl; intro.
+  rewrite H in H2. discriminate.
+Qed.
+
+Theorem perm_plus_nonzero (p p' :perm) : compatiblep p p' -> p +p p' <> p.
+Proof.
+  intros. generalize (compatiblep_to_alt _ _ H).  unfold compatiblep_alt.
+  destruct p; destruct p'; intuition.
+  simpl in H1. eapply perm_base_plus_nonzero; eauto.
+Qed.
+
+Theorem perm_base_comp (p : perm_base) : p <> top_base -> p +pb (- p) = Some top_base.
+Proof.
+  unfold perm_base_plus. intros. rewrite compatible_opp; auto.
+  rewrite Qcplus_opp_r. auto.
+Qed.
