@@ -46,19 +46,19 @@ Module Type QUEUE.
   Parameter rep : forall T, t T -> list T -> hprop.
 
   Parameter new : forall T,
-    STsep __ (fun q : t T => rep q nil).
+    Cmd __ (fun q : t T => rep q nil).
   Parameter free : forall T (q : t T),
-    STsep (rep q nil) (fun _ : unit => __).
+    Cmd (rep q nil) (fun _ : unit => __).
 
   (** The type of the [enqueue] method is a little more complicated than [push]'s type, since we model enqueueing as addition to the end of a list. *)
 
   Parameter enqueue : forall T (q : t T) (x : T) (ls : [list T]),
-    STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
+    Cmd (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
 
   (** The specification for [dequeue] is equivalent to the stack [pop] spec; we write it differently with the structure of our correctness proofs in mind. *)
 
   Parameter dequeue : forall T (q : t T) (ls : [list T]),
-    STsep (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
+    Cmd (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
                                               | None => [ls = nil] * rep q ls
                                               | Some x =>
                                                 match ls with
@@ -206,7 +206,7 @@ Module Queue : QUEUE.
     
     Open Scope stsepi_scope.
 
-    Definition new : STsep __ (fun q => rep q nil).
+    Definition new : Cmd __ (fun q => rep q nil).
       refine (fr <- New (@None ptr);
         ba <- New (@None ptr);
         {{Return (Queue fr ba)}}); t.
@@ -220,7 +220,7 @@ Module Queue : QUEUE.
 
     Hint Resolve rep'_nil.
 
-    Definition free : forall q, STsep (rep q nil) (fun _ : unit => __).
+    Definition free : forall q, Cmd (rep q nil) (fun _ : unit => __).
       intros; refine (Free (front q);;
         {{Free (back q)}}); t.
     Qed.
@@ -245,7 +245,7 @@ Module Queue : QUEUE.
 
     Hint Immediate push_nil.
 
-    Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls)
+    Definition enqueue : forall q x ls, Cmd (ls ~~ rep q ls)
       (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
         nd <- New (Node x None);
@@ -262,7 +262,7 @@ Module Queue : QUEUE.
     (** The definition of [dequeue] is similar to that of [enqueue], and this time we need no new lemmas. *)
     
     Definition dequeue : forall q ls,
-      STsep (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
+      Cmd (ls ~~ rep q ls) (fun xo => ls ~~ match xo with
                                                 | None => [ls = nil] * rep q ls
                                                 | Some x =>
                                                   match ls with

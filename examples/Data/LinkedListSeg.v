@@ -82,7 +82,7 @@ Definition maybe_points_to (p : option ptr) : hprop :=
 
 Notation "x ~~>?" := (maybe_points_to x) (at level 38).
 
-Record LinkedListSeg (A : Set) := mkList
+Record LinkedListSeg (A : Set) : Type := mkList
   { LinkedList : Set := option ptr
   ; llseg : LinkedList -> LinkedList -> list A -> hprop
   ; llist := fun (p: LinkedList) (m : list A) => llseg p None m
@@ -251,6 +251,8 @@ Section HeapLinkedList.
 
   Hint Resolve combine combine'.
   
+  Section Any_Stuff.
+    Hint Resolve himp_any_conc.
   Lemma locineq x y (B C : Set) (w:B) (v:C) : x --> w * y --> v ==> [x <> y] * ??.
     intros; eapply (@himp_trans (x --> w * y --> v * [x <> y])); [ apply himp_disjoint | ]; sep fail auto.
   Qed.
@@ -280,6 +282,7 @@ Section HeapLinkedList.
     llseg' (Some p) None ls ==> [ls <> nil] * ??.
     destruct ls; sep fail auto; [ congruence | assert (t0 :: ls <> nil); [ firstorder | sep fail auto ] ].
   Qed.
+  End Any_Stuff.
   
   Lemma add_mlocineq x y (B : Set) (w:B) P Q :
     (Some x <> y -> (x --> w * y ~~>? * P ==> Q)) ->
@@ -514,7 +517,7 @@ Section HeapLinkedList.
                  end
              end; ondemand_subst; canceler;
       solve [ sep fail idtac | tac ].
-  Debug Off.
+
   (** Implementation *********************************************************)
   Definition empty' : STsep __ (fun r:LinkedList' => llseg' r None nil).
     refine ({{Return None}});
@@ -845,6 +848,17 @@ Section HeapLinkedList.
             | t; destruct x; simpl in *; [ discriminate | rewrite app_ass; simpl in *; t ]].
     Qed.
 
+    Ltac t' := simpl; intros; repeat progress inhabiter; intro_pure;
+      repeat match goal with 
+               | [ H : ?X = [_]%inhabited |- _ ] => rewrite H
+             end;
+      unpack_conc;
+      repeat match goal with
+               | [ H : ?X = [_]%inhabited, H' : context [ inhabit_unpack ?X _ ] |- _ ] => rewrite H in H'; simpl inhabit_unpack in H'
+               | [ H : [_]%inhabited = [_]%inhabited |- _ ] => apply pack_injective in H; rewrite H
+             end;
+      canceler; sep fail auto.
+
     Definition foldr' : forall (T  : Type) (p q : LinkedList') (I : T -> list A -> hprop)
       (c : forall (a : T) (v : A) (m : [list A]),
            STsep (m ~~ I a m)
@@ -867,7 +881,7 @@ Section HeapLinkedList.
                       res <- @c rr (data nde) (ls ~~~ tail ls) <@> (ls ~~ llseg' p q ls * [head ls = Some (data nde)]);
                       {{Return res}})
                 p ls'}}); try clear self;
-      solve [ t ].
+      solve [ t' | t ].
     Qed.
 
   End Fold.

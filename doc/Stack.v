@@ -48,17 +48,17 @@ Module Type STACK.
      The first three stack methods don't involve any new concepts. *)
 
   Parameter new : forall T : Set,
-    STsep __ (fun s : t T => rep s nil).
+    Cmd __ (fun s : t T => rep s nil).
   Parameter free : forall (T : Set) (s : t T),
-    STsep (rep s nil) (fun _ : unit => __).
+    Cmd (rep s nil) (fun _ : unit => __).
 
   Parameter push : forall (T : Set) (s : t T) (x : T) (ls : [list T]),
-    STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
+    Cmd (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
 
   (** The type of the [pop] method demonstrates two important patterns.  First, we can use arbitrary Coq computation in calculating a precondition or postcondition.  Our [pop] method returns an [option T], which will be [None] when the stack is empty.  We use Coq's standard [match] expression form to case-analyze this return value, returning a different assertion for each case.  The [Some] case uses an [hprop] version of the standard existential quantifier. *)
 
   Parameter pop : forall (T : Set) (s : t T) (ls : [list T]),
-    STsep (ls ~~ rep s ls)
+    Cmd (ls ~~ rep s ls)
     (fun xo : option T => ls ~~ match xo with
                                   | None => [ls = nil] * rep s ls
                                   | Some x => Exists ls' :@ list T, [ls = x :: ls']
@@ -130,15 +130,15 @@ Module Stack : STACK.
 
     (** The first three method definitions are quite simple and use no new concepts. *)
 
-    Definition new : STsep __ (fun s => rep s nil).
+    Definition new : Cmd __ (fun s => rep s nil).
       refine {{New (@None ptr)}}; t.
     Qed.
 
-    Definition free : forall s, STsep (rep s nil) (fun _ : unit => __).
+    Definition free : forall s, Cmd (rep s nil) (fun _ : unit => __).
       intros; refine {{Free s}}; t.
     Qed.
 
-    Definition push : forall s x ls, STsep (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
+    Definition push : forall s x ls, Cmd (ls ~~ rep s ls) (fun _ : unit => ls ~~ rep s (x :: ls)).
       intros; refine (hd <- !s;
         nd <- New (Node x hd);
         {{s ::= Some nd}}
@@ -148,7 +148,7 @@ Module Stack : STACK.
     (** The definition of [pop] introduces the [IfNull] syntax extension.  An expression [IfNull x Then e1 Else e2] expands to a test on whether the variable [x] of some [option] type is null.  If [x] is [None], then the result is [e1].  If [x] is [Some y], then the result is [e2], with all occurrences of [x] replaced by [y]. *)
 
     Definition pop : forall s ls,
-      STsep (ls ~~ rep s ls)
+      Cmd (ls ~~ rep s ls)
       (fun xo => ls ~~ match xo with
                          | None => [ls = nil] * rep s ls
                          | Some x => Exists ls' :@ list T, [ls = x :: ls']

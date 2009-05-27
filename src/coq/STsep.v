@@ -46,6 +46,7 @@ Definition STsep pre T (post : T -> hprop) : Set :=
       -> pre h1
       -> exists h1', h' ~> h1' * h2
         /\ post v h1').
+Definition Cmd := STsep.
 
 Arguments Scope STsep [hprop_scope type_scope hprop_scope].
 

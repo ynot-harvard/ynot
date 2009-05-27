@@ -911,7 +911,12 @@ Section Packrat.
             ans <- p penv ins n FM table ; 
             FiniteMapInterface.free FM table <@> _ ;; 
             {{ Return ans }}
-           ); unfold fminv, fmrep; sep fail ltac:t ; sep fail auto.
+           ); unfold fminv, fmrep;
+    (cbv zeta;
+      solve [ sep fail ltac:t
+        | simpl; match goal with
+                   | [ |- ?P1 * ?P2 * _ ==> ?Q * _ ] => equate (P1 * P2) Q
+                 end; sep fail ltac:t ]).
   Defined.
 
 End Packrat.
