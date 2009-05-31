@@ -16,8 +16,14 @@ R        := -R $(ROOT)/src/coq Ynot \
             -R $(ROOT)/examples/Parse Parse \
             -R $(ROOT)/examples/IO IO
 
-MODULES_T := $(wildcard *.v)
-MODULES   := $(filter-out Extract.v,$(MODULES_T))
+ifdef VS
+  MODULES := $(VS)
+else
+  VS      := $(wildcard *.v)
+  VS      := $(filter-out Extract.v,$(VS))
+  MODULES := $(VS)
+endif
+
 
 COMPFLAGS := -I ./ocaml -I .extract -I $(ROOT)/src/ocaml/
 
