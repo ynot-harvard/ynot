@@ -35,6 +35,7 @@ Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
 Require Import Ynot.ST.
 Require Import Qcanon.
+Require Import PermModel.
 
 Set Implicit Arguments.
 
@@ -43,14 +44,10 @@ Notation "{{{ v }}}" := (STWeaken _ (STStrengthen _ v _) _) (at level 0).
 Local Open Scope hprop_scope.
 
 Definition STsep pre T (post : T -> hprop) : Type :=
-  ST ((pre *! ??) & total_heap) (fun h v h' =>
+  ST (pre * ??) (fun h v h' =>
     forall h1 h2, h ~> h1 * h2
-      -> total_heap h
-      -> (h1 <*> h2)%heap
-      -> pre h1 
+      -> pre h1
       -> exists h1', h' ~> h1' * h2 
-        /\ total_heap h'
-        /\ (h1' <*> h2)%heap
         /\ post v h1').
 
 Arguments Scope STsep [hprop_scope type_scope hprop_scope].
@@ -61,7 +58,6 @@ Ltac hreduce :=
            | [ |- (hprop_cell _ _ _) _ ] => red
            | [ |- (hprop_sep _ _) _ ] => red
            | [ |- (hprop_and _ _) _ ] => red
-           | [ |- (hprop_sep_valid _ _) _ ] => red
            | [ |- hprop_empty _ ] => red
            | [ |- hprop_any _ ] => red
            | [ |- (hprop_ex _) _ ] => red
@@ -70,7 +66,6 @@ Ltac hreduce :=
            | [ H : (hprop_cell _ _ _) _ |- _ ] => red in H
            | [ H : (hprop_sep _ _) _ |- _ ] => red in H
            | [ H : (hprop_and _ _) _ |- _ ] => red in H
-           | [ H : (hprop_sep_valid _ _) _ |- _ ] => red in H
            | [ H : hprop_empty _ |- _ ] => red in H
            | [ H : hprop_any _ |- _ ] => clear H
            | [ H : (hprop_ex _) _ |- _ ] => destruct H
@@ -107,18 +102,19 @@ Section Sep.
     unfold hprop_imp; t.
 
     refine (STBind _ _ _ _ st1 st2 _ _ _).
-    tauto.
-    intros.
 
-    ynot 1;
-    generalize (H1 _ _ H2); clear H1;
-    ynot 8.
+    tauto.
 
     ynot 1.
+    generalize (H1 _ _ H2); clear H1.
+    ynot 7.
+
+(*    ynot 1.
+    generalize (H1 _ _ H2 H3 H0); clear H1.*)
+    ynot 1. 
     generalize (H1 _ _ H4 H5); clear H1.
     ynot 1.
-    generalize (H3 _ _ H14); clear H3.
-    ynot 1.
+    eapply H3; eauto.
   Qed.
 
   Definition SepSeq pre1 (post1 : unit -> hprop)
@@ -144,38 +140,48 @@ Section Sep.
     exact (STFix _ _ _ F v).
   Qed.
 
-  Lemma split_read_total0none h h1 h2 d p : 
-    h ~> h1 * h2 
-    -> (total_heap h 
-    -> h1 <*> h2
+  Theorem split_readSS_compat : forall h h1 h2 p d1 d2 q1 q2,
+    (h ~> h1 * h2
+    -> h1 # p = Some (d1, q1)
+    -> h2 # p = Some (d2, q2)
+    -> compatible q1 q2)%heap.
+  Proof.
+    intros.
+    destruct H; intuition.
+    generalize (H p). rewrite H0. rewrite H1. simpl in *.
+    intuition.
+  Qed.
+
+  Theorem compatible_top (p:perm) : compatible p top -> False.
+  Proof.
+    unfold compatible. intro. rewrite (compatibleb_top p). discriminate.
+  Qed.
+
+  Theorem split_readS0N : forall h h1 h2 p d,
+    (h ~> h1 * h2
     -> h1 # p = Some (d, 0)
     -> h2 # p = None)%heap.
   Proof.
-    intros. generalize (H0 p).
-    generalize (split_read1 p H H2). generalize (H1 p).
-    intros. 
-    rewrite H2 in H3. unfold read in *. simpl in *.
-    rewrite H4 in H5. simpl in *.
-    unfold add_qopl in *. destruct (h2 p); trivial.
-    rewrite Qcplus_0_l in H5.
-    rewrite H5 in H3. intuition.
+    intros.
+    remember (h2 # p)%heap as h2p. destruct h2p; trivial.
+    destruct h0.
+    generalize (split_readSS_compat p H H0 (sym_eq Heqh2p)).
+    intro. elim (compatible_top (compatible_sym H1)).
   Qed.
 
-  Lemma split_read_total0 h h1 h2 d p : 
+  Lemma split_read_S0 h h1 h2 d p : 
     h ~> h1 * h2 
-    -> (total_heap h 
-    -> h1 # p = Some (d, 0)
+    -> (h1 # p = Some (d, 0)
     -> h # p = Some (d, 0))%heap.
   Proof.
     intros.
-    generalize (split_read1 p H H1). unfold read. simpl. intro.
-    generalize (H0 p). rewrite H2. simpl. congruence.
+    generalize (split_read1 H H0).
+    generalize (split_readS0N p H H0). intros. 
+    rewrite H1 in H2. simpl in *. auto.
   Qed.
 
-  Hint Resolve split_read_total0 : Ynot.
+  Hint Resolve split_read_S0 : Ynot.
     
-  Hint Resolve total_heap_new total_heap_free : Ynot.
-
   Lemma free_none_eq h p : (h # p = None -> h ### p = h)%heap.
   Proof.
     unfold read, free, heap. intros. ext_eq.
@@ -183,30 +189,6 @@ Section Sep.
   Qed.
 
   Hint Resolve free_none_eq : Ynot.
-
-  (* automate more of this stuff *)
-  Lemma split_free_total0 h h1 h2 d p :
-    h ~> h1 * h2
-    -> ((total_heap h)
-    -> h1 <*> h2
-    -> (h1 # p) = Some (d, 0)
-    -> (h2 ### p) = h2)%heap.
-    Proof.
-      unfold free, heap.
-      intros. ext_eq.
-      destruct (ptr_eq_dec x p); trivial.
-      subst.
-      generalize (split_read_total0none p H H0 H1 H2).
-      ynot 1.
-    Qed.
-
-    Lemma valid_join_new h A (v:A) p q : ((h # p) = None ->  (p |--> (Dyn v, q)) <*> h)%heap.
-    Proof.
-     unfold heap, singleton, join_valid, read. simpl. intros. 
-     destruct (ptr_eq_dec p0 p); trivial. subst. rewrite H. trivial.
-    Qed.
-
-    Hint Resolve valid_join_new : Ynot.
 
   Definition SepNew (T : Set) (v : T)
     : STsep __ (fun p => p -0-> v)%hprop.
@@ -219,12 +201,11 @@ Section Sep.
     : STsep (Exists v :@ T, p -0-> v)%hprop (fun _ : unit => __)%hprop.
     t.
     refine {{{STFree p}}}; ynot 5.
-    eexists. intuition. 
-    generalize (split_free H1 H H6). intro.
-    ynot 2. rewrite H7.
-    rewrite (split_free_total0 p H1); ynot 1.
+        generalize (split_free H1 H H4).
+        rewrite (@free_none_eq h2). intros.
+        eexists; intuition; intuition.
+        eapply split_readS0N; eauto.
   Qed.
-
 
   Theorem Dynq_inj_Someq : forall (T : Set) (x y : T) (q1 q2 : Qc),
     Some (Dyn x, q1) = Some (Dyn y, q2)
@@ -253,35 +234,19 @@ Section Sep.
     t.
     refine {{{STRead T p}}}; ynot 5.
 
-    destruct H2. intuition. subst.
+    destruct H.
     ynot 2.
-    rewrite (split2_read p H0 H3 H4). simpl. 
+    rewrite (split2_read H0 H1 H2). simpl. 
     eauto.
 
 
     exists h1. intuition.
     replace v with x; trivial.
-    destruct H1. intuition. destruct H9.
-    destruct H1. intuition.
-    destruct H1.
-    generalize (split2_read p H0 H9 H1).
+    destruct H; destruct H1. ynot 2. 
+    generalize (split2_read H0 H5 H7).
     rewrite H2. simpl. intro.
-
-    generalize (Dynq_inj_Somed H12); auto. 
+    symmetry. eapply Dynq_inj_Somed. eauto.
   Qed.
-
-  Lemma join_valid_update h1 h2 p d d' :
-    h1 <*> h2 
-    -> (h1 # p = Some (d, 0)
-    -> (h1 ## p <- (d', 0)) <*> h2)%heap.
-  Proof.
-    unfold join_valid, write, read. intros.
-    generalize (H p). generalize (H p0). rewrite H0. unfold read. 
-    destruct (ptr_eq_dec p0 p); subst; trivial.
-  Qed.
-
-  Hint Resolve split_read_total0none : Ynot.
-  Hint Resolve join_valid_update : Ynot.
 
   Definition SepWrite (T T' : Set) (p : ptr) (v : T')
     : STsep (Exists v' :@ T, p -0-> v')%hprop (fun _ : unit => p -0-> v)%hprop.
@@ -289,10 +254,11 @@ Section Sep.
     refine {{{STWrite T p v}}}; ynot 5.
 
     exists (h1 ## p <- (Dyn v,0))%heap; intuition.
-    ynot 3.
-    ynot 2.
+    eapply split_writeSN; eauto.
+    eapply split_readS0N; eauto.
+
     ynot 1.
-    unfold write, read in H6 |- *.
+    unfold write, read in *.
     destruct (ptr_eq_dec p' p); intuition.
   Qed.
 
@@ -314,116 +280,63 @@ Section Sep.
     generalize (H1 _ _ H2); clear H1; ynot 6.
   Qed.
 
-(*
-  Lemma join_valid_splice h x x0 x1 x2 :
-    total_heap h
-    -> (h ~> x * x0)
-    -> (x <*> x0)
-    -> (x ~> x1 * x2)
-    -> x2 <*> (x0 * x1).
+  Lemma split_refl x1 x2 :
+       (x1 <#> x2)%heap 
+    -> (x1 * x2) ~> x1 * x2.
   Proof.
+    intros. split; ynot 0.
+  Qed.
+
+  Lemma split_comm' x1 x2 :
+       (x1 <#> x2)%heap 
+    -> (x1 * x2) ~> x2 * x1.
+  Proof.
+    intros. split; ynot 0.
+  Qed.
+
+Lemma split_self_other h h1 h2 h' x x0 x5 :
+       (h ~> h1 * h2
+    -> h1 ~> x * x0
+    -> h' ~> x5 * (h2 * x)
+    -> (x5 * x) ~> x5 * x)%heap.
+Proof.
     intros.
-    assert (h ~> x2 * (x0 * x1)).
-    eauto with Ynot.
-    
-    intro.
-    generalize (H p). clear H.  intro H.
-    generalize (H1 p). clear H1. intro H1.
-
-    destruct H3. destruct H2. subst. unfold join, read in *.
-    destruct (x2 p); destruct (x0 p); destruct (x1 p); simpl in *.
+    apply split_refl.
+    unfold split in *; intuition.
+    subst.
+    unfold disjoint, read in *.
+    split_prover'.
+(*    assert ((x * x0 * h2) p = (x0 * (h2 * x)) p)%heap by congruence. *)
+(*    clear H4. *)
+    destruct (x5 p); trivial.
+    unfold join in *.
+    destruct (x p); trivial.
+    destruct (h2 p); destruct (x0 p); simpl in *; try solve [intuition].
+    unfold hvalo_plus, hval_plus in *. destruct H.
+    rewrite perm_plus_when_compat in H2 by auto; simpl in *.
+    destruct H2.
+    generalize (compatible_sym (compatible_trans H1 H3)). intros.
+    rewrite perm_plus_when_compat in H0 by auto; simpl in *.
+    destruct H.  
     intuition.
-    rewrite H5 in *.
-    rewrite Qcplus_0_l in H4.
+      congruence.
+      apply compatible_sym.
+      eapply compatible_trans; apply compatible_sym; eauto.
+      rewrite Qcplus_comm. auto.
 
-*)
+    destruct H2. unfold hval_plus in *.
+    repeat rewrite perm_plus_when_compat in H0 by ynot 1; simpl in *.
+    intuition.
+      congruence.
+      apply compatible_sym.
+      eapply compatible_trans; eauto.
+      rewrite Qcplus_comm. ynot 0.
+  Qed.
 
   Definition SepFrame pre T (post : T -> hprop) (st : STsep pre post) (P : hprop)
     : STsep (P * pre) (fun v => P * post v)%hprop.
     t.
-    refine {{{st}}}; ynot 7. 
-    assert (h ~> x2 * (x0 * x1)).
-    eauto with Ynot.
-
-    (* arg! this is more annoying *)
-    eexists. eexists. split.
-    2: repeat split.
-    3: eauto. eauto.
-    
-
-    
-    
-    destruct H3. subst.
-    destruct H0. subst.
-    split_prover'.
-    unfold join, read in *.
-
-    destruct (x2 p); trivial.
-    destruct (x0 p); destruct (x1 p); simpl in *.
-    intuition. destruct h; destruct h0; destruct h1; simpl in *. subst.
-    
-    rewrite Qcplus_0_r in *.
-    simpl in *.
-    destruct
-    
-    clear H4 H6 pre st post T P.
-    destruct H3. subst. clear H5.
-    destruct H0. subst.
-    (* HERE *)
-    intro.
-    split_prover'.
-    unfold read, join in *.
-    destruct (x0 p); destruct (x1 p); destruct (x2 p); simpl in *; trivial.
-    intuition; trivial.
-    destruct h0; destruct h1; destruct h; simpl in *; subst; trivial.
-    rewrite Qcplus_0_r in *. subst.
-
-    
-    generalize (H p); clear H. intro H.
-    generalize (H1 p); clear H1. intro H1.
-    generalize (H2 p); clear H2. intro H2.
-    unfold join, read in *.
-
-    intuition.
-
-    
-    
-
-    Focus 2.
-    assert (h ~> x4 * (x1 * x3)).
-    eauto with Ynot.
-
-    generalize (H0 _ _ H7); clear H0; ynot 0.
-    exists (x5 * x)%heap; ynot 3.
-    
-    x0.
-
-    exists x.
-    exists x5.
-    intuition.
-    eauto with Ynot.
-
-
-
-    exists x2. exists ((x0 * x1)%heap). intuition.
-    
-    (* lemma me *)
-
-
-    -> h ~> x2 * (x0 * x1)
-    -> 
-    -> h
-
-
-    generalize (H0 _ _ H6); clear H0; ynot 0.
-    exists (x5 * x)%heap; ynot 3.
-
-    exists x.
-    exists x5.
-    intuition.
-    eauto with Ynot.
-
-
+    refine {{{st}}}; ynot 7.
     assert (h ~> x0 * (h2 * x)).
     eauto with Ynot.
 
@@ -433,8 +346,10 @@ Section Sep.
     exists x.
     exists x5.
     intuition.
-    eauto with Ynot.
+    apply split_comm.
+    apply (split_self_other H1 H H9).
   Qed.
+
 
   Definition SepAssert (P : hprop)
     : STsep P (fun _ : unit => P).
@@ -444,7 +359,6 @@ Section Sep.
 
   Implicit Arguments SepStrengthen [pre T post].
   Notation "{{ st }}" := (SepWeaken _ (SepStrengthen _ st _) _).
-
 
   (* We can define easily derive Fix on multiple parameters, using currying *)
   Notation Local "'curry' f" := (fun a => f (projT1 a) (projT2 a)) (no associativity, at level 75).
@@ -512,7 +426,7 @@ Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
 Notation "!!!" := (SepContra _) : stsep_scope.
 Notation "'New' x" := (SepNew x) (at level 75) : stsep_scope.
 Notation "'FreeT' x :@ T" := (SepFree (T := T) x) (at level 75) : stsep_scope.
-Infix "!!" := SepRead (no associativity, at level 75) : stsep_scope.
+Notation "p !![ q ] P" := (SepRead p P q) (no associativity, at level 75) : stsep_scope.
 Notation "r ::= v" := (SepWrite _ r v) (no associativity, at level 75) : stsep_scope.
 
 Bind Scope stsep_scope with STsep.
@@ -535,7 +449,8 @@ Notation "c1 ;; c2" := (SepSeq (SepStrengthen _ c1 _) _ c2)
 Notation "!!!" := (SepContra _) : stsepi_scope.
 Notation "'New' x" := (SepNew x <@> _) (at level 75) : stsepi_scope.
 Notation "'Free' x" := (SepFree x <@> _) (at level 75) : stsepi_scope.
-Notation "! r" := (SepRead r _) (no associativity, at level 75) : stsepi_scope.
+Notation "![ q ] r" := (SepRead r _ q) (no associativity, at level 75) : stsepi_scope.
+Notation "! r" := (SepRead r _ _) (no associativity, at level 75) : stsepi_scope.
 Notation "r : t ::= v" := (SepWrite t r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "r ::= v" := (SepWrite _ r v <@> _) (no associativity, at level 75) : stsepi_scope.
 Notation "'Assert' P" := (SepAssert P) (at level 75) : stsepi_scope.

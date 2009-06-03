@@ -33,6 +33,7 @@ Opaque Qcplus. Opaque Qcopp.
 Require Import Ynot.Axioms.
 
 Set Implicit Arguments.
+Unset Strict Implicit.
 
 (* zeroth some general lemmas that are not specific to this particular development *)
 
@@ -86,10 +87,12 @@ Qed.
 
 Definition compatible (p1 p2 : perm) := compatibleb p1 p2 = true.
 
-(* Infix "|#|" := compatible (at level 60, no associativity). *)
+Infix "|#|" := compatible (at level 60, no associativity).
 
 Lemma compatible_sym (p1 p2 : perm) : compatible p1 p2 -> compatible p2 p1.
 Proof. unfold compatible. intros. rewrite compatibleb_comm. trivial. Qed.
+
+Hint Resolve compatible_sym : Ynot.
 
 Theorem compatible_opp (p : perm) : p <> top -> compatible p (- p).
 Proof.
@@ -108,6 +111,7 @@ Proof.
   intro. apply Qc_is_canon. symmetry. auto.
 Qed.
 
+
 (* adding two permissions.  Addition is a partial function.
  * Only compatible permissions can be added. 
  *)
@@ -120,6 +124,9 @@ Infix "+p" := perm_plus (at level 60, no associativity).
 Definition perm_plus_compat (p1 p2 : perm) (pf:compatible p1 p2) : perm := p1 + p2.
 
 Lemma perm_plus_is_compat (p1 p2 : perm) (pf:compatible p1 p2) : perm_plus p1 p2 = Some (perm_plus_compat pf).
+Proof. unfold compatible, perm_plus, perm_plus_compat. intros. rewrite pf. trivial. Qed.
+
+Lemma perm_plus_when_compat (p1 p2 : perm) (pf:compatible p1 p2) : perm_plus p1 p2 = Some (p1 + p2).
 Proof. unfold compatible, perm_plus, perm_plus_compat. intros. rewrite pf. trivial. Qed.
 
 (* We show it has some nice properties as in section 3 of Brookes *)
@@ -239,7 +246,7 @@ Ltac desb :=
     | [|- context [Qeq_bool ?x ?y]] =>  generalize (Qeq_bool_iff x y); intro; destruct (Qeq_bool x y)
     | [H: Qle_bool 0 ?y = true |- _] =>  generalize ((proj1 (Qcle_bool_iff 00 _)) H); clear H; intro H
     | [H: Qeq_bool ?x ?y = true |- _] =>  generalize ((proj1 (Qeq_bool_iff x y)) H); clear H; intro H
-    | [H: Qle_bool 0 ?y = false |- _] =>  generalize (Qle_bool_false 00 _ H); clear H; intro H
+    | [H: Qle_bool 0 ?y = false |- _] =>  generalize (@Qle_bool_false 00 _ H); clear H; intro H
   end; trivial.
 
   Ltac bool_to_logic := 
@@ -261,6 +268,116 @@ Ltac desb :=
     | [H: ?x = ?y |- _] => rewrite H in *; simpl in *
     | _ =>   rewrite negb_andb in *; rewrite negb_involutive in *
   end.
+
+
+  Ltac translelt :=
+    match goal with
+      | [H1:?x < ?y, H2: ?y <= ?z |- _] => extend (Qclt_le_trans _ _ _ H1 H2)
+      | [H1:?x <= ?y, H2: ?y < ?z |- _] => extend (Qcle_lt_trans _ _ _ H1 H2)
+      | [H1:?x <= ?y, H2: ?y <= ?z |- _] => extend (Qcle_trans _ _ _ H1 H2)
+    end.
+
+  Ltac toR := match goal with
+    | [H: ?x < _ |- _] => 
+      match x with
+        |  0 => fail 1
+        | _ => 
+          let newH := fresh "newH" in
+            generalize ((proj1 (Qclt_minus_iff _ _)) H); intro newH
+              ; ring_simplify in newH;
+              let t := type of newH in revert newH; 
+                notHyp newH; clear H; intro H
+      end
+  end.
+
+  Ltac find_ltcontra1 :=
+  match goal with
+    | [H1: 0 < ?x, H2:0 < 0 + - ?x |- _] => 
+      elim (Qclt_not_le _ _ H1); 
+        apply Qclt_le_weak; auto;
+          apply ((proj2 (Qclt_minus_iff _ _))); auto
+  end.
+
+  Ltac find_ltcontra2 :=
+    unfold Q2Qc in *
+  ; simpl in *
+  ; match goal with
+      | [H: ?x < ?x |- _] => elim (Qclt_not_eq _ _ H); reflexivity
+    end.
+
+  Ltac ltcontra := 
+    repeat translelt
+  ; repeat toR
+  ; (find_ltcontra1 || find_ltcontra2).
+
+Theorem compatibleb_assoc (p1 p2 p3 : perm) : 
+     compatibleb p1 p2 = true
+  -> compatibleb (p1 + p2) p3 = true
+  -> compatibleb (p3 + p1) p2 = true.
+Proof.
+  intros.
+  desb;
+  unfold compatibleb in *. 
+  remember (Qle_bool 0%Qc p1) as b; destruct b;
+  remember (Qle_bool 0%Qc p2) as b; destruct b;
+  remember (Qle_bool 0%Qc p3) as b; destruct b;
+  simpl in *;
+    try discriminate; repeat rewrite negb_involutive in *;
+  repeat rewrite negb_orb in *;
+  repeat progress (repeat match goal with
+    [H: _ = _ |- _] => rewrite <- H in *
+  end; simpl in *; 
+  try rewrite negb_involutive in *; 
+  try rewrite Qcplus_assoc in *;
+  try rewrite andb_false_l in *; try rewrite andb_false_r in *;
+  try rewrite andb_true_l in *;  try rewrite andb_true_r in *;
+  try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
+  try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
+  try discriminate; bool_to_logic; btol;
+    try (elimtype False; eauto); ltcontra.
+Qed.
+  
+Lemma compatibleb_trans (p1 p2 p3 : perm) : 
+  compatibleb p1 p2 = true 
+  -> compatibleb (p1 + p2) p3 = true 
+  -> compatibleb p1 p3 = true.
+Proof.
+  intros.
+  desb;
+  unfold compatibleb in *. 
+  remember (Qle_bool 0%Qc p1) as b; destruct b;
+  remember (Qle_bool 0%Qc p2) as b; destruct b;
+  remember (Qle_bool 0%Qc p3) as b; destruct b;
+(*  remember (Qlt_bool (p + p0) 0%Qc) as b; destruct b; simpl; trivial; *)
+  simpl in *; try discriminate; repeat rewrite negb_involutive in *;
+  repeat rewrite negb_orb in *;
+  repeat progress (repeat match goal with
+    [H: _ = _ |- _] => rewrite <- H in *
+  end; simpl in *; 
+  try rewrite negb_involutive in *; 
+  try rewrite Qcplus_assoc in *;
+  try rewrite andb_false_l in *; try rewrite andb_false_r in *;
+  try rewrite andb_true_l in *;  try rewrite andb_true_r in *;
+  try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
+  try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
+  try discriminate; bool_to_logic; btol;
+    try (elimtype False; eauto); ltcontra.
+Qed.
+
+Theorem compatible_assoc (p1 p2 p3 : perm) : 
+     p1 |#| p2
+  -> (p1 + p2) |#| p3
+  -> (p3 + p1) |#| p2.
+Proof.
+  unfold compatible. intros.
+  apply (compatibleb_assoc H H0).
+Qed.
+
+Lemma compatible_trans (p1 p2 p3 : perm) : compatible p1 p2 -> compatible (p1 + p2) p3 -> compatible p1 p3.
+Proof.
+  unfold compatible. intros.
+  apply (compatibleb_trans H H0).
+Qed.
 
 Theorem perm_plus_ass (p1 p2 p3 : perm) : 
   match p2 +p p3 with
@@ -297,18 +414,7 @@ Proof.
   try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
   try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
   try discriminate; bool_to_logic; btol;
-    try (elimtype False; eauto).
-
-  (* remaining sub-goal 1/2 *)
-  generalize (Qclt_le_trans _ _ _ HeqHH HeqHH1). intro.
-  generalize ((proj1 (Qclt_minus_iff _ _)) H). intro.
-  ring_simplify in H0.
-  elim (Qclt_not_le _ _ H0). apply Qclt_le_weak; auto.
-
-  generalize (Qclt_le_trans _ _ _ HeqHH H0). intro.
-  generalize ((proj1 (Qclt_minus_iff _ _)) H1). intro.
-  ring_simplify in H2.
-  elim (Qclt_not_le _ _ H2). apply Qclt_le_weak; auto.
+    try (elimtype False; eauto); ltcontra.
 Qed.
 
 
@@ -368,20 +474,8 @@ desb;
   try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
   try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
   try discriminate; bool_to_logic; btol;
-    try (elimtype False; eauto).
-
-  (* remaining sub-goal 1/2 *)
-  generalize (Qclt_le_trans _ _ _ HeqHH HeqHH1). intro.
-  generalize ((proj1 (Qclt_minus_iff _ _)) H). intro.
-  ring_simplify in H0.
-  elim (Qclt_not_le _ _ H0). apply Qclt_le_weak; auto.
-
-  generalize (Qclt_le_trans _ _ _ HeqHH H0). intro.
-  generalize ((proj1 (Qclt_minus_iff _ _)) H1). intro.
-  ring_simplify in H2.
-  elim (Qclt_not_le _ _ H2). apply Qclt_le_weak; auto.
+    try (elimtype False; eauto); ltcontra.
 Qed.
-
 
 Definition compatiblep_alt (p1 p2 : permo) :=
   match p1 with
@@ -404,7 +498,7 @@ Qed.
 Theorem permo_plus_cancel (p p1 p2 : permo) : compatiblep p p1 -> (p +po p1) = (p +po p2) -> p1 = p2.
 Proof.
   intros.
-  generalize (compatiblep_to_alt _ _ H). unfold compatiblep_alt. intro.
+  generalize (compatiblep_to_alt H). unfold compatiblep_alt. intro.
   destruct p; destruct p1; destruct p2; simpl in *; intuition.
   f_equal. eapply perm_plus_cancel; eauto.
   unfold perm_plus in H0.
@@ -422,7 +516,7 @@ Qed.
 
 Theorem permo_plus_nonzero (p p' :permo) : compatiblep p p' -> p +po p' <> p.
 Proof.
-  intros. generalize (compatiblep_to_alt _ _ H).  unfold compatiblep_alt.
+  intros. generalize (compatiblep_to_alt H).  unfold compatiblep_alt.
   destruct p; destruct p'; intuition.
   simpl in H1. eapply perm_plus_nonzero; eauto.
 Qed.

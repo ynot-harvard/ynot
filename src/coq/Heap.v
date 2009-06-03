@@ -49,14 +49,16 @@ Definition heap := ptr -> option hval.
 Definition val (v:hval) := fst v.
 Definition frac (v:hval) := snd v.
 
-Definition hval_plus (v1 v2 : hval) :=
-  (val v1,frac v1+frac v2).
+Definition hval_plus (v1 v2 : hval) : option hval :=
+  match (frac v1) +p (frac v2) with
+    | None => None
+    | Some v1v2 => Some (val v1, v1v2)
+  end.
 
 Lemma hval_plus_comm (v1 v2 : hval) : val v1 = val v2 -> hval_plus v1 v2 = hval_plus v2 v1.
 Proof.
-  intros. unfold hval_plus. rewrite H. rewrite Qcplus_comm. trivial.
+  intros. unfold hval_plus. rewrite H. rewrite perm_plus_comm. trivial.
 Qed.
-
 
 Definition hvalo_plus (v1 v2 : option hval) :=
   match v1 with
@@ -64,7 +66,7 @@ Definition hvalo_plus (v1 v2 : option hval) :=
     | Some v1' =>
       match v2 with
         | None => v1
-        | Some v2' => Some (hval_plus v1' v2')
+        | Some v2' => (hval_plus v1' v2')
       end
   end.
 
@@ -75,8 +77,11 @@ Local Open Scope heap_scope.
 
 Notation "v1 +o v2" := (hvalo_plus v1 v2) (at level 60, no associativity) : heap_scope.
 
-(* Lemma ofrac_hvalo_plus (v1 v2 : option hval) (pf:v1|+?|v2): ofrac (v1 +o v2) == (ofrac v1) + (ofrac v2).
-Proof. destruct v1; destruct v2; intuition (simpl; ring). Qed. *)
+Definition ofrac (v : option hval) :=
+  match v with
+    | None => 0
+    | Some v' => frac v'
+  end.
 
 Definition empty : heap := fun _ => None.
 Definition singleton (p : ptr) (v : hval) : heap :=
@@ -95,8 +100,9 @@ Infix "###" := free (no associativity, at level 60) : heap_scope.
 (*Definition join_valid (h1 h2:heap) := forall p, (p h1) |+?| (p h2).
 Infix "|*|" := join_valid (at level 40, left associativity) : heap_scope.
 *)
-Definition join (h1 h2 : heap) : heap := fun p =>
-  (h1 p) +o (h2 p).
+
+Definition join (h1 h2 : heap) : heap := 
+  (fun p => (h1 p) +o (h2 p)).
 
 Infix "*" := join (at level 40, left associativity) : heap_scope.
 
@@ -125,88 +131,6 @@ Ltac notHyp P :=
     | _ => idtac
   end.
 
-Ltac extend pf :=
-  let t := type of pf in
-    notHyp t; generalize pf; intro.
-
-(*
-Add Morphism Qeq_bool 
-  with signature Qeq ==> Qeq ==> eq
-  as Qeq_bool_compat.
-Proof.
-  intros. 
-  repeat match goal with
-    [|- context [Qeq_bool ?x ?y]] =>  generalize (Qeq_bool_iff x y); intro; destruct (Qeq_bool x y)
-  end; trivial;
-
-  repeat match goal with
-    | [H: ?x = ?x <-> ?P |- _] => generalize ((proj1 H) (refl_equal x)); clear H; intro H
-    | [H: ?k1 == ?k2 |- _] => extend (Qeq_sym _ _ H)
-    | [H1:?k1 == ?k2, H2:?k1 == ?k3 |- _] => extend (Qeq_trans _ _ _ (Qeq_sym _ _ H1) H2)
-    | [H1: ?x <-> ?y, H2:?y |- _] => generalize ((proj2 H1) H2); clear H1; intro H1
-  end;
-
-  discriminate.
-Qed.
-
-Add Morphism Qle_bool 
-  with signature Qeq ==> Qeq ==> eq
-  as Qle_bool_compat.
-Proof.
-  intros.
-  assert (HH: x1 <= x2 /\ x2 <= x1). rewrite H. split; apply Qle_refl.
-  assert (HH2: x0 <= x3 /\ x3 <= x0). rewrite H0. split; apply Qle_refl.
-  destruct HH; destruct HH2.
-  repeat match goal with
-    [|- context [Qle_bool ?x ?y]] =>  generalize (Qle_bool_iff x y); intro; destruct (Qle_bool x y)
-  end; trivial;
-
-  repeat match goal with
-    | [H: ?x = ?x <-> ?P |- _] => generalize ((proj1 H) (refl_equal x)); clear H; intro H
-    | [H1:?k1 <= ?k2, H2:?k2 <= ?k3 |- _] => extend (Qle_trans _ _ _ H1 H2)
-    | [H1: ?x <-> ?y, H2:?y |- _] => generalize ((proj2 H1) H2); clear H1; intro H1
-  end;
-
-  discriminate.
-Qed.
-
-Add Morphism Qlt_bool 
-  with signature Qeq ==> Qeq ==> eq
-  as Qlt_bool_compat.
-Proof.
-  intros. unfold Qlt_bool.
-  rewrite H. rewrite H0. trivial.
-Qed.
-
-Add Morphism valid_plus_bool
-  with signature Qeq ==> Qeq ==> eq 
-    as valid_plus_bool_compat.
-Proof.
-  intros. unfold valid_plus_bool.
-  rewrite H. rewrite H0. trivial.
-Qed.
-
-Add Morphism valid_plus 
-  with signature Qeq ==> Qeq ==> iff
-    as valid_plus_compat.
-Proof.
-  unfold valid_plus. intros.
-  rewrite H. rewrite H0. intuition.
-Qed.
-*)
-Lemma valid_plus_bool_comm (q1 q2 : Qc) : valid_plus_bool q1 q2 = valid_plus_bool q2 q1.
-Proof. intros. unfold valid_plus_bool.
-       rewrite Qcplus_comm. 
-       rewrite andb_comm. f_equal.
-       rewrite orb_comm. f_equal.
-Qed.
-
-Lemma valid_plus_comm (q1 q2 : Qc) : q1 |+| q2 -> q2 |+| q1.
-Proof.
-  intros. unfold valid_plus. rewrite valid_plus_bool_comm. trivial. 
-Qed.
-
-Hint Resolve valid_plus_comm : Ynot.
 
 Theorem read_empty : forall p,
   empty # p = None.
@@ -249,7 +173,7 @@ Hint Extern 1 (_ # _ = _) => autorewrite with Ynot in * : Ynot.
 Definition total_heap (h:heap) := forall p, 
   match (h p) with
     | None => True
-    | Some v => frac v = 0
+    | Some v => frac v = top
   end.
 
 Theorem total_heap_empty : total_heap empty.
