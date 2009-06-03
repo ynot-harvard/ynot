@@ -31,11 +31,11 @@ Require Import List.
 
 Require Import Ynot.Axioms.
 Require Import Ynot.Util.
+Require Import Ynot.PermModel.
 Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
 Require Import Ynot.ST.
 Require Import Qcanon.
-Require Import PermModel.
 
 Set Implicit Arguments.
 

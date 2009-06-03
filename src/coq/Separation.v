@@ -29,11 +29,11 @@
 
 Require Import Ynot.Axioms.
 Require Import Ynot.Util.
+Require Import Ynot.PermModel.
 Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
-Require Import PermModel.
-Set Implicit Arguments.
 
+Set Implicit Arguments.
 
 Theorem himp_refl : forall p, p ==> p.
   unfold hprop_imp; trivial.
@@ -61,7 +61,7 @@ Theorem himp_empty_conc : forall p q,
   p ==> q
   -> p ==> __ * q.
   unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot;
-    eauto 6 with Ynot.
+    eauto 7 with Ynot.
 Qed.
 
 Theorem himp_empty_conc' : forall p q,
@@ -78,7 +78,6 @@ Theorem himp_comm_prem : forall p q r,
   apply H.
   do 2 destruct H0; intuition.
   exists x0; exists x; intuition.
-  apply split_comm; assumption.
 Qed.
 
 Theorem himp_assoc_prem1 : forall p q r s,
@@ -118,7 +117,6 @@ Theorem himp_comm_conc : forall p q r,
   generalize (H _ H0); clear H H0; intuition.
   do 2 destruct H; intuition.
   exists x0; exists x; intuition.
-  apply split_comm; assumption.
 Qed.
 
 Theorem himp_assoc_conc1 : forall p q r s,
@@ -258,10 +256,10 @@ Theorem himp_frame : forall p q1 q2,
   apply himp_split; [apply himp_refl | assumption].
 Qed.
 
-Theorem himp_frame_cell : forall n (T : Set) (v1 v2 : T) q1 q2,
+Theorem himp_frame_cell : forall n (T : Set) (v1 v2 : T) q1 q2 (p:perm),
   v1 = v2
   -> q1 ==> q2
-  -> n --> v1 * q1 ==> n --> v2 * q2.
+  -> n -[p]-> v1 * q1 ==> n -[p]-> v2 * q2.
   intros; subst.
   apply himp_frame; assumption.
 Qed.
@@ -463,7 +461,7 @@ Qed.
 Ltac findContents ptr P :=
   let P := eval simpl in P in
   match P with
-    | (ptr --> ?V)%hprop => constr:(V, __)%hprop
+    | (ptr -[ ?q ]-> ?V)%hprop => constr:(V, __)%hprop
     | (?P1 * ?P2)%hprop =>
       match findContents ptr P1 with
         | (?V, ?P1) => constr:(V, P1 * P2)%hprop
@@ -518,14 +516,15 @@ Ltac canceler :=
       (** Eliminate common heaps. The match prevents capturing existentials **)
       match goal with
         | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
-        | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
+          (* beef this up to handle different fractions? *)
+        | [ |- ?p -[ ?q ]-> _ * _ ==> ?p -[ ?q ]-> _ * _ ] => apply himp_frame_cell; trivial
       end)). 
 
 Ltac specFinder stac :=
   inhabiter; try (stac; inhabiter);
     
   try match goal with
-        | [ |- ?P ==> Exists v :@ ?T, (?ptr --> v * ?Q v)%hprop ] =>
+        | [ |- ?P ==> Exists v :@ ?T, (?ptr -[ ?q ]-> v * ?Q v)%hprop ] =>
           match findContents ptr P with
             | (?V, ?P) =>
               apply himp_empty_conc';
@@ -583,7 +582,7 @@ Ltac specFinder stac :=
                             end
           end
 
-        | [ |- ?P ==> ?Q * Exists v :@ _, (?ptr --> v)%hprop ] =>
+        | [ |- ?P ==> ?Q * Exists v :@ _, (?ptr -[ ?q ]-> v)%hprop ] =>
           match findContents ptr P with
             | (?V, ?P) =>
               let F := fresh "F" with F2 := fresh "F2" in
@@ -680,13 +679,13 @@ Ltac sep stac tac :=
          search_conc ltac:(idtac;
            match goal with
              | [ |- ?p * _ ==> ?p * _ ] => apply himp_frame
-             | [ |- ?p --> _ * _ ==> ?p --> _ * _ ] => apply himp_frame_cell; trivial
+             | [ |- ?p -[ ?q ]-> _ * _ ==> ?p -[ ?q ]-> _ * _ ] => apply himp_frame_cell; trivial
            end)) || search_conc concer
        || search_prem ltac:(idtac;
          search_conc ltac:(idtac;
            match goal with
              | [ |- _ * _ ==> _ * _ ] => apply himp_frame
-             | [ |- _ --> _ * _ ==> _ --> _ * _ ] =>
+             | [ |- _ -[ ?q ]-> _ * _ ==> _ -[ ?q ]-> _ * _ ] =>
                apply himp_frame_cell; trivial
            end)));
      s);
@@ -744,20 +743,26 @@ Lemma himp_prop_conc : forall (P : Prop) H1 H2,
   sep fail auto.
 Qed.
 
+Theorem himp_disjoint' : forall  h (S T : Set) p (a1:S) (a2:T), 
+  (p -[0]-> a1 * p -[0]-> a2)%hprop h -> False.
+  intros; unfold hprop_imp; intros. 
+  repeat (destruct H). 
+  intuition. red in H2, H3. intuition.
+  generalize (H p).
+  rewrite H0, H2. intuition.
+Qed.
+
 Theorem himp_disjoint : forall (S T : Set) p1 p2 (a1:S) (a2:T), 
-  p1 --> a1 * p2 --> a2 ==> p1 --> a1 * p2 --> a2 * [p1 <> p2].
+  p1 -[0]-> a1 * p2 -[0]-> a2 ==> p1 -[0]-> a1 * p2 -[0]-> a2 * [p1 <> p2].
   intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
   exists ((x * x0)%heap). exists empty. subst. sep fail auto.
-  exists x. exists x0. sep fail auto. split_prover'. compute.
-  split. apply ext_eq. auto. intros. subst.
-  compute in H. compute in H2. pose (H p2). pose (H2 p2). destruct H3. destruct H0. compute in H1. compute in H0. rewrite H1 in *. rewrite H0 in *. assumption. 
+  exists x. exists x0. sep fail auto. split_prover'.
+  compute; intuition. subst.
+  eapply himp_disjoint'.
+  exists x. exists x0. intuition; eauto.
+  apply split_refl; eauto.
 Qed.
 
 Theorem himp_split_any : ?? * ?? ==> ??.
   unfold hprop_any, hprop_imp; trivial.
-Qed.
-
-Theorem himp_disjoint' : forall  h (S T : Set) p (a1:S) (a2:T), 
-  (p --> a1 * p --> a2)%hprop h -> False.
-  intros; unfold hprop_imp; intros. repeat (destruct H). destruct H0. destruct H0. destruct H3. unfold disjoint1 in *. pose (H p). rewrite H0 in y. rewrite H3 in y. trivial.
 Qed.
