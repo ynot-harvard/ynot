@@ -140,56 +140,6 @@ Section Sep.
     exact (STFix _ _ _ F v).
   Qed.
 
-  Theorem split_readSS_compat : forall h h1 h2 p d1 d2 q1 q2,
-    (h ~> h1 * h2
-    -> h1 # p = Some (d1, q1)
-    -> h2 # p = Some (d2, q2)
-    -> compatible q1 q2)%heap.
-  Proof.
-    intros.
-    destruct H; intuition.
-    generalize (H p). rewrite H0. rewrite H1. simpl in *.
-    intuition.
-  Qed.
-
-  Theorem compatible_top (p:perm) : compatible p top -> False.
-  Proof.
-    unfold compatible. intro. rewrite (compatibleb_top p). discriminate.
-  Qed.
-
-  Theorem split_readS0N : forall h h1 h2 p d,
-    (h ~> h1 * h2
-    -> h1 # p = Some (d, 0)
-    -> h2 # p = None)%heap.
-  Proof.
-    intros.
-    remember (h2 # p)%heap as h2p. destruct h2p; trivial.
-    destruct h0.
-    generalize (split_readSS_compat p H H0 (sym_eq Heqh2p)).
-    intro. elim (compatible_top (compatible_sym H1)).
-  Qed.
-
-  Lemma split_read_S0 h h1 h2 d p : 
-    h ~> h1 * h2 
-    -> (h1 # p = Some (d, 0)
-    -> h # p = Some (d, 0))%heap.
-  Proof.
-    intros.
-    generalize (split_read1 H H0).
-    generalize (split_readS0N p H H0). intros. 
-    rewrite H1 in H2. simpl in *. auto.
-  Qed.
-
-  Hint Resolve split_read_S0 : Ynot.
-    
-  Lemma free_none_eq h p : (h # p = None -> h ### p = h)%heap.
-  Proof.
-    unfold read, free, heap. intros. ext_eq.
-    destruct (ptr_eq_dec x p); congruence.
-  Qed.
-
-  Hint Resolve free_none_eq : Ynot.
-
   Definition SepNew (T : Set) (v : T)
     : STsep __ (fun p => p -0-> v)%hprop.
     t.
@@ -207,28 +157,6 @@ Section Sep.
         eapply split_readS0N; eauto.
   Qed.
 
-  Theorem Dynq_inj_Someq : forall (T : Set) (x y : T) (q1 q2 : Qc),
-    Some (Dyn x, q1) = Some (Dyn y, q2)
-    -> q1 = q2.
-    intros. inversion H. trivial.
-  Qed.
-
-  Lemma Dynq_inj_Somed' : forall (d1 d2 : dynamic) (q : Qc),
-    Some (d1, q) = Some (d2, q)
-    -> d1 = d2.
-    congruence.
-  Qed.
-  
-  Theorem Dynq_inj_Somed : forall (T : Set) (x y : T) (q1 q2 : Qc),
-    Some (Dyn x, q1) = Some (Dyn y, q2)
-    -> x = y.
-    intros. inversion H. subst.
-    apply Dyn_inj.
-    apply Dynq_inj_Somed' with (q:=q2).
-    trivial.
-  Qed.
-
-  (* this should be automated *)
   Definition SepRead (T : Set) (p : ptr) (P : T -> hprop) (q:[Qc])
     : STsep (Exists v :@ T, (q ~~ p -[q]-> v * P v))%hprop (fun v => (q ~~ p -[q]-> v * P v))%hprop.
     t.
@@ -280,59 +208,6 @@ Section Sep.
     generalize (H1 _ _ H2); clear H1; ynot 6.
   Qed.
 
-  Lemma split_refl x1 x2 :
-       (x1 <#> x2)%heap 
-    -> (x1 * x2) ~> x1 * x2.
-  Proof.
-    intros. split; ynot 0.
-  Qed.
-
-  Lemma split_comm' x1 x2 :
-       (x1 <#> x2)%heap 
-    -> (x1 * x2) ~> x2 * x1.
-  Proof.
-    intros. split; ynot 0.
-  Qed.
-
-Lemma split_self_other h h1 h2 h' x x0 x5 :
-       (h ~> h1 * h2
-    -> h1 ~> x * x0
-    -> h' ~> x5 * (h2 * x)
-    -> (x5 * x) ~> x5 * x)%heap.
-Proof.
-    intros.
-    apply split_refl.
-    unfold split in *; intuition.
-    subst.
-    unfold disjoint, read in *.
-    split_prover'.
-(*    assert ((x * x0 * h2) p = (x0 * (h2 * x)) p)%heap by congruence. *)
-(*    clear H4. *)
-    destruct (x5 p); trivial.
-    unfold join in *.
-    destruct (x p); trivial.
-    destruct (h2 p); destruct (x0 p); simpl in *; try solve [intuition].
-    unfold hvalo_plus, hval_plus in *. destruct H.
-    rewrite perm_plus_when_compat in H2 by auto; simpl in *.
-    destruct H2.
-    generalize (compatible_sym (compatible_trans H1 H3)). intros.
-    rewrite perm_plus_when_compat in H0 by auto; simpl in *.
-    destruct H.  
-    intuition.
-      congruence.
-      apply compatible_sym.
-      eapply compatible_trans; apply compatible_sym; eauto.
-      rewrite Qcplus_comm. auto.
-
-    destruct H2. unfold hval_plus in *.
-    repeat rewrite perm_plus_when_compat in H0 by ynot 1; simpl in *.
-    intuition.
-      congruence.
-      apply compatible_sym.
-      eapply compatible_trans; eauto.
-      rewrite Qcplus_comm. ynot 0.
-  Qed.
-
   Definition SepFrame pre T (post : T -> hprop) (st : STsep pre post) (P : hprop)
     : STsep (P * pre) (fun v => P * post v)%hprop.
     t.
@@ -349,7 +224,6 @@ Proof.
     apply split_comm.
     apply (split_self_other H1 H H9).
   Qed.
-
 
   Definition SepAssert (P : hprop)
     : STsep P (fun _ : unit => P).

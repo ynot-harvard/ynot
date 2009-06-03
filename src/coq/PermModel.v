@@ -46,6 +46,28 @@ Theorem Some_inj : forall T (x y : T),
   intros; congruence.
 Qed.
 
+
+Theorem Dynq_inj_Someq : forall (T : Set) (x y : T) (q1 q2 : Qc),
+     Some (Dyn x, q1) = Some (Dyn y, q2)
+  -> q1 = q2.
+  intros. inversion H. trivial.
+Qed.
+
+Lemma Dynq_inj_Somed' : forall (d1 d2 : dynamic) (q : Qc),
+     Some (d1, q) = Some (d2, q)
+  -> d1 = d2.
+  congruence.
+Qed.
+  
+Theorem Dynq_inj_Somed : forall (T : Set) (x y : T) (q1 q2 : Qc),
+     Some (Dyn x, q1) = Some (Dyn y, q2)
+  -> x = y.
+  intros. inversion H. subst.
+  apply Dyn_inj.
+  apply Dynq_inj_Somed' with (q:=q2).
+  trivial.
+Qed.
+
 (* first we define the underlying set of permissions and its partial additive function *)
 Definition perm := Qc.
 
@@ -111,6 +133,10 @@ Proof.
   intro. apply Qc_is_canon. symmetry. auto.
 Qed.
 
+Theorem compatible_top (p:perm) : compatible p top -> False.
+Proof.
+  unfold compatible. intro. rewrite (compatibleb_top p). discriminate.
+Qed.
 
 (* adding two permissions.  Addition is a partial function.
  * Only compatible permissions can be added. 
@@ -520,3 +546,4 @@ Proof.
   destruct p; destruct p'; intuition.
   simpl in H1. eapply perm_plus_nonzero; eauto.
 Qed.
+

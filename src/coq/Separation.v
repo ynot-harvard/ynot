@@ -31,7 +31,7 @@ Require Import Ynot.Axioms.
 Require Import Ynot.Util.
 Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
-
+Require Import PermModel.
 Set Implicit Arguments.
 
 

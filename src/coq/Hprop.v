@@ -229,6 +229,13 @@ Qed.
 
 Hint Resolve disjoint_sym disjoint_assoc disjoint_trans disjoint_empty : Ynot.
 
+Lemma split_refl x1 x2 :
+     (x1 <#> x2)
+  -> (x1 * x2) ~> x1 * x2.
+Proof.
+  intros. split; eauto with Ynot.
+Qed.
+
 Theorem split_comm : forall h h1 h2,
   h ~> h1 * h2
   -> h ~> h2 * h1.
@@ -424,20 +431,51 @@ Qed.
 
 Hint Resolve split2_read : Ynot.
 
-Lemma Dyn_inj_Some' : forall (d1 d2 : dynamic),
-  Some d1 = Some d2
-  -> d1 = d2.
-  congruence.
+Theorem split_readSS_compat : forall h h1 h2 p d1 d2 q1 q2,
+  (h ~> h1 * h2
+  -> h1 # p = Some (d1, q1)
+  -> h2 # p = Some (d2, q2)
+  -> compatible q1 q2)%heap.
+Proof.
+  intros.
+  destruct H; intuition.
+  generalize (H p). rewrite H0. rewrite H1. simpl in *.
+  intuition.
 Qed.
 
-Theorem Dyn_inj_Some : forall (T : Set) (x y : T),
-  Some (Dyn x) = Some (Dyn y)
-  -> x = y.
+Theorem split_readS0N : forall h h1 h2 p d,
+  (h ~> h1 * h2
+  -> h1 # p = Some (d, 0)
+  -> h2 # p = None)%heap.
+Proof.
   intros.
-  apply Dyn_inj.
-  apply Dyn_inj_Some'.
-  trivial.
+  remember (h2 # p)%heap as h2p. destruct h2p; trivial.
+  destruct h0.
+  generalize (split_readSS_compat H H0 (sym_eq Heqh2p)).
+  intro. elim (compatible_top (compatible_sym H1)).
 Qed.
+
+Lemma split_read_S0 h h1 h2 d p : 
+  h ~> h1 * h2 
+  -> (h1 # p = Some (d, 0)
+  -> h # p = Some (d, 0))%heap.
+Proof.
+  intros.
+  generalize (split_read1 H H0).
+  generalize (split_readS0N H H0). intros. 
+  rewrite H1 in H2. simpl in *. auto.
+Qed.
+
+Hint Resolve split_read_S0 : Ynot.
+
+Lemma free_none_eq h p : (h # p = None -> h ### p = h)%heap.
+Proof.
+  unfold read, free, heap. intros. ext_eq.
+  destruct (ptr_eq_dec x p); congruence.
+Qed.
+
+Hint Resolve free_none_eq : Ynot.
+
 
 Lemma hvalo_plus_none_r v1 : v1 +o None = v1.
 Proof.
@@ -627,6 +665,43 @@ Theorem split_self'' : forall h x x0 x1 x2,
   unfold split; intuition; subst.
   eauto with Ynot.
 Qed.
+
+Lemma split_self_other h h1 h2 h' x x0 x5 :
+       (h ~> h1 * h2
+    -> h1 ~> x * x0
+    -> h' ~> x5 * (h2 * x)
+    -> (x5 * x) ~> x5 * x)%heap.
+Proof.
+    intros.
+    apply split_refl.
+    unfold split in *; intuition.
+    subst.
+    unfold disjoint, read in *.
+    split_prover'.
+    destruct (x5 p); trivial.
+    unfold join in *.
+    destruct (x p); trivial.
+    destruct (h2 p); destruct (x0 p); simpl in *; try solve [intuition].
+    unfold hvalo_plus, hval_plus in *. destruct H.
+    rewrite perm_plus_when_compat in H2 by auto; simpl in *.
+    destruct H2.
+    generalize (compatible_sym (compatible_trans H1 H3)). intros.
+    rewrite perm_plus_when_compat in H0 by auto; simpl in *.
+    destruct H.  
+    intuition.
+      congruence.
+      apply compatible_sym.
+      eapply compatible_trans; apply compatible_sym; eauto.
+      rewrite Qcplus_comm. auto.
+
+    destruct H2. unfold hval_plus in *.
+    repeat rewrite perm_plus_when_compat in H0 by eauto with Ynot; simpl in *.
+    intuition.
+      congruence.
+      apply compatible_sym.
+      eapply compatible_trans; eauto.
+      rewrite Qcplus_comm. eauto with Ynot.
+  Qed.
 
 Theorem split_free : forall h h1 h2 p d,
   h ~> h1 * h2

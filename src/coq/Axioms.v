@@ -63,3 +63,19 @@ Theorem Dyn_inj : forall (T : Set) (x y : T),
   injection 1; intro.
   exact (inj_pair2 _ _ _ _ _ H0).
 Qed.
+
+
+Lemma Dyn_inj_Some' : forall (d1 d2 : dynamic),
+  Some d1 = Some d2
+  -> d1 = d2.
+  congruence.
+Qed.
+
+Theorem Dyn_inj_Some : forall (T : Set) (x y : T),
+  Some (Dyn x) = Some (Dyn y)
+  -> x = y.
+  intros.
+  apply Dyn_inj.
+  apply Dyn_inj_Some'.
+  trivial.
+Qed.
