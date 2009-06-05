@@ -35,7 +35,6 @@ Set Implicit Arguments.
 
 Open Local Scope hprop_scope.
 
-
 Module Type STACK.
   Parameter t : Set -> Set.
   Parameter rep : forall T, t T -> list T -> hprop.
@@ -68,7 +67,7 @@ Module Stack : STACK.
         | nil => [hd = None]
         | h :: t => match hd with
                       | None => [False]
-                      | Some hd => Exists p :@ option ptr, hd --> Node h p * listRep t p
+                      | Some hd' => Exists p :@ option ptr, hd' --> Node h p * listRep t p
                     end
       end%hprop.
 
@@ -109,7 +108,7 @@ Module Stack : STACK.
       intros; refine (hd <- !s;
         nd <- New (Node x hd);
         {{s ::= Some nd}}
-      ); t. 
+      ); t.
     Qed.
 
     Definition pop : forall s ls,

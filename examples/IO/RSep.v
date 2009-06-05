@@ -74,19 +74,19 @@ Ltac norm_prod :=
  **)
 
 Theorem himp_refl : forall p, p ==> p.
-  unfold hprop_imp; trivial.
+sep fail auto.
 Qed.
 
 Theorem himp_empty_prem : forall p q,
   p ==> q
   -> __ * p ==> q.
-  unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot; auto.
+sep fail auto.
 Qed.
 
 Theorem himp_empty_conc : forall p q, 
   p ==> q
   -> p ==> __ * q.
-  unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot; eauto 6 with Ynot.
+  sep fail auto.
 Qed.
 
 Theorem himp_comm_prem : forall p q r,
@@ -96,7 +96,6 @@ Theorem himp_comm_prem : forall p q r,
   apply H.
   do 2 destruct H0; intuition.
   exists x0; exists x; intuition.
-  apply split_comm; assumption.
 Qed.
 
 Definition UnpackAs (T : Type) (x : inhabited T) (y : T) : Prop := x = (inhabits y).
@@ -329,12 +328,10 @@ Theorem himp_unpack_conc_meta : forall T x (y:[T]) p1 p2 p,
   firstorder.
 Qed.
 
-Theorem himp_unpack_conc_imm : forall T (x : T) p1 p2 p,
+Theorem himp_unpack_conc_imm : forall (T:Set) (x : T) p1 p2 p,
   p ==> p1 x * p2
   -> p ==> hprop_unpack [x] p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
-  generalize (H _ H0).
-  firstorder.
+  sep fail auto.
 Qed.
 
 (** unpack_conc is an idempotent function which succeeds only if it makes progress.

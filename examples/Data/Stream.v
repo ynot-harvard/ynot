@@ -34,7 +34,6 @@ Require Import Omega.
 Require Import Eqdep.
 Set Implicit Arguments.
 
-
 (* The following section defines a type for generic, input streams with
  * operations for looking at the next character in the stream, advancing
  * the stream, getting the current position (relative to the start of the
@@ -58,7 +57,7 @@ Section INSTREAM.
       STsep (offset ~~ rep offset)
             (fun (eopt:Exc elt) => 
                stream_elts ~~ offset ~~
-               rep (1 + offset) * [eopt = nth_error stream_elts offset]).
+               rep (1 + offset)%nat * [eopt = nth_error stream_elts offset]).
 
   (* return current position of the stream *)
   Definition position_t(elt:Set)(stream_elts : [list elt])(rep:nat->hprop) := 
@@ -138,7 +137,7 @@ Section STRING_INSTREAM.
   Definition string_next(s:list ascii)(x:ptr) : next_t (inhabits s)(string_rep s x).
     unfold next_t.
     intros.
-    refine (n <- x !! (fun n => offset ~~ [n = offset]) ;
+    refine (n <- x !![_] (fun n => offset ~~ [n = offset]) ;
             x ::= 1 + n <@> (offset ~~ [n = offset]) ;;
             Return (nth_error s n) <@> (offset ~~ [n=offset] * string_rep s x (1+n)) @> _);
     str. 

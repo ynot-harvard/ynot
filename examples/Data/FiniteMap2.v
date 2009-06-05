@@ -381,7 +381,7 @@ Module HashTable.
   Definition free_table_t(f:fmap_t)(n:nat) := (n <= table_size) -> 
     STsep (Exists l :@ _, iter_sep (wf_bucket f l) (table_size - n) n)
        (fun (_:unit) => 
-        iter_sep (fun i => let p := array_plus f i in p ~~ ptsto_any p) (table_size - n) n).
+        iter_sep (fun i => let p := array_plus f i in p ~~ p -->?) (table_size - n) n).
 
   Definition free_table(f:array)(n:nat) : free_table_t f n.
   intro f.
@@ -397,7 +397,7 @@ Module HashTable.
                  ((let p := array_plus f (table_size - (S i)) in p ~~ p --> fm) *
                   Exists l :@ _, iter_sep (wf_bucket f l) (table_size - i) i) ;; 
               free_tab i _ <@> 
-                (let p := array_plus f (table_size - (S i)) in p ~~ ptsto_any p ) @> _
+                (let p := array_plus f (table_size - (S i)) in p ~~ p -->?) @> _
           end) ; simpl ; intros ; try fold_ex_conc ; unfold ptsto_any, wf_bucket ; 
   sep fail auto ; try (rewrite (sub_succ H)) ; sep fail auto.
   Defined.

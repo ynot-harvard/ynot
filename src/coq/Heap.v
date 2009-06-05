@@ -27,7 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Arith QArith Bool.
+Require Import Arith QArith Bool Qcanon.
 
 Require Import Ynot.Axioms Ynot.PermModel.
 

@@ -28,7 +28,7 @@
  *)
 
 Require Import Arith QArith Bool.
-Require Export Qcanon.
+Require Import Qcanon.
 Opaque Qcplus. Opaque Qcopp.
 Require Import Ynot.Axioms.
 

@@ -188,7 +188,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
 
   Definition free_pre (f:array)(l:[alist_t])(n:nat) := l ~~ {@ wf_bucket f l i | i <- (HA.table_size - n) + n}.
-  Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in ptsto_any p | i <- (HA.table_size - n) + n}.
+  Definition free_post (f:array)(n:nat) (_:unit) := {@ p :~~ array_plus f i in p -->? | i <- (HA.table_size - n) + n}.
   Definition free_spec (f:array)(l:[alist_t])(n:nat) := (n <= HA.table_size) -> STsep (free_pre f l n) (free_post f n).
 
   (* This should be generalized for all finite maps. *)

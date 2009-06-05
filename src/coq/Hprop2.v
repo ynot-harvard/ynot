@@ -34,6 +34,7 @@ Require Import Ynot.Util.
 Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
 Require Import Ynot.Separation.
+Require Import Ynot.Sep.
 
 Set Implicit Arguments.
 

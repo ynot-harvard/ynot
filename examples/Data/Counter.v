@@ -31,8 +31,7 @@ Require Import Ynot.
  
 Set Implicit Arguments.
 
-Open Local Scope hprop_scope.
-
+Local Open Scope hprop_scope.
 
 Module Type COUNTER.
   Parameter t : Set.
@@ -52,8 +51,8 @@ Module Counter : COUNTER.
 
   Open Scope stsepi_scope.
 
-  Definition new : STsep __ (fun c => rep c 0).
-    refine {{New 0}}; t.
+  Definition new : STsep __ (fun c => rep c 00).
+    refine {{New 0}}%nat; t.
   Qed.
 
   Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __).
@@ -66,7 +65,7 @@ Module Counter : COUNTER.
   
   Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
     intros; refine (
-      n' <- !c;
+      n' <- !c; 
       {{c ::= S n'}}
     ); t.
   Qed.

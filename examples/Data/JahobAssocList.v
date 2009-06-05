@@ -343,7 +343,7 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
 
  Definition isEmpty: forall (p: t) (m: [list (prod K V)]),
    STsep (m ~~ rep p m) (fun r:bool => m ~~ rep p m * if r then [m = nil] else [m <> nil]).
-   intros; refine ( ohd <- SepRead p (fun ohd => m ~~ rep' ohd m)  ;
+   intros; refine ( ohd <- (p !! (fun ohd => m ~~ rep' ohd m))%stsep  ;
                     IfNull ohd 
                     Then  {{ Return true  }}
                     Else  {{ Return false }} ); t'. 
@@ -371,7 +371,7 @@ Definition remove_frame ls pn n k prev cur := Exists t :@ list (prod K V), [look
 Definition remove'' k ls prev pn cur : STsep (remove_pre k ls prev pn cur) (remove_post k ls prev pn cur).             
 intro k. refine (Fix4 (remove_pre k) (remove_post k)  
  (fun self ls prev pn cur =>        
-  n <- SepRead cur (fun n => ls ~~ remove_pre' k ls prev pn cur n);
+  n <- (cur !! (fun n => ls ~~ remove_pre' k ls prev pn cur n))%stsep;
   if eqK k (key n)  
   then Free cur ;;
         prev ::= node (key pn) (value pn) (next n) ;;  
@@ -391,8 +391,8 @@ t. t. t. t. t. sep fail auto. t'. tx. t'. t'. t'. instantiate (1:=v0). t. t. Qed
   hdptr <- ! p ;
   IfNull hdptr 
   Then {{ !!! }} 
-  Else hd <- SepRead hdptr (fun hd => m ~~ Exists tl :@ list (prod K V), p --> Some hdptr * Exists v :@ V, [lookup m k = Some v] *
-                                       [m = (key hd, value hd)::tl] * rep' (next hd) tl * [lookup tl (key hd) = None])   ;
+  Else hd <- (hdptr !! (fun hd => m ~~ Exists tl :@ list (prod K V), p --> Some hdptr * Exists v :@ V, [lookup m k = Some v] *
+                                       [m = (key hd, value hd)::tl] * rep' (next hd) tl * [lookup tl (key hd) = None]))%stsep   ;
           if eqK k (key hd)
           then Free hdptr ;;
                p ::= next hd ;; 

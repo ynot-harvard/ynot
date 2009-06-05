@@ -27,7 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *)
 
-Require Import Arith List QArith Bool.
+Require Import Arith List QArith Bool Qcanon.
 
 Require Import Ynot.Axioms.
 Require Import Ynot.Util.

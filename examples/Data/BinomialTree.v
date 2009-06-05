@@ -145,7 +145,7 @@ Definition merge : forall p1 p2 n (bt1 bt2: [btree A n]),
 Definition split: forall n (bt: [btree A (S n)]) p,
   STsep (bt ~~ rep (S n) bt p)
         (fun r => bt ~~ rep n (snd bt) p * rep n (fst bt) r). 
- refine (fun n bt p => bl <- SepRead p (fun bl => bt ~~ rep' (S n) bt bl)  ;  
+ refine (fun n bt p => bl <- (p !! (fun bl => bt ~~ rep' (S n) bt bl))%stsep  ;  
                        p ::= kids bl ;;
                        {{ Return (head bl) }}); t. Qed.
 
@@ -157,7 +157,7 @@ Definition asbtree' n (bt: [btree A n]) (bl: bltree n) :
 refine (fix F (n: nat) {struct n} : forall bt bl, STsep (bt ~~ rep' n bt bl) (fun r => bt ~~ rep' n bt bl * [r = bt]) :=
           match n as n return       forall (bt: [btree A n]) (bl: bltree n), STsep (bt ~~ rep' n bt bl) (fun r => bt ~~ rep' n bt bl * [r = bt])  with 
               | O    => fun bt bl => {{ SepReturn bl <@> _  }}
-              | S n' => fun bt bl => x   <- SepRead (head bl) (fun (x:bltree n') => bt ~~ rep' n' (kids bt) (kids bl)* rep' n' (head bt) x) ;      
+              | S n' => fun bt bl => x   <- ((head bl) !! (fun (x:bltree n') => bt ~~ rep' n' (kids bt) (kids bl)* rep' n' (head bt) x))%stsep ;      
                                      bth <- F n' (bt ~~~ head bt) x         <@> (bt ~~ head bl --> x * rep' n' (kids bt) (kids bl))   ; 
                                      btk <- F n' (bt ~~~ kids bt) (kids bl) <@> (bt ~~ head bl --> x * rep' n' (head bt) x * [bth = head bt])  ;
                                      {{ SepReturn (bth, btk) <@> _ }} 

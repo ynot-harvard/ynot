@@ -352,7 +352,7 @@ search_prem ltac:(apply rep2node_prem). sep fail idtac.
                <@> (f --> Some n * 
                  (l_left ~~ [distinct l_left] * rep' (node_left n) l_left) * 
                  (l ~~ [distinct l] * [AL.lookup (node_key n) l = Some (node_value n)]))}})).
-   Existential 5:=sym_eq H0. t. t. t. t. t. t. t. t. t. t.
+   Existential 6:=(sym_eq H0). t. t. t. t. t. t. t. t. t. t.
  Qed.
 
    Definition insert : T.insert.
