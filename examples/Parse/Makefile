@@ -1,6 +1,6 @@
 ROOT    := ../..
 
-VS      := Charset.v Stream.v Stream2.v Parsec2.v Parsec.v ParsecCombinators.v Packrat.v
+VS      := Charset.v Stream.v Parsec.v ParsecCombinators.v Packrat.v
 MODULES := $(VS:%.v=%)
 
 include ../Makefile.ynot
