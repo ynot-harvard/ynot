@@ -16,23 +16,23 @@ R=-R $(ROOT)/src/coq Ynot -R $(ROOT)/examples/Parse Parse -R $(ROOT)/examples/Da
 
 include ../Makefile.ynot
 
-#extract: coq ml/ExtractRules ../../mllib/ExtractTemplate.v $(MODULES:%.v=.extract/%.ml)
-#	@ cp ../../mllib/ExtractTemplate.v Extract.v
-#	@ echo >> Extract.v
-#	@ if [ -f ml/ExtractRules ]; then \
-#            cat ml/ExtractRules >> Extract.v; \
-#          fi
-#	@ echo >> Extract.v
-#	@ if [ -f ml/ExtractExtra ]; then \
-#            cat ml/ExtractExtra >> Extract.v; \
-#          fi
-#	$(COQC) $(COQ_OPTIONS) -I . Extract
-#	- for x in patch/*.patch; do patch -N -p0 < $$x; done
-#	@ rm -f Extract.v Extract.vo .extract/*.orig .extract/*.rej
+extract: coq ml/ExtractRules ../../mllib/ExtractTemplate.v $(MODULES:%.v=.extract/%.ml)
+	@ cp ../../mllib/ExtractTemplate.v Extract.v
+	@ echo >> Extract.v
+	@ if [ -f ml/ExtractRules ]; then \
+            cat ml/ExtractRules >> Extract.v; \
+          fi
+	@ echo >> Extract.v
+	@ if [ -f ml/ExtractExtra ]; then \
+            cat ml/ExtractExtra >> Extract.v; \
+          fi
+	$(COQC) $(COQ_OPTIONS) -I . Extract
+	- for x in patch/*.patch; do patch -N -p0 < $$x; done
+	@ rm -f Extract.v Extract.vo .extract/*.orig .extract/*.rej
 
-#.SUFFIXES: .v .ml .vo
+.SUFFIXES: .v .ml .vo
 
-#.v.vo: coq
+.v.vo: coq
 
 #$(MODULES:%.v=.extract/%.ml): $(@:.extract/%.ml=%.vo) ml/ExtractRules
 #	@ mkdir -p .extract
