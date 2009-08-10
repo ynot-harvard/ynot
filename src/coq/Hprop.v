@@ -44,6 +44,7 @@ Delimit Scope hprop_scope with hprop.
 
 Definition hprop_empty : hprop := eq empty.
 Notation "'__'" := hprop_empty : hprop_scope.
+Notation "'emp'" := hprop_empty : hprop_scope.
 
 Definition hprop_any : hprop := fun _ => True.
 Notation "??" := hprop_any : hprop_scope.

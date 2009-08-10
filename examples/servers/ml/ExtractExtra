@@ -1,0 +1,13 @@
+Cd ".extract".
+
+Require Import Compare_dec.
+Require Import Peano_dec.
+Require Import Euclid.
+
+Extraction Library Compare_dec.
+Extraction Library Peano_dec.
+Extraction Library Stream.
+Extraction Library Wf_nat.
+Extraction Library Euclid.
+
+Cd "..".

@@ -302,6 +302,7 @@ Ltac iter_imp :=
 
   Lemma iter_sep_any (len s:nat) P  : {@ P i * ??  | i <- s + len} ==> {@ P i | i <- s + len} * ??.
   Proof. intros. apply himp_empty_prem'.
+    Hint Resolve himp_any_conc.
   apply (@himp_trans_frame _ _ __ ({@P i | i <- (s) + len} * ??)
     ((iter_sep_star_conc len s P (fun _ => ??)))). sep fail auto.
   Qed.

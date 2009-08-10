@@ -331,6 +331,7 @@ Theorem himp_frame_conc : forall p q1 q2 q1',
   unfold hprop_imp, hprop_sep; firstorder.
 Qed.
 
+
 Theorem unpack : forall T (h : [T]) (P : Prop),
   (forall x, h = [x]%inhabited -> P)
   -> P.
@@ -357,4 +358,3 @@ Theorem himp_unpack_prem_alone : forall (T : Set) h (x : T) p1 p,
   apply himp_empty_prem.
   assumption.
 Qed.
-

@@ -61,28 +61,28 @@ Module Type COUNTER.
 
      We see these parameters in use in the type of the counter [new] operation. *)
 
-  Parameter new : STsep __ (fun c : t => rep c 0).
+  Parameter new : Cmd __ (fun c : t => rep c 0).
 
-  (** This type uses the [STsep] type family, our main parameterized monad.  The two explicit arguments are a precondition and a postcondition for this method, in the tradition of Hoare logic.  The precondition [__] describes an empty heap, and the postcondition [fun c => rep c 0] says that, if method execution terminates with a counter [c], then [c] represents 0 in the final heap.
+  (** This type uses the [Cmd] type family, our main parameterized monad.  The two explicit arguments are a precondition and a postcondition for this method, in the tradition of Hoare logic.  The precondition [__] describes an empty heap, and the postcondition [fun c => rep c 0] says that, if method execution terminates with a counter [c], then [c] represents 0 in the final heap.
      
-     The name [STsep] alludes to the foundation of this type family in %\emph{%#<i>#separation logic#</i>#%}%, following the %\emph{%#<i>#small footprint#</i>#%}% approach to specification.  The [new] method does not actually require that the heap be empty when the method is called.  Rather, the pre- and postconditions only specify the method's effects on %\emph{%#<i>#the part of the heap that the method touches#</i>#%}%.  We will see later how this property can be put to use in verification.
+     The name [Cmd] alludes to the foundation of this type family in %\emph{%#<i>#separation logic#</i>#%}%, following the %\emph{%#<i>#small footprint#</i>#%}% approach to specification.  The [new] method does not actually require that the heap be empty when the method is called.  Rather, the pre- and postconditions only specify the method's effects on %\emph{%#<i>#the part of the heap that the method touches#</i>#%}%.  We will see later how this property can be put to use in verification.
 
      The [free] method has a similar type, but it uses one new feature. *)
 
-  Parameter free : forall (c : t) (n : [nat]), STsep (n ~~ rep c n) (fun _ : unit => __).
+  Parameter free : forall (c : t) (n : [nat]), Cmd (n ~~ rep c n) (fun _ : unit => __).
 
   (** We write the type [nat] in brackets to indicate that that method argument is %\emph{%#<i>#computationally irrelevant#</i>#%}%.  That is, [n] is a so-called "ghost state" argument, used only to help us prove the correctness of this method.  The compiled version of this program will not contain [n].  In the precondition of [free], we use the notation [n ~~ p], where [p] is an [hprop] that may mention spec variable [n].  Each spec variable that an assertion uses must be unpacked explicitly in this way.
 
      The type of the method for reading a counter's value introduces two more new assertion constructs. *)
 
-  Parameter get : forall (c : t) (n : [nat]), STsep (n ~~ rep c n)
+  Parameter get : forall (c : t) (n : [nat]), Cmd (n ~~ rep c n)
     (fun n' => n ~~ rep c n * [n' = n]).
 
   (** In the postcondition, we see a sub-assertion [[n' = n]].  This is a lifted pure proposition; the assertion is true whenever [n' = n] and the heap is empty.  We combine that pure assertion with [rep c n] using the %\emph{%#<i>#separating comjunction#</i>#%}% [*].  An assertion [p * q] is true for heap [h] whenever [h] can be split into two disjoint pieces [h1] and [h2], such that [h1] satisfies [p] and [h2] satisfies [q].
 
      Now the type of the counter increment method should be unsurprising. *)
 
-  Parameter inc : forall (c : t) (n : [nat]), STsep (n ~~ rep c n)
+  Parameter inc : forall (c : t) (n : [nat]), Cmd (n ~~ rep c n)
     (fun _ : unit => n ~~ rep c (S n)).
 End COUNTER.
 
@@ -106,7 +106,7 @@ Module Counter : COUNTER.
 
   (** We implement the [new] method by %\emph{%#<i>#declaring it as a proof search goal#</i>#%}%, so that we can use tactics to discharge the obligations that we will generate. *)
 
-  Definition new : STsep __ (fun c => rep c 0).
+  Definition new : Cmd __ (fun c => rep c 0).
     refine {{New 0}}; t.
   Qed.
 
@@ -114,7 +114,7 @@ Module Counter : COUNTER.
 
      It is instructive to see exactly which subgoals are being proved for us. *)
 
-  Definition new' : STsep __ (fun c => rep c 0).
+  Definition new' : Cmd __ (fun c => rep c 0).
     refine {{New 0}}.
     (** [[
 
@@ -139,15 +139,15 @@ subgoal 2 is:
 
   (** The remaining method definitions are (perhaps surprisingly) quite straightforward.  We use ML-style operators for working with pointers, writing prefix [!] for reading and infix [::=] for writing.  We use Haskell-style [<-] notation for the monad "bind" operator. *)
 
-  Definition free : forall c n, STsep (n ~~ rep c n) (fun _ : unit => __).
+  Definition free : forall c n, Cmd (n ~~ rep c n) (fun _ : unit => __).
     intros; refine {{Free c}}; t.
   Qed.
 
-  Definition get : forall c n, STsep (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n]).
+  Definition get : forall c n, Cmd (n ~~ rep c n) (fun n' => n ~~ rep c n * [n' = n]).
     intros; refine {{!c}}; t.
   Qed.
   
-  Definition inc : forall c n, STsep (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
+  Definition inc : forall c n, Cmd (n ~~ rep c n) (fun _ : unit => n ~~ rep c (S n)).
     intros; refine (
       n' <- !c;
       {{c ::= S n'}}

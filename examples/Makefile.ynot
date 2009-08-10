@@ -11,10 +11,19 @@ ifndef OCAMLOPT
   OCAMLOPT := ocamlopt
 endif
 
-R        := -R $(ROOT)/src/coq Ynot -R $(ROOT)/examples/Data Data
+R        := -R $(ROOT)/src/coq Ynot \
+            -R $(ROOT)/examples/Data Data \
+            -R $(ROOT)/examples/Parse Parse \
+            -R $(ROOT)/examples/IO IO
 
-MODULES_T := $(wildcard *.v)
-MODULES   := $(filter-out Extract.v,$(MODULES_T))
+ifdef VS
+  MODULES := $(VS)
+else
+  VS      := $(wildcard *.v)
+  VS      := $(filter-out Extract.v,$(VS))
+  MODULES := $(VS)
+endif
+
 
 COMPFLAGS := -I ./ocaml -I .extract -I $(ROOT)/src/ocaml/
 
@@ -26,13 +35,17 @@ coq: Makefile.coq $(MODULES)
 	$(MAKE)  -f Makefile.coq
 
 Makefile.coq: $(ROOT)/src/coq/Ynot.vo $(MODULES)
-	coq_makefile $(R) -o Makefile.coq $(MODULES)
+	coq_makefile $(MODULES) -I . $(R) \
+	    COQDEP = "coqdep -I . $(R)" \
+	    -o Makefile.coq \
+
 
 clean::
 	touch .depend
 	rm -rf .extract/
 	rm -f *.vo .depend Makefile.coq	main.byte main.native
 	rm -f ocaml/*.cmo ocaml/*.cmi ocaml/*.cmx ocaml/*.o
+	rm -f *.v.d
 
 $(ROOT)/src/coq/Ynot.vo: 
 	(cd $(ROOT)/src; $(MAKE))

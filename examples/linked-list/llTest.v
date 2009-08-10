@@ -37,61 +37,61 @@ Open Local Scope char_scope.
 Open Local Scope stsepi_scope.
 Open Local Scope hprop_scope.
 
-Module CharDecDomain : DECIDABLE_DOMAIN with Definition A := ascii.
-  Definition A : Set := ascii.
+Definition CharLL := HeapLinkedListSeg ascii.
 
-  Definition eq_bool : forall (a b : bool), {a = b} + {a <> b}.
-    decide equality.
-  Qed.
-  Definition eq_a : forall (a b : A), {a = b} + {a <> b}.
-    decide equality; apply eq_bool.
-  Qed.
-End CharDecDomain.
+Definition llseg := @llseg ascii CharLL.
+Definition nil_empty := @nil_empty ascii CharLL.
+Definition cons := @LinkedListSeg.cons ascii CharLL.
+Definition empty := @LinkedListSeg.empty ascii CharLL.
+Definition append := @LinkedListSeg.append ascii CharLL.
 
-Module CharLL := HeapLinkedList(CharDecDomain).
-Export CharLL.A.
-
-Lemma nil_empty : forall p q, CharLL.llseg p q nil ==> __.
-  intros.
-  apply (@himp_trans [p = q]).
-  apply CharLL.nil_empty.
-  sep fail auto.
-Qed.
 Hint Resolve nil_empty.
+Hint Resolve pack_injective.
+Opaque LinkedListSeg.llseg.
 
-Theorem himp_unpack_conc_meta : forall T x (y:[T]) p1 p2 p,
-  p ==> p1 x * p2
-  -> y = [x]%inhabited
-  -> p ==> hprop_unpack y p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
-  generalize (H _ H1).
-  firstorder.
-Qed.
+Ltac unify' :=
+  search_conc ltac:(idtac;match goal with
+                            | [ |- _ ==> LinkedListSeg.llseg ?X _ _ * _ ] =>
+                              search_prem ltac:(idtac;match goal with
+                                                        | [ |- LinkedListSeg.llseg X _ _ * _ ==> _ ] => 
+                                                          eapply himp_frame; eauto
+                                                      end)
+                          end).
+
+Ltac tac :=
+  solve [ unfold llist; intros; inhabiter; unpack_conc; sep fail auto
+        | sep fail auto
+        | unfold llist; intros; inhabiter; unpack_conc; sep fail auto;
+          try match goal with
+                | [ |- _ ==> llseg' None None ?X ] => equate X (@nil ascii)
+              end;
+          unify';
+          sep fail auto ].
 
 Definition main : STsep (__) (fun _:unit => __).
    refine (
-     hello <- CharLL.empty;
-     hello <- CharLL.cons " " hello [None] _;
-     hello <- CharLL.cons "o" hello [None] _;
-     hello <- CharLL.cons "l" hello [None] _;
-     hello <- CharLL.cons "l" hello [None] _;
-     hello <- CharLL.cons "e" hello [None] _;
-     hello <- CharLL.cons "h" hello [None] _;
+     hello <- empty ;
+     hello <- cons " " hello [None] _;
+     hello <- cons "o" hello [None] _;
+     hello <- cons "l" hello [None] _;
+     hello <- cons "l" hello [None] _;
+     hello <- cons "e" hello [None] _;
+     hello <- cons "h" hello [None] _;
 
-     world <- CharLL.empty <@> _;
-     world <- CharLL.cons "!" world [None] _ <@> _;
-     world <- CharLL.cons "d" world [None] _ <@> _;
-     world <- CharLL.cons "l" world [None] _ <@> _;
-     world <- CharLL.cons "r" world [None] _ <@> _;
-     world <- CharLL.cons "o" world [None] _ <@> _;
-     world <- CharLL.cons "w" world [None] _ <@> _;
+     world <- empty  <@> _;
+     world <- cons "!" world [None] _ <@> _;
+     world <- cons "d" world [None] _ <@> _;
+     world <- cons "l" world [None] _ <@> _;
+     world <- cons "r" world [None] _ <@> _;
+     world <- cons "o" world [None] _ <@> _;
+     world <- cons "w" world [None] _ <@> _;
 
-     hello_world <- CharLL.append hello world _ _ <@> _;
+     hello_world <- append hello world _ _ <@> _;
      
-     str <- CharLL.elements hello_world _ _;
+     str <- elements  hello_world _ _;
      printStringLn' (str) <@> _;;
-     hello_world <- CharLL.freeList hello_world None _;
+     hello_world <- freeList  hello_world None _;
      {{Return tt}}
-   ); solve [ unfold CharLL.llist; intros; inhabiter; unpack_conc; sep fail auto
-   | sep fail auto ].
- Qed.
+   );
+   tac.
+Qed.

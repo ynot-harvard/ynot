@@ -80,6 +80,6 @@ Module RefAssocList(Assoc:ASSOCIATION) : FINITE_MAP with Module A := Assoc.
   ; t. Defined.
 
   Lemma perm : T.perm. s; t. Qed.
-  Lemma distinct : T.distinct. s; t. Qed.
+  Lemma distinct : T.distinct. Hint Resolve himp_any_conc. s; t. Qed.
 
 End RefAssocList.
