@@ -316,6 +316,25 @@ Proof.
   destruct (H _ Px) as [? [? [? [[? ?] ?]]]]; trivial.
 Qed.
 
+Lemma himp_any_ret (P:Prop) : P -> forall h, ([P] * ??)%hprop h.
+Proof.
+ red. repeat econstructor;  firstorder.
+Qed.
+
+Lemma himp_cell_same : forall (T:Set) p (q q' : perm) (v v' : T) P Q,
+    (q |#| q' -> v = v' -> p -[q]-> v * p -[q']-> v' * P ==> Q) ->
+    p -[q]-> v * p -[q']-> v' * P ==> Q.
+Proof.
+ intros.
+ eapply (@add_fact (q |#| q' /\ v = v')); intuition.
+ red. intros. destruct H0 as [? [? ?]]. intuition.
+ apply himp_any_ret.
+ destruct H1. destruct H0. destruct H3. subst.
+ specialize (H1 p).
+ rewrite H0, H3 in H1.
+ simpl in H1; intuition.
+ apply Dyn_inj. auto.
+Qed.
 
 Theorem himp_frame_prem : forall p1 p2 q p1',
   p1 ==> p1'
