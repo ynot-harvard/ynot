@@ -84,30 +84,33 @@ Definition dd n :=
     | _ => "x"
   end.
 
- Fixpoint div_mod_10 (a q : nat) {struct a} :=
-   match a with
-     | 0 => (q,0)
-     | 1 => (q,1)
-     | 2 => (q,2)
-     | 3 => (q,3)
-     | 4 => (q,4)
-     | 5 => (q,5)
-     | 6 => (q,6)
-     | 7 => (q,7)
-     | 8 => (q,8)
-     | 9 => (q,9)
-     | S (S (S (S (S (S (S (S (S (S n))))))))) => div_mod_10 n (S q)
-   end.
+Fixpoint div_mod_10 (a q : nat) {struct a} :=
+  match a with
+    | 0 => (q,0)
+    | 1 => (q,1)
+    | 2 => (q,2)
+    | 3 => (q,3)
+    | 4 => (q,4)
+    | 5 => (q,5)
+    | 6 => (q,6)
+    | 7 => (q,7)
+    | 8 => (q,8)
+    | 9 => (q,9)
+    | S (S (S (S (S (S (S (S (S (S n))))))))) => div_mod_10 n (S q)
+  end.
 
- Fixpoint ntos (x : nat) (n : nat) (l : list ascii) {struct x} :=
-   match n with
-     | 0 => match l with
-              | nil => "0" :: l
-              | _ => l
-            end
-     | _ => let (q,r) := div_mod_10 n 0 in
-       match x with
-         | 0 => "t" :: "o" :: "o" ::" " :: "b" :: "i" :: "g" :: nil
-         | S x' => ntos x' q (dd r :: l)
-       end
-   end.
+Fixpoint ntos' (x : nat) (n : nat) (l : list ascii) {struct x} :=
+  match n with
+    | 0 => match l with
+             | nil => "0" :: l
+             | _ => l
+           end
+    | _ => let (q,r) := div_mod_10 n 0 in
+      match x with
+        | 0 => "t" :: "o" :: "o" ::" " :: "b" :: "i" :: "g" :: nil
+        | S x' => ntos' x' q (dd r :: l)
+      end
+  end.
+
+Definition ntos (x : nat) : string := la2str (ntos' x x nil).
+

@@ -26,7 +26,7 @@ Module UdpEchoServer : UdpServer.EXECPARAMS.
   Definition io : forall (req : list ascii) (tr : [Trace]),
     STsep (tr ~~ traced tr)
           (fun r:(list ascii * [Trace])=> tr ~~ tr' :~~ (snd r) in traced (tr' ++ tr) * [reply req (fst r)] * [ccorrect req tr']).
-    intros. refine ( {{Return (req, [nil]%inhabited)}} ).
+    refine (fun req tr => {{Return (req, [nil]%inhabited)}} ).
     solve [ sep fail auto ].
     solve [ unfold ccorrect, reply; intros; simpl; inhabiter; unpack_conc; intro_pure; subst; sep fail auto ].
   Qed.
@@ -66,7 +66,7 @@ Module TcpEchoServer : TcpServer.STATELESS_EXECPARAMS.
   Definition io : forall (local remote : SockAddr) (fd : File (BoundSocketModel local remote) (R :: W :: nil)) (tr : [Trace]),
     STsep (tr ~~ traced tr * handle fd)
           (fun tr':[Trace] => tr ~~ tr' ~~ traced (tr' ++ tr) * [ccorrect fd tr']).
-    intros. refine (
+    refine (fun local remote fd tr =>
       lt <- Fix (fun tr' => tr ~~ tr' ~~ traced (tr' ++ tr) * [ecorrect fd tr'] * handle fd)
                 (fun _ tr' => tr ~~ tr' ~~ traced (tr' ++ tr) * [ccorrect fd tr'])
                 (fun self tr' => 
