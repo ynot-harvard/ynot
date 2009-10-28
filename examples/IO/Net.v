@@ -10,6 +10,7 @@ Open Local Scope hprop_scope.
 (** Socket Address **)
 Axiom axiom_SockAddr : Set.
 Definition SockAddr := axiom_SockAddr.
+Definition SockAddrModel := unit.
 
 (** constructor for socket addresses **)
 Axiom axiom_sockaddr : forall (n1 n2 n3 n4 : sig (fun x : nat => x <= 255))
@@ -17,19 +18,48 @@ Axiom axiom_sockaddr : forall (n1 n2 n3 n4 : sig (fun x : nat => x <= 255))
   STsep (__)
         (fun r : SockAddr => hprop_empty).
 Definition sockaddr := axiom_sockaddr.
+Definition sockaddr_model :  forall (n1 n2 n3 n4 : sig (fun x : nat => x <= 255))
+  (port : nat),
+  STsep (__)
+        (fun r : SockAddrModel => hprop_empty).
+Proof.
+ intros. refine {{ Return tt }}; sep fail auto.
+Qed.
 
 Axiom axiom_sock_eq : forall (sa1 sa2 : SockAddr), {sa1 = sa2} + {sa1 <> sa2}.
 Definition sock_eq := axiom_sock_eq.
+Definition sock_eq_model : forall (sa1 sa2 : SockAddrModel), {sa1 = sa1} + {sa1 <> sa2}.
+Proof.
+ intros. left. trivial.
+Qed.
 
 (** UDP Sockets **)
 Axiom axiom_UDP_Sent : SockAddr -> SockAddr -> list ascii -> Action.
+Definition UDP_Sent_Model (x y: SockAddrModel) (z: list ascii) : Action_model := tt.
+
 Axiom axiom_UDP_Recd : SockAddr -> SockAddr -> list ascii -> Action.
+Definition UDP_Recd_Model (x y: SockAddrModel) (z: list ascii) : Action_model := tt.
+
 Axiom axiom_UDP_send : forall (local remote: SockAddr) (s: list ascii) (tr: [Trace]),
   STsep (tr ~~ traced tr)
         (fun r:unit => tr ~~ traced (axiom_UDP_Sent local remote s :: tr)).   
+
+Definition UDP_send_Model (local remote: SockAddrModel) (s: list ascii) (tr: [TraceModel]) :
+  STsep (tr ~~ traced_model tr)
+        (fun r:unit => tr ~~ traced_model (UDP_Sent_Model local remote s :: tr)).
+Proof.
+ intros. refine {{ Return tt }}; sep fail auto.
+Qed.
+
 Axiom axiom_UDP_recv : forall (local: SockAddr) (tr: [Trace]),
   STsep (tr ~~ traced tr) 
         (fun r => tr ~~  traced (axiom_UDP_Recd local (fst r) (snd r) :: tr)).
+Definition UDP_recv_model (local: SockAddrModel) (tr: [TraceModel]) :
+  STsep (tr ~~ traced_model tr)
+        (fun r => tr ~~ traced_model (UDP_Recd_Model local (fst r) (snd r) :: tr)).
+Proof.
+ intros. refine {{ Return (tt,nil) }}; sep fail auto.
+Qed.
 
 Module UDP.
 

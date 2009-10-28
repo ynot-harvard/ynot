@@ -12,37 +12,49 @@ Inductive mode : Set := R | W.
 
 Axiom axiom_fd_model : Set.
 Definition fd_model := axiom_fd_model.
+Definition fd_model_model := unit.
 
 (** File Descriptors **)
 Axiom axiom_File : fd_model -> list mode -> Set.
 Definition File := axiom_File.
+Definition File_model : fd_model_model -> list mode -> Set :=
+ fun _ _ => unit.
 
 (** TODO: Should avoid this being an axiom **)
 Axiom axiom_handle : forall (fm : fd_model) (ms : list mode),  File fm ms -> hprop.
 Definition handle := axiom_handle.
+Definition handle_model (fm: fd_model_model) (ms: list mode) : File_model fm ms -> hprop :=
+ fun _ => [True].
 
 (** TTY **)
 Axiom axiom_TtyModel : fd_model.
 Definition TtyModel := axiom_TtyModel.
+Definition TtyModelModel : fd_model_model := tt.
 
 Axiom axiom_stdout : File TtyModel (W :: nil).
 Definition stdout := axiom_stdout.
+Definition stdout_model : File_model TtyModelModel (W::nil) := tt.
 
 Axiom axiom_stdin : File TtyModel (R :: nil).
 Definition stdin := axiom_stdin.
+Definition stdin_model : File_model TtyModelModel (R::nil) := tt.
 
 (** Actions **)
 Axiom axiom_Read : forall (fm : fd_model) (ms : list mode),  File fm ms -> option ascii -> Action.
 Definition Read := axiom_Read.
+Definition ReadModel (fm: fd_model_model) (ms: list mode) (_: File_model fm ms) (_:option ascii) : Action_model := tt.
 
 Axiom axiom_Write : forall (fm : fd_model) (ms : list mode),  File fm ms -> ascii -> Action.
 Definition Write := axiom_Write.
+Definition WriteModel (fm: fd_model_model) (ms: list mode) (_: File_model fm ms) (_: ascii) : Action_model := tt.
 
 Axiom axiom_Flush : forall (fm : fd_model) (ms : list mode),  File fm ms -> Action.
 Definition Flush := axiom_Flush.
+Definition FlushModel (fm: fd_model_model) (ms: list mode) : File_model fm ms -> Action_model := fun _ => tt.
 
 Axiom axiom_Close : forall (fm : fd_model) (ms : list mode), File fm ms -> Action.
 Definition Close := axiom_Close.
+Definition CloseModel (fm: fd_model_model) (ms: list mode) : File_model fm ms -> Action_model := fun _ => tt.
 
 Theorem ro_readable : In R (R :: nil).
   simpl; tauto.
@@ -72,29 +84,59 @@ Axiom axiom_read : forall (m : fd_model) (ms : list mode) (fd : File m ms) (tr :
   STsep (tr ~~ traced tr * handle fd)
         (fun chr:option ascii => tr ~~ traced (Read fd chr :: tr) * handle fd).
 Definition read := axiom_read.
+Definition read_model : forall (m : fd_model_model) (ms : list mode) (fd : File_model m ms) (tr : [TraceModel])
+  (allow : In R ms),
+  STsep (tr ~~ traced_model tr * handle_model fd)
+        (fun chr:option ascii => tr ~~ traced_model (ReadModel fd chr :: tr) * handle_model fd).
+Proof.
+ intros. refine {{ Return None }}; sep fail auto.
+Qed.
 
 Axiom axiom_write : forall (m : fd_model) (ms : list mode) (fd : File m ms) (chr : ascii)
   (tr : [Trace]) (allow : In W ms),
   STsep (tr ~~ traced tr * handle fd)
         (fun _:unit => tr ~~ traced (Write fd chr :: tr) * handle fd).
 Definition write := axiom_write.
+Definition write_model : forall (m : fd_model_model) (ms : list mode) (fd : File_model m ms) (chr : ascii)
+  (tr : [TraceModel]) (allow : In W ms),
+  STsep (tr ~~ traced_model tr * handle_model fd)
+        (fun _:unit => tr ~~ traced_model (WriteModel fd chr :: tr) * handle_model fd).
+Proof.
+ intros; refine {{ Return tt }}; sep fail auto.
+Qed.
 
 Axiom axiom_flush : forall (m : fd_model) (ms : list mode) (fd : File m ms) (tr :[Trace])
   (allow : In W ms),
   STsep (tr ~~ traced tr * handle fd)
         (fun _:unit => tr ~~ traced (Flush fd :: tr) * handle fd).
 Definition flush := axiom_flush.
+Definition flush_model : forall (m : fd_model_model) (ms : list mode) (fd : File_model m ms) (tr :[TraceModel])
+  (allow : In W ms),
+  STsep (tr ~~ traced_model tr * handle_model fd)
+        (fun _:unit => tr ~~ traced_model (FlushModel fd :: tr) * handle_model fd).
+Proof.
+ intros; refine {{ Return tt }}; sep fail auto.
+Qed.
 
 Axiom axiom_close : forall (m : fd_model) (ms : list mode) (fd : File m ms),
   STsep (handle fd)
         (fun _:unit => __).
 Definition close := axiom_close.
+Definition close_model : forall (m : fd_model_model) (ms : list mode) (fd : File_model m ms),
+  STsep (handle_model fd)
+        (fun _:unit => __).
+Proof.
+ unfold handle_model.
+ intros; refine {{ Return tt }}; sep fail auto.
+Qed.
 
 Axiom axiom_FileModel : string -> fd_model.
 Definition FileModel := axiom_FileModel.
+Definition FileModel_model (_: string) : fd_model_model := tt.
 
 Axiom axiom_AccessibleFile : string -> Prop.
 Definition AccessibleFile := axiom_AccessibleFile.
+Definition AccessibleFile_model (_: string) : Prop := False.
 
 Axiom axiom_open : forall (ms : list mode) (path : string),
   STsep (__)
@@ -103,6 +145,15 @@ Axiom axiom_open : forall (ms : list mode) (path : string),
                                   | Some fd => handle fd * [AccessibleFile path]
                                 end).
 Definition open := axiom_open.
+Definition open_model : forall (ms : list mode) (path : string),
+  STsep (__)
+        (fun ofd:option (File_model (FileModel_model path) ms) => match ofd with
+                                  | None => [~AccessibleFile_model path]
+                                  | Some fd => handle_model fd * [AccessibleFile_model path]
+                                end).
+Proof.
+ intros; refine {{ Return None }}; sep fail auto.
+Qed.
 
 (** Derived Equations **)
 Definition WroteString (m : fd_model) (ms : list mode) (fd : File m ms)

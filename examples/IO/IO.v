@@ -9,16 +9,21 @@ Open Local Scope hprop_scope.
 (* Mimic open types *)
 Axiom axiom_Action : Set.
 Definition Action := axiom_Action.
+Definition Action_model := unit.
                                 
 Definition Trace := list Action.
+Definition TraceModel := list Action_model.
 
 Axiom axiom_traced : Trace -> hprop.
 Definition traced := axiom_traced.
+Definition traced_model (t: TraceModel) := [True]. 
 
 Axiom axiom_getT : forall (P : Trace -> hprop),
   STsep (Exists t :@ Trace, traced t * P t)
         (fun t:[Trace] => t ~~ traced t * P t).
 Definition getT := axiom_getT.
+(* comment by ryan: not sure how to implement getT 
+   without shift, but we think we don't need it anyway *)
 
 Definition forever : forall (I : Trace -> hprop)
   (B : forall t', STsep (t' ~~ traced t' * I t')
