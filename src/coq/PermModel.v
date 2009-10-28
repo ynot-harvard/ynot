@@ -123,8 +123,8 @@ Proof.
   rewrite andb_false_r. rewrite orb_false_r.
   generalize (Qle_bool_iff 0 p); intro; destruct (Qle_bool 00 p); simpl; trivial.
   generalize (Qle_bool_iff 0 (- p)%Qc); intro; destruct (Qle_bool 0 (- p)%Qc); simpl; trivial.
-  generalize (((proj1 H0) (eq_refl true))); clear H0; intro H0.
-  generalize (((proj1 H1) (eq_refl true))); clear H1; intro H1.
+  generalize (((proj1 H0) (reflexivity true))); clear H0; intro H0.
+  generalize (((proj1 H1) (reflexivity true))); clear H1; intro H1.
   generalize (proj2 (Qcle_minus_iff p 0)). simpl.
   rewrite Qcplus_0_l. intro.
   generalize (H2 H1). intro.

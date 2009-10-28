@@ -212,7 +212,7 @@ Ltac specFinder stac :=
   inhabiter; try (stac; inhabiter);
     
   try match goal with
-        | [ |- ?P ==> Exists v :@ ?T, (_ ~~ ?ptr -[ _ ]-> v * ?Q v)%hprop ] =>
+        | [ |- ?P ==> Exists v :@ ?T, (hprop_unpack _ (fun _ => ?ptr -[ _ ]-> v * ?Q v))%hprop ] =>
           match findContents ptr P with
             | (?V, ?P) =>
               apply himp_empty_conc';
@@ -327,7 +327,7 @@ Ltac specFinder stac :=
                             end
           end
 
-        | [ |- ?P ==> ?Q * Exists v :@ _, (_ ~~ ?ptr -[ _ ]-> v)%hprop ] =>
+        | [ |- ?P ==> ?Q * Exists v :@ _, (hprop_unpack _ (fun _ => ?ptr -[ _ ]-> v))%hprop ] =>
           match findContents ptr P with
             | (?V, ?P) =>
               let F := fresh "F" with F2 := fresh "F2" in
