@@ -29,7 +29,8 @@ Definition iter_post (local remote : Net.SockAddr) (req rep : list ascii)
 Definition iter : forall (local remote : Net.SockAddr)
   (fd : File (BoundSocketModel local remote) (R :: W :: nil)) (tr : [Trace]),
   STsep (tr ~~ IO.traced tr * [secure fd] * handle FS.stdin * handle FS.stdout * handle fd)
-        (fun _:unit => tr ~~ Exists req :@ list ascii, Exists rep :@ list ascii,
+        (fun tr':[Trace] => tr ~~ tr' ~~ Exists req :@ list ascii, Exists rep :@ list ascii,
+          [tr' = WroteString stdout rep ++ ReadLine fd rep ++ Flush fd :: WroteString fd req ++ ReadLine stdin req] *
           traced (iter_post req rep fd tr) * [secure fd] * handle FS.stdin * handle FS.stdout * handle fd).
   refine (fun local remote fd tr =>
     ln <- readline FS.stdin FS.ro_readable tr <@> _ ;
@@ -37,7 +38,7 @@ Definition iter : forall (local remote : Net.SockAddr)
     flush fd (tr ~~~ WroteString fd ln ++ ReadLine stdin ln ++ tr) rw_writeable <@> _;;
     reply <- readline fd rw_readable (tr ~~~ Flush fd :: WroteString fd ln ++ ReadLine stdin ln ++ tr) <@> _ ;
     writeline FS.stdout reply FS.wo_writeable (tr ~~~ ReadLine fd reply ++ Flush fd :: WroteString fd ln ++ ReadLine stdin ln ++ tr) <@> _;;
-    {{Return tt}});
+    {{Return (tr ~~~ WroteString FS.stdout reply ++ ReadLine fd reply ++ Flush fd :: WroteString fd ln ++ ReadLine stdin ln)}});
   rsep fail auto; sep fail auto.
 Qed.
 
@@ -60,17 +61,14 @@ Definition client : forall (local remote : Net.SockAddr) (tr : [Trace]),
     xxx <- IO.forever 
              (fun t:Trace => [trace skt t] * handle skt * [secure skt] * handle FS.stdin * handle FS.stdout)
              (fun t:[Trace] => 
-               {{iter skt t <@> _}})
+               {{ iter skt t <@> _ }})
              [nil] ;
     close skt;;
     {{Return tt}}); try unfold iter_post.
   solve [ rsep fail auto ].
   solve [ rsep fail auto ].
   solve [ intros; inhabiter; unpack_conc; canceler; sep fail auto ]. (** rsep doesn't have good enough support for re-packing **)
-  solve [ sep fail auto;
-  instantiate (1 := WroteString stdout v1 ++
-    ReadLine skt v1 ++ Flush skt :: WroteString skt v0 ++ ReadLine stdin v0);
-    repeat rewrite app_ass; rewrite list_fix; canceler;  sep fail ltac:(econstructor; auto) ].
+  sep fail auto. repeat rewrite app_ass.  rewrite list_fix. sep fail ltac:(econstructor; auto). 
   solve [ rsep fail ltac:(auto; econstructor) ].
   solve [ rsep fail auto ].
   solve [ destruct xxx ].

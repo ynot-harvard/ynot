@@ -166,7 +166,7 @@ Module ExecImpl(A : STATE_EXECPARAMS).
                     [correct local m0 m t] * [inv m] * rep (fst ctx) m)))
               (fun ctx t => 
                 x <- iter lsock (fst ctx) (snd cm) (snd ctx) t;
-                {{Return (fst ctx, snd x)}})
+                {{Return ((fst ctx, snd x), fst x)}})
               [nil] <@> _;
       close lsock;;
             

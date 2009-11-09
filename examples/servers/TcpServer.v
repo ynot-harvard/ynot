@@ -167,7 +167,7 @@ Module ExecImpl(A : STATE_EXECPARAMS).
   Definition main (local: Net.SockAddr) : 
     STsep (traced nil)
           (fun _:unit => Exists t :@ Trace, traced t).
-    intros. refine (    
+    refine (fun local =>
       (** Open a listen socket **)
       lsock <- TCP.listenSocket local <@> _;
 
@@ -182,7 +182,7 @@ Module ExecImpl(A : STATE_EXECPARAMS).
                     [correct local m0 m t] * [inv m] * rep (fst ctx) m)))
               (fun ctx t => 
                 x <- iter lsock (fst ctx) (snd cm) (snd ctx) t;
-                {{Return (fst ctx, snd x)}})
+                {{Return ((fst ctx, snd x), fst x)}})
               [nil] <@> _;
       close lsock;;
             

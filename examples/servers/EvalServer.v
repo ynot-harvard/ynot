@@ -34,7 +34,7 @@ Module PrefixServer : EVALPARAMS.
  Open Scope char_scope.
 
  Definition e : list ascii := str2la "error"%string.
- Definition f x := ntos 3 x nil.
+ Definition f x := str2la (ntos x).
 
 End PrefixServer.
 

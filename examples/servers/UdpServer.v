@@ -71,7 +71,7 @@ Module ExecImpl(A : EXECPARAMS).
             Exists remote :@ Net.SockAddr, Exists s :@ list ascii, Exists rp :@ list ascii, Exists it :@ Trace, [reply s rp] *
             [r = Net.UDP.Sent local remote rp :: it ++ Net.UDP.Recd local remote s :: nil] * IO.traced (r ++ tr)).
 **)
-  intros. refine (
+  refine (fun local tr =>
     x <- Net.UDP.recv local tr <@> _;
     rtr <- io (snd x) (tr ~~~ UDP.Recd local (fst x) (snd x) :: tr) <@> _;
     UDP.send local (fst x) (fst rtr)
@@ -92,12 +92,10 @@ Qed.
 Definition main (local: Net.SockAddr) : 
   STsep (traced nil)
         (fun _:unit => Exists t :@ Trace, traced t).
-  intros. refine (
+  refine (fun local => 
     xxx <- IO.forever
              (fun t => [correct local t])
-             (fun t =>
-               x <- iter local t;
-               {{Return tt}})
+             (fun t => {{ iter local t }})
              [nil];
    {{Return tt}});
   sep fail ltac:(auto; try constructor).

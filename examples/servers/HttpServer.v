@@ -29,7 +29,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
 
   Definition crlf : string := String (ascii_of_nat 13) (String (ascii_of_nat 10) EmptyString).
 
-  Definition HTTP_ok  (len : nat) := str2la ("HTTP/1.0 200 OK" ++ crlf ++ "Content-Length: " ++ (la2str (ntos 10 len nil)) ++ crlf ++ crlf)%string.
+  Definition HTTP_ok  (len : nat) := str2la ("HTTP/1.0 200 OK" ++ crlf ++ "Content-Length: " ++ (ntos len) ++ crlf ++ crlf)%string.
   Definition HTTP_bad             := str2la "HTTP/1.0 400 Bad Request".
 
   Definition ReadQuery (fp : list mode) (fm : fd_model) (fd : File fm fp) strs :=

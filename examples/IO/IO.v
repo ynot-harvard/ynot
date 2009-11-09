@@ -18,34 +18,26 @@ Axiom axiom_traced : Trace -> hprop.
 Definition traced := axiom_traced.
 Definition traced_model (t: TraceModel) := [True]. 
 
-Axiom axiom_getT : forall (P : Trace -> hprop),
-  STsep (Exists t :@ Trace, traced t * P t)
-        (fun t:[Trace] => t ~~ traced t * P t).
-Definition getT := axiom_getT.
-(* comment by ryan: not sure how to implement getT 
-   without shift, but we think we don't need it anyway *)
-
 Definition forever : forall (I : Trace -> hprop)
   (B : forall t', STsep (t' ~~ traced t' * I t')
-        (fun _:unit => t' ~~ Exists t'' :@ Trace, traced (t'' ++ t') * I (t'' ++ t')))
+        (fun t'':[Trace] => t' ~~ t'' ~~ traced (t'' ++ t') * I (t'' ++ t')))
   (t' : [Trace]), 
   STsep (t' ~~ traced t' * I t')
         (fun _:Empty_set => t' ~~ Exists t'' :@ Trace, traced (t'' ++ t') * I (t'' ++ t') * [False]).
-  intros. refine (
+  refine (fun I B t' =>
     Fix (fun t => t ~~ traced t * I t)
         (fun t (_:Empty_set) => t ~~ Exists t'' :@ Trace, traced (t'' ++ t) * I (t'' ++ t) * [False])
         (fun self t =>
-          B t;;
-          tr' <- getT I;
-          {{self tr'}}
-        ) t');
-    solve [ sep fail auto ].
+          tr' <- B t;
+          {{self (inhabit_unpack' t (fun t => inhabit_unpack tr' (fun tr' => tr' ++ t))) }}
+        ) t'); 
+  sep fail auto.
 Qed.
 
 Definition foreverInv : forall (CTX : Type) (ctx : CTX) (I : CTX -> Trace -> hprop)
   (B : forall ctx t', 
          STsep (t' ~~ traced t' * I ctx t')
-               (fun ctx':CTX => t' ~~ Exists t'' :@ Trace, traced (t'' ++ t') * I ctx' (t'' ++ t')))
+               (fun ctx':CTX * [Trace] => t' ~~ t'' :~~ snd ctx' in traced (t'' ++ t') * I (fst ctx') (t'' ++ t')))
   (t' : [Trace]), 
   STsep (t' ~~ traced t' * I ctx t')
         (fun _:Empty_set => t' ~~ Exists t'' :@ Trace, Exists ctx' :@ CTX, traced (t'' ++ t') * I ctx' (t'' ++ t') * [False]).
@@ -54,9 +46,11 @@ Definition foreverInv : forall (CTX : Type) (ctx : CTX) (I : CTX -> Trace -> hpr
          (fun ctx t (_:Empty_set) => t ~~ Exists t'' :@ Trace, Exists ctx' :@ CTX, traced (t'' ++ t) * I ctx' (t'' ++ t) * [False])
          (fun self ctx t =>
            ctx' <- B ctx t;
-           tr' <- getT (I ctx');
-           {{self ctx' tr'}}
-         ) ctx t');
+           {{self (fst ctx') (inhabit_unpack' t (fun t => inhabit_unpack (snd ctx') (fun tr' => tr' ++ t))) }}
+         ) ctx t').
+    solve [ sep fail auto ].
+    solve [ sep fail auto ].
+    sep fail auto. inhabiter. rewrite H in H1. simpl in H1. sep fail auto.
     solve [ sep fail auto ].
 Qed.
 

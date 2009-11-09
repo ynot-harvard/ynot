@@ -156,7 +156,7 @@ Module HttpGradebookInterface (AP : GradebookType) : AppInterface with Module A 
         | ERR_BADGRADE => str2la "<b color=""red"">Error:</b> Bad Grade"
         | ERR_NOINV => str2la "<b color=""red"">Error:</b> No Invariant"
         | OK => str2la "<b color=""green"">Success!</b>"
-        | RET x => List.app (str2la "<b color=""green"">Result:</b> ") (ntos 3 x nil)
+        | RET x => List.app (str2la "<b color=""green"">Result:</b> ") (str2la (ntos x))
       end
       footer).
   
