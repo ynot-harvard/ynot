@@ -33,120 +33,96 @@ Require Import Ynot.Util.
 Require Import Ynot.PermModel.
 Require Import Ynot.Heap.
 Require Import Ynot.Hprop.
+Require Import RelationClasses.
 
 Set Implicit Arguments.
-
-Theorem himp_refl : forall p, p ==> p.
-  unfold hprop_imp; trivial.
-Qed.
 
 Theorem himp_any_conc : forall p, p ==> ??.
   unfold hprop_imp, hprop_any; trivial.
 Qed.
 
+Theorem empty_right p : p * __ <==> p.
+Proof. split; simp_heap; subst; autorewrite with Ynot. auto.
+  eauto with Ynot.
+Qed.
+
+Hint Resolve split_refl : Ynot.
+
+Theorem hstar_comm p q : p * q <==> q * p.
+Proof. split; simp_heap; eauto 7 with Ynot. Qed.
+
+Lemma empty_left p : emp * p <==> p.
+Proof. intros. now rewrite hstar_comm, empty_right. Qed.
+
 Theorem himp_empty_prem : forall p q,
   p ==> q
-  -> __ * p ==> q.
-  unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot; auto.
+  -> __ * p ==> q. intros p q Hpq. now rewrite hstar_comm, empty_right.
 Qed.
 
 Theorem himp_empty_prem' : forall p q,
   p * __ ==> q
-  -> p ==> q.
-  unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot; auto.
-  apply H.
-  eauto with Ynot.
+  -> p ==> q. intros p q; now rewrite empty_right. 
 Qed.
 
 Theorem himp_empty_conc : forall p q,
   p ==> q
-  -> p ==> __ * q.
-  unfold hprop_imp, hprop_empty, hprop_sep; firstorder; subst; autorewrite with Ynot;
-    eauto 7 with Ynot.
+  -> p ==> __ * q. intros p q; now rewrite (hstar_comm __), empty_right.
 Qed.
 
 Theorem himp_empty_conc' : forall p q,
   p ==> q * __
-  -> p ==> q.
-  unfold hprop_imp, hprop_empty, hprop_sep; intuition.
-  generalize (H _ H0); clear H H0; firstorder; subst; autorewrite with Ynot; trivial.
+  -> p ==> q. intros p q; now rewrite empty_right.
 Qed.
 
 Theorem himp_comm_prem : forall p q r,
   q * p ==> r
-  -> p * q ==> r.
-  unfold hprop_imp, hprop_sep; intuition.
-  apply H.
-  do 2 destruct H0; intuition.
-  exists x0; exists x; intuition.
+  -> p * q ==> r. intros p q r; now rewrite hstar_comm.
+Qed.
+
+Theorem hstar_assoc p q r :
+  p * (q * r) <==> p * q * r.
+Proof. intros p q r. split; intros. 
+  unfold hprop_imp, hprop_sep; intuition. repeat (dest_exists || dest_conj).
+  exists (h1 * h0)%heap; exists h3%heap. intuition. 
+  eauto using split_splice''. 
+  exists h1 ; exists h0. intuition. apply split_refl. 
+  destruct Hl. destruct Hrrl. subst. eauto with Ynot.
+
+  unfold hprop_imp, hprop_sep; intuition. repeat (dest_exists || dest_conj).
+  exists h0; exists  (h2 * h3)%heap. intuition.
+  eapply split_splice; eauto with Ynot.
+  exists h3; exists h2. intuition. 
+  destruct Hl. destruct Hrll. subst. apply split_comm.
+  apply split_refl. eauto with Ynot.
 Qed.
 
 Theorem himp_assoc_prem1 : forall p q r s,
   p * (q * r) ==> s
-  -> (p * q) * r ==> s.
-  unfold hprop_imp, hprop_sep; intuition.
-  apply H; clear H.
-  destruct H0.
-  destruct H; intuition.
-  do 2 destruct H; intuition.
-  exists x1; exists (x2 * x0)%heap; intuition.
-  eapply split_splice'; eauto.
-  exists x2; exists x0; intuition.
-  eapply split_self; eauto.
+  -> (p * q) * r ==> s. 
+Proof. intros; now rewrite <- hstar_assoc.
 Qed.
 
 Theorem himp_assoc_prem2 : forall p q r s,
   q * (p * r) ==> s
   -> (p * q) * r ==> s.
-  unfold hprop_imp, hprop_sep; intuition.
-  apply H; clear H.
-  destruct H0.
-  destruct H; intuition.
-  do 2 destruct H; intuition.
-  exists x2; exists (x1 * x0)%heap; intuition.
-  eapply split_splice'; eauto.
-  apply split_comm; assumption.
-  exists x1; exists x0; intuition.
-  eapply split_self; eauto.
-  apply split_comm; eassumption.
+Proof. intros. now rewrite (hstar_comm p q), <- hstar_assoc. 
 Qed.
 
 Theorem himp_comm_conc : forall p q r,
   r ==> q * p
   -> r ==> p * q.
-  unfold hprop_imp, hprop_sep; intuition.
-  generalize (H _ H0); clear H H0; intuition.
-  do 2 destruct H; intuition.
-  exists x0; exists x; intuition.
+Proof. intros; now rewrite hstar_comm.
 Qed.
 
 Theorem himp_assoc_conc1 : forall p q r s,
   s ==> p * (q * r)
   -> s ==> (p * q) * r.
-  unfold hprop_imp, hprop_sep; intuition.
-  generalize (H _ H0); clear H H0; intuition.
-  do 2 destruct H; intuition.
-  destruct H2.
-  destruct H1; intuition.
-  exists (x * x1)%heap; exists x2; intuition.
-  eapply split_splice''; eauto.
-  exists x; exists x1; intuition.
-  eapply split_self'; eauto.
-Qed.
+Proof. intros. now rewrite <- hstar_assoc. Qed.
 
 Theorem himp_assoc_conc2 : forall p q r s,
   s ==> q * (p * r)
   -> s ==> (p * q) * r.
-  unfold hprop_imp, hprop_sep; intuition.
-  generalize (H _ H0); clear H H0; intuition.
-  do 2 destruct H; intuition.
-  destruct H2.
-  destruct H1; intuition.
-  exists (x1 * x)%heap; exists x2; intuition.
-  eapply split_splice'''; eauto.
-  exists x1; exists x; intuition.
-  eapply split_self''; eauto.
-Qed.
+Proof. intros; now rewrite (hstar_comm p q), <- hstar_assoc. Qed.
 
 Definition isExistential T (x : T) := True.
 
@@ -169,101 +145,109 @@ Qed.
 
 Theorem himp_ex_conc : forall p T (p1 : T -> _) p2,
   (exists v, p ==> p1 v * p2)
-  -> p ==> hprop_ex p1 * p2.
-  unfold hprop_imp, hprop_ex, hprop_sep; firstorder.
-  generalize (H _ H0); clear H H0.
-  firstorder.
+  -> p ==> hprop_ex p1 * p2. 
+Proof. red.
+  intros. destruct H. 
+  generalize (H _ H0); clear H H0. simp_heap. eauto 7 with Ynot.
 Qed.
 
 Theorem himp_ex_conc_trivial : forall T p p1 p2,
   p ==> p1 * p2
   -> T
   -> p ==> hprop_ex (fun _ : T => p1) * p2.
-  unfold hprop_imp, hprop_ex, hprop_sep; firstorder.
-  generalize (H _ H0); clear H H0.
-  firstorder.
+  simp_heap.
+  generalize (H _ H0); clear H H0. simp_heap. eauto 7 with Ynot.
 Qed.
 
+Hint Extern 4 => progress (unfold hprop_unpack in *) : Ynot.
+
+Theorem hiff_unpack : forall (T : Set) (x : T) p1,
+  p1 x <==> hprop_unpack [x] p1.
+Proof. simp_heap. split; intros; simp_heap. red. eauto 7 with Ynot. 
+  generalize (pack_injective Hl); intros; subst; eauto with Ynot.
+Qed. 
+  
 Theorem himp_unpack_prem : forall (T : Set) (x : T) p1 p2 p,
   p1 x * p2 ==> p
   -> hprop_unpack [x] p1 * p2 ==> p.
-  unfold hprop_imp, hprop_unpack, hprop_sep; firstorder.
-  generalize (pack_injective H1); intro; subst; firstorder.
-Qed.
+Proof. intros. now rewrite <- hiff_unpack. Qed.
+
+(** Really needs T in Type ? *)
 
 Theorem himp_unpack_conc : forall T x (y:[T]) p1 p2 p,
   y = [x]%inhabited
   -> p ==> p1 x * p2
   -> p ==> hprop_unpack y p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
-  generalize (H0 _ H1).
-  firstorder.
+  unfold hprop_imp, hprop_unpack, hprop_sep; subst. intros.
+  generalize (H0 _ H1). subst y.
+  intros; simp_heap. subst. eauto 10 with Ynot.
 Qed.
 
 Theorem himp_unpack_conc_meta : forall T x (y:[T]) p1 p2 p,
   p ==> p1 x * p2
   -> y = [x]%inhabited
   -> p ==> hprop_unpack y p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
+  unfold hprop_imp, hprop_unpack, hprop_sep; subst. intros.
   generalize (H _ H1).
-  firstorder.
+  intros; simp_heap. subst. eauto 10 with Ynot.
 Qed.
 
 Theorem himp_split : forall p1 p2 q1 q2,
   p1 ==> q1
   -> p2 ==> q2
   -> p1 * p2 ==> q1 * q2.
-  unfold hprop_imp, hprop_sep; firstorder.
+Proof. intros p1 p2 q1 q2 H H'; now rewrite H, H'. 
 Qed.
+
+Theorem himp_pure P : [P] ==> emp.
+Proof. reduce. red in H. intuition. Qed.
+
+Theorem himp_pure' (P : Prop) : P -> emp ==> [P].
+Proof. reduce. red in H0. intuition. Qed.
 
 Theorem himp_inj_prem : forall (P : Prop) p q,
   (P -> p ==> q)
-  -> [P] * p ==> q.
-  unfold hprop_imp, hprop_inj, hprop_sep; firstorder.
-  subst.
-  autorewrite with Ynot.
-  eauto.
+  -> [P] * p ==> q. intros.
+  unfold hprop_imp, hprop_inj, hprop_sep. simp_heap. subst.
+  autorewrite with Ynot in *.
+  apply H; eauto.
 Qed.
+
+Lemma pure_imp P p : [P] * p ==> p.
+Proof. intros. now rewrite himp_pure, empty_left. Qed.
+
+Lemma pure_imp_rev (P : Prop) p : P -> p ==> [P] * p.
+Proof. intros. now rewrite <- (himp_pure' H), empty_left. Qed.
 
 Theorem himp_inj_prem_keep : forall (P : Prop) p q,
   (P -> [P] * p ==> q)
-  -> [P] * p ==> q.
-  unfold hprop_imp, hprop_inj, hprop_sep; firstorder.
+  -> [P] * p ==> q. intros. apply himp_inj_prem.
+  intro H0; specialize (H H0). now rewrite <- (pure_imp_rev p H0) in H.
 Qed.
 
 Theorem himp_inj_prem_add : forall (P : Prop) p q,
   P
   -> [P] * p ==> q
-  -> p ==> q.
-  unfold hprop_imp, hprop_inj, hprop_sep; firstorder.
-  apply H0.
-  exists empty.
-  exists h.
-  intuition.
+  -> p ==> q. 
+Proof. intros. now rewrite <- (pure_imp_rev p H) in H0.
 Qed.
 
 Theorem himp_inj_conc : forall (P : Prop) p q,
   P
   -> p ==> q
-  -> p ==> [P] * q.
-  unfold hprop_imp, hprop_inj, hprop_sep; firstorder.
-  exists empty; exists h; intuition.
-Qed.
+  -> p ==> [P] * q. 
+Proof. intros. now rewrite <- (pure_imp_rev q H). Qed.
 
 Theorem himp_frame : forall p q1 q2,
   q1 ==> q2
   -> p * q1 ==> p * q2.
-  intros.
-  apply himp_split; [apply himp_refl | assumption].
-Qed.
+Proof. intros. now rewrite H. Qed.
 
 Theorem himp_frame_cell : forall n (T : Set) (v1 v2 : T) q1 q2 (p:perm),
   v1 = v2
   -> q1 ==> q2
   -> n -[p]-> v1 * q1 ==> n -[p]-> v2 * q2.
-  intros; subst.
-  apply himp_frame; assumption.
-Qed.
+Proof. intros; subst. now rewrite H0. Qed.
 
 Lemma himp_cell_split : forall (q1 q2 : perm) (p : ptr) A (v:A),
   q1 |#| q2 -> p -[ q1 + q2 ]-> v ==> p -[ q1 ]-> v * p -[ q2 ]-> v.
@@ -301,10 +285,10 @@ Proof.
 Qed.
 
 Lemma himp_trans Q P R : P ==> Q -> Q ==> R -> P ==> R.
-Proof. firstorder. Qed.
+Proof. intros; now transitivity Q. Qed.
 
 Lemma himp_apply P T : P ==> T -> forall Q, Q ==> P -> Q ==> T.
-Proof. repeat intro; auto. Qed.
+Proof. intros. now rewrite H0. Qed.
 
 Theorem add_fact F P Q R : 
   (P ==> [F] * ??) ->
@@ -318,7 +302,7 @@ Qed.
 
 Lemma himp_any_ret (P:Prop) : P -> forall h, ([P] * ??)%hprop h.
 Proof.
- red. repeat econstructor;  firstorder.
+ red. repeat econstructor; firstorder eauto with Ynot.
 Qed.
 
 Lemma himp_cell_same : forall (T:Set) p (q q' : perm) (v v' : T) P Q,
@@ -339,17 +323,16 @@ Qed.
 Theorem himp_frame_prem : forall p1 p2 q p1',
   p1 ==> p1'
   -> p1' * p2 ==> q
-  -> p1 * p2 ==> q.
-  unfold hprop_imp, hprop_sep; firstorder.
+  -> p1 * p2 ==> q. 
+Proof. intros. now rewrite H. 
 Qed.
 
 Theorem himp_frame_conc : forall p q1 q2 q1',
   q1' ==> q1
   -> p ==> q1' * q2
   -> p ==> q1 * q2.
-  unfold hprop_imp, hprop_sep; firstorder.
+Proof. intros. now rewrite <- H.
 Qed.
-
 
 Theorem unpack : forall T (h : [T]) (P : Prop),
   (forall x, h = [x]%inhabited -> P)
@@ -361,19 +344,12 @@ Theorem himp_unpack_prem_eq : forall (T : Set) h (x : T) p1 p2 p,
   h = [x]%inhabited
   -> p1 x * p2 ==> p
   -> hprop_unpack h p1 * p2 ==> p.
-  intros; subst.
-  apply himp_unpack_prem; assumption.
+  intros; subst. now rewrite <- hiff_unpack.
 Qed.
 
 Theorem himp_unpack_prem_alone : forall (T : Set) h (x : T) p1 p,
   h = [x]%inhabited
   -> p1 x ==> p
   -> hprop_unpack h p1 ==> p.
-  intros.
-  apply himp_empty_prem'.
-  rewrite H.
-  apply himp_unpack_prem.
-  apply himp_comm_prem.
-  apply himp_empty_prem.
-  assumption.
+  intros. subst. now rewrite <- hiff_unpack.
 Qed.

@@ -52,7 +52,7 @@ Notation "??" := hprop_any : hprop_scope.
 Open Local Scope heap_scope.
 
 Definition hprop_inj (P : Prop) : hprop := fun h => h = empty /\ P.
-Notation "[ P ]" := (hprop_inj P) (at level 0, P at level 99) : hprop_scope.
+Notation "[ P ]" := (hprop_inj P) (at level 0, P at level 200) : hprop_scope.
 
 Definition hprop_cell (p : ptr) T (v : T) (pi:Qc): hprop := fun h =>
   h#p = Some (Dyn v, pi) /\ forall p', p' <> p -> h#p' = None.
@@ -88,7 +88,8 @@ Definition hprop_and (p1 p2 : hprop) : hprop := fun h => p1 h /\ p2 h.
 Infix "&" := hprop_and (at level 39, left associativity) : hprop_scope.
 
 Definition hprop_ex T (p : T -> hprop) : hprop := fun h => exists v, p v h.
-Notation "'Exists' v :@ T , p" := (hprop_ex (fun v : T => p)) (at level 90, T at next level) : hprop_scope.
+Notation "'Exists' v :@ T , p" := (hprop_ex (fun v : T => p%hprop)) 
+  (at level 90, T at next level) : hprop_scope.
 
 Definition hprop_unpack T (inh : inhabited T) (p : T -> hprop) : hprop :=
   fun h => exists v, inh = inhabits v /\ p v h.
@@ -145,6 +146,76 @@ Notation "{@ P | i <- s + l }" := (iter_sep (fun i => P) s l) (i ident, s at nex
 Definition hprop_imp (p1 p2 : hprop) : Prop := forall h, p1 h -> p2 h.
 Infix "==>" := hprop_imp (right associativity, at level 55).
 
+Definition hprop_iff (P Q : hprop) := P ==> Q /\ Q ==> P.
+Infix "<==>" := hprop_iff (at level 90).
+
+Theorem himp_refl : forall p, p ==> p.
+  unfold hprop_imp; trivial.
+Qed.
+
+(** * Basic properties of heap connectives.  *)
+
+Ltac dest_himp :=
+  match goal with
+    | H : (?h ~> ?h2 * ?h3) |- _ =>
+      let Hdisj := fresh h2 h3 "disj" in
+      let H' := fresh H in
+        assert (H':=H:block (h ~> h2 * h3));
+        destruct H as [Hdisj H]; rewrite H in |- *
+    | H : hprop_unpack _ _ _ |- _ => 
+      red in H
+  end.
+          
+Ltac destructs := repeat (dest_conj || dest_exists || dest_himp); 
+  unfold block in *.
+
+Ltac simp_heap := 
+  unfold hprop_imp, hprop_empty, hprop_ex, hprop_sep; intros; destructs.
+
+Instance: Reflexive hprop_imp := himp_refl.
+
+Instance: Transitive hprop_imp. 
+Proof.
+  intros x y z. simp_heap. eauto.
+Qed.
+
+Hint Extern 0 => reflexivity.
+
+Instance: Reflexive hprop_iff.
+Proof. unfold hprop_iff; eauto. Qed.
+  
+Instance: Transitive hprop_iff. 
+Proof. unfold hprop_iff; intros x y z. simp_heap. eauto 10. Qed.
+  
+Instance: Symmetric hprop_iff.
+Proof. unfold hprop_iff; intros x y. simp_heap; eauto 10. 
+Qed.
+
+Require Import Morphisms Setoid.
+
+Instance: Proper (hprop_imp --> hprop_imp ==> Basics.impl) hprop_imp.
+Proof. intros x y Hxy x' y' Hxy' Hxx'. 
+  transitivity x; auto; transitivity x'; auto.
+Qed.
+
+Instance: Proper (hprop_iff ==> hprop_iff ==> iff) hprop_imp.
+Proof. reduce. destruct H ; destruct H0. 
+  split; intros. 
+  transitivity x; auto; transitivity x0; auto.
+  transitivity y; auto; transitivity y0; auto.
+Qed.
+
+Instance: Proper (hprop_imp ==> hprop_imp ==> hprop_imp) hprop_sep.
+Proof. reduce. destruct H1. destruct H1. exists x1; exists x2; eauto with Ynot.
+  intuition auto.
+Qed.
+
+Instance: Proper (hprop_iff ==> hprop_iff ==> hprop_iff) hprop_sep.
+Proof. reduce. destruct H; destruct H0. split. 
+  rewrite H, H0. reflexivity.
+  rewrite H1, H2. reflexivity.
+Qed.
+  
 (** * Theorems *)
 
 Theorem sep_id : forall h p, (p * __)%hprop h -> p h.
@@ -202,6 +273,8 @@ Proof.
   split_prover_down.
 Qed.
 
+Instance: Symmetric disjoint := disjoint_sym.
+
 Hint Resolve compatible_assoc compatible_trans compatible_sym : Ynot.
 Hint Rewrite perm_plus_when_compat using (eauto with Ynot): Ynot.
 
@@ -217,7 +290,6 @@ Qed.
 
 Lemma disjoint_trans (h1 h2 h3 : heap) : h1 <#> h2 -> (h1 * h2) <#> h3 -> h1 <#> h3.
 Proof.
-Proof.
   split_prover'; unfold hval_plus in *.
   destruct (h1 p); destruct (h2 p); destruct (h3 p); intuition;
   repeat (autorewrite with Ynot in *; simpl in *; intuition; ( congruence || eauto with Ynot)).
@@ -228,7 +300,8 @@ Theorem disjoint_empty : forall h, h <#> empty.
   destruct (h # p); simpl; auto.
 Qed.
 
-Hint Resolve disjoint_sym disjoint_assoc disjoint_trans disjoint_empty : Ynot.
+Hint Resolve disjoint_assoc disjoint_trans disjoint_empty : Ynot.
+Hint Resolve disjoint_sym : Ynot.
 
 Lemma split_refl x1 x2 :
      (x1 <#> x2)
@@ -237,10 +310,32 @@ Proof.
   intros. split; eauto with Ynot.
 Qed.
 
+Definition heap_eq : relation heap := pointwise_relation ptr eq.
+
+Instance: Proper (heap_eq ==> heap_eq ==> iff) disjoint.
+Proof. reduce. 
+  unfold heap_eq, split, disjoint; intuition; subst.
+
+  specialize (H1 p).
+  unfold read in *. do 2 red in H, H0. rewrite (H p) in *.
+  rewrite (H0 p) in *. destruct (y p);
+  intuition; auto with Ynot.
+
+  specialize (H1 p).
+  unfold read in *. do 2 red in H, H0. rewrite (H p) in *.
+  rewrite (H0 p) in *. destruct (y p);
+  intuition; auto with Ynot.
+Qed.
+
+(* Instance split_proper h : Proper (heap_eq ==> heap_eq ==> iff) (split h). *)
+(* Proof. reduce. intuition. destruct H1. subst. split.  *)
+(*   unfold heap_eq, split, disjoint; intuition; subst. *)
+
+
 Theorem split_comm : forall h h1 h2,
   h ~> h1 * h2
   -> h ~> h2 * h1.
-  unfold split, disjoint; intuition; subst.
+  unfold split, disjoint; intuition; subst; auto with Ynot.
 
   generalize (H0 p); clear H0; intro H0.
   destruct (h1 # p); destruct (h2 # p);
@@ -559,7 +654,7 @@ Theorem disjoint_assoc2 (h1 h2 h3 : heap) :
 Proof.
   intros. 
   generalize (disjoint_trans H H0). intro.
-  eauto with Ynot.
+  eauto 5 with Ynot.
 Qed.
 
 Hint Resolve disjoint_assoc2 : Ynot.

@@ -101,7 +101,8 @@ Ltac subst_inh := repeat
          end
   end.
 
-Ltac simpler := repeat progress (intuition; subst_inh; subst; simpl in * ).
+Ltac simpler :=
+  repeat progress (intuition auto with bool arith datatypes Ynot; subst_inh; subst; simpl in *).
 
 Ltac deExist P :=
   let F := fresh "F" in
@@ -537,11 +538,10 @@ Theorem himp_disjoint : forall (S T : Set) p1 p2 (a1:S) (a2:T),
   p1 -[0]-> a1 * p2 -[0]-> a2 ==> p1 -[0]-> a1 * p2 -[0]-> a2 * [p1 <> p2].
   intros. unfold hprop_imp. intros; repeat (destruct H). destruct H0.
   exists ((x * x0)%heap). exists empty. subst. sep fail auto.
-  exists x. exists x0. sep fail auto. split_prover'.
+  exists x. exists x0. sep fail auto.
   compute; intuition. subst.
   eapply himp_disjoint'.
   exists x. exists x0. intuition; eauto.
-  apply split_refl; eauto.
 Qed.
 
 Theorem himp_split_any : ?? * ?? ==> ??.
