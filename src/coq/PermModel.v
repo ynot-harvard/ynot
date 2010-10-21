@@ -135,7 +135,7 @@ Qed.
 
 Theorem compatible_top (p:perm) : compatible p top -> False.
 Proof.
-  unfold compatible. intro. rewrite (compatibleb_top p). discriminate.
+  unfold compatible. rewrite (compatibleb_top p). discriminate.
 Qed.
 
 (* adding two permissions.  Addition is a partial function.
@@ -306,13 +306,14 @@ Ltac desb :=
   Ltac toR := match goal with
     | [H: ?x < _ |- _] => 
       match x with
-        |  0 => fail 1
+        | 0%Qc => fail 1
+        | {| this := 0; canon := Qred_involutive 0 |} => fail 1
         | _ => 
           let newH := fresh "newH" in
             generalize ((proj1 (Qclt_minus_iff _ _)) H); intro newH
               ; ring_simplify in newH;
               let t := type of newH in revert newH; 
-                notHyp newH; clear H; intro H
+                notHyp t; clear H; intro H
       end
   end.
 
@@ -334,7 +335,8 @@ Ltac desb :=
   Ltac ltcontra := 
     repeat translelt
   ; repeat toR
-  ; (find_ltcontra1 || find_ltcontra2).
+  ; change ({| this := 0; canon := Qred_involutive 0 |}) with  (Q2Qc (Qmake Z0 xH)) in * ;
+    (find_ltcontra1 || find_ltcontra2).
 
 Theorem compatibleb_assoc (p1 p2 p3 : perm) : 
      compatibleb p1 p2 = true
@@ -360,7 +362,7 @@ Proof.
   try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
   try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
   try discriminate; bool_to_logic; btol;
-    try (elimtype False; eauto); ltcontra.
+    try (elimtype False; eauto); ltcontra. 
 Qed.
   
 Lemma compatibleb_trans (p1 p2 p3 : perm) : 
@@ -405,18 +407,17 @@ Proof.
   apply (compatibleb_trans H H0).
 Qed.
 
-Theorem perm_plus_ass (p1 p2 p3 : perm) : 
-  match p2 +p p3 with
+Theorem perm_plus_ass (p p0 p1 : perm) : 
+  match p0 +p p1 with
     | None => None
-    | Some p2p3 => p1 +p p2p3
+    | Some p2p3 => p +p p2p3
   end =
-  match p1 +p p2 with
+  match p +p p0 with
     | None => None
-    | Some p1p2 => p1p2 +p p3
+    | Some p1p2 => p1p2 +p p1
   end.
 Proof.
   unfold perm_plus.
-  intros p p0 p1.
   desb;
 (*  remember (compatibleb p0 p1) as p0p1; destruct p0p1; 
   remember (compatibleb p p0) as pp0; destruct pp0; trivial.
@@ -440,7 +441,7 @@ Proof.
   try rewrite orb_false_l in *;  try rewrite orb_false_r in *;
   try rewrite orb_true_l in *;   try rewrite orb_true_r in *); 
   try discriminate; bool_to_logic; btol;
-    try (elimtype False; eauto); ltcontra.
+    try (elimtype False; eauto). ltcontra. ltcontra.
 Qed.
 
 

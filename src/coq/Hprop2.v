@@ -48,21 +48,21 @@ Proof. intros. red. intros. pose (H0 h H1). apply (H h p). Qed.
 (* split separating conjunction into two pieces *)
 Lemma split_sep(P:nat->hprop)(len i:nat)(H:i <= len)(start:nat) :
   ((iter_sep P start len) ==> (iter_sep P start i) * (iter_sep P (start + i) (len - i))).
-Proof.
+Proof. revert i H start.
   induction len ; intros. 
   assert (i = 0) ; [ omega | subst ; sep fail auto].
   induction i ; simpl ; intros ; assert (start + 0 = start) ; try omega. 
   rewrite H0 ; sep fail auto.
   assert (start + S i = ((S start) + i)) ; try omega ; 
   rewrite H1 ; clear H0; sep fail ltac:(try subst; auto).
- replace (S (start + i)) with (S start + i) by omega.
+  replace (S (start + i)) with (S start + i) by omega.
   sep fail auto.
 Qed.
 
 (* join two adjacent separating conjunctions *)
 Lemma join_sep(P:nat->hprop)(len i:nat)(H:i <= len)(start:nat) : 
   (iter_sep P start i) * (iter_sep P (start + i) (len - i)) ==> iter_sep P start len.
-Proof.
+Proof. revert i H start.
   induction len ; intros. 
   assert (i = 0) ; [omega | sep fail auto].
   induction i ; simpl ; intros ; assert (start + 0 = start) ; try omega. 
@@ -100,7 +100,7 @@ Qed.
 Lemma iter_imp(P1 P2:nat->hprop)(len start:nat) : 
   (forall i, i >= start -> i < len + start -> P1 i ==> P2 i) -> 
   iter_sep P1 start len ==> iter_sep P2 start len.
-Proof.
+Proof. revert start. 
   induction len. sep fail auto. sep fail auto. eapply himp_split. apply H. auto. omega.
   apply (IHlen (S start)). intros. apply H. omega. omega.
 Qed.

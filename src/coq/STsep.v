@@ -112,10 +112,12 @@ Section Sep.
 
 (*    ynot 1.
     generalize (H1 _ _ H2 H3 H0); clear H1.*)
-    ynot 1. 
-    generalize (H1 _ _ H4 H5); clear H1.
+
+    exists x1 ; exists x0. ynot 1. apply H. auto.
+
     ynot 1.
-    eapply H3; eauto.
+    generalize (H1 h1 h2 H4 H5). intros. destruct H8.
+    destruct H8. apply (H3 _ _ H8 (H _ _ H9)). 
   Qed.
 
   Definition SepSeq pre1 (post1 : unit -> hprop)

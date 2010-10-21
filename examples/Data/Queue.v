@@ -209,7 +209,6 @@ Module Queue : QUEUE.
     Qed.
 
     Hint Immediate push_nil.
-
     Definition enqueue : forall q x ls, STsep (ls ~~ rep q ls) (fun _ : unit => ls ~~ rep q (ls ++ x :: nil)).
       intros; refine (ba <- !back q;
         nd <- New (Node x None);

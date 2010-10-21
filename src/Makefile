@@ -11,8 +11,8 @@ R := -R . Ynot
 
 coq/Makefile.coq: Makefile $(VS:%=coq/%)
 	(cd coq; coq_makefile $(VS) \
-	             COQC = "coqc $(R)" \
-		     COQDEP = "coqdep $(R)" \
+	             COQC = "${COQBIN}coqc $(R)" \
+		     COQDEP = "${COQBIN}coqdep $(R)" \
 		     -o Makefile.coq)
 
 clean:: coq/Makefile.coq

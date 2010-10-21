@@ -57,13 +57,16 @@ Axiom pack_injective : forall (T : Set) (x y : T),
 Inductive dynamic : Type :=
   | Dyn : forall T, T -> dynamic.
 
-Theorem Dyn_inj : forall (T : Set) (x y : T),
+Theorem Dyn_injT : forall T (x y : T),
   Dyn x = Dyn y
-  -> x = y.
-  injection 1; intro.
-  exact (inj_pair2 _ _ _ _ _ H0).
+  -> x = y. intros. injection H.
+  apply inj_pair2.
 Qed.
 
+Theorem Dyn_inj : forall (T : Set) (x y : T),
+  Dyn x = Dyn y
+  -> x = y. intros ; apply Dyn_injT. auto.
+Qed.
 
 Lemma Dyn_inj_Some' : forall (d1 d2 : dynamic),
   Some d1 = Some d2

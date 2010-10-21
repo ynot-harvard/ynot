@@ -36,12 +36,8 @@ Theorem push_and_ex : forall P T (P' : T -> Prop),
   firstorder.
 Qed.
 
+Ltac not_eq p q := (constr_eq p q ; fail 1) || idtac.
 
-Ltac not_eq e1 e2 :=
-  match e1 with
-    | e2 => fail 1
-    | _ => idtac
-  end.
 Ltac equate e1 e2 := not_eq e1 e2; let H := fresh in assert (H : e1 = e2); [reflexivity | clear H].
 
 

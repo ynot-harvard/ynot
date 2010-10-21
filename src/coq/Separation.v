@@ -81,7 +81,7 @@ Qed.
 
 Theorem hstar_assoc p q r :
   p * (q * r) <==> p * q * r.
-Proof. intros p q r. split; intros. 
+Proof. split; intros. 
   unfold hprop_imp, hprop_sep; intuition. repeat (dest_exists || dest_conj).
   exists (h1 * h0)%heap; exists h3%heap. intuition. 
   eauto using split_splice''. 

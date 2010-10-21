@@ -93,8 +93,9 @@ Notation "'Exists' v :@ T , p" := (hprop_ex (fun v : T => p%hprop))
 
 Definition hprop_unpack T (inh : inhabited T) (p : T -> hprop) : hprop :=
   fun h => exists v, inh = inhabits v /\ p v h.
-Arguments Scope hprop_unpack [type_scope inhabited_scope hprop_scope].
+Arguments Scope hprop_unpack [].
 Notation "inh ~~ p" := (hprop_unpack inh (fun inh => p)) (at level 91, right associativity) : hprop_scope.
+Arguments Scope hprop_unpack [type_scope inhabited_scope hprop_scope].
 
 (* Unfortunately, inhabit_unpack is not compositional
  *)
@@ -124,10 +125,12 @@ Definition inhabit_unpack4 T T' T'' T''' U (inh : [T]) (inh' : [T'])
       inhabits (f v v' v'' v''')
   end.
 (** **)
+Arguments Scope inhabit_unpack [].
 Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f))
   (at level 91, right associativity).
 Notation "inh ~~~' f" := (inhabit_unpack inh (fun inh => f))
   (at level 91, right associativity).
+Arguments Scope inhabit_unpack [type_scope type_scope inhabited_scope hprop_scope].
 
 Notation "p ':~~' e1 'in' e2" := (let p := e1 in p ~~ e2) (at level 91, right associativity) : hprop_scope.
 
@@ -214,6 +217,13 @@ Instance: Proper (hprop_iff ==> hprop_iff ==> hprop_iff) hprop_sep.
 Proof. reduce. destruct H; destruct H0. split. 
   rewrite H, H0. reflexivity.
   rewrite H1, H2. reflexivity.
+Qed.
+
+
+Instance hprop_unpack_proper T : Proper (eq ==> pointwise_relation T hprop_iff ==> hprop_iff) (@hprop_unpack T).
+Proof. hnf. intros x y ->. hnf. intros. unfold hprop_unpack. split; intros h Hh.
+  destruct Hh. exists x0. intuition auto. apply H. auto.
+  destruct Hh. exists x0. intuition auto. apply H. auto.
 Qed.
   
 (** * Theorems *)
