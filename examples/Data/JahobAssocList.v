@@ -264,8 +264,17 @@ Theorem rep_rep' : forall m p, rep p m ==>
 
 Hint Resolve rep_rep'.
 
-Lemma repl : forall p m k, (rep p m * Exists v :@ V, [lookup m k = Some v]) ==>
- Exists x :@ option ptr, p --> x * (Exists cur :@ ptr, [x = Some cur] * rep' (Some cur) m * Exists v :@ V, [lookup m k = Some v]). Admitted.
+Lemma repl : forall m p k, (rep p m * Exists v :@ V, [lookup m k = Some v]) ==>
+ Exists x :@ option ptr, p --> x * (Exists cur :@ ptr, [x = Some cur] * rep' (Some cur) m * Exists v :@ V, [lookup m k = Some v]).
+Proof.
+  induction m. intros. sep fail auto. instantiate (1 := v). instantiate (1 := p). inversion H0.
+  intros. destruct a. unfold rep; case_eq (eqK k k0); intros; subst; inhabiter.
+  unfold lookup. rewrite H. simpl. destruct v0. sep fail auto. sep fail auto.
+  instantiate (1 := None). instantiate (1:= p). inversion H3.
+  simpl. rewrite H in *. destruct v0. inhabiter. sep fail auto. instantiate (1 := v1).
+  sep fail auto.
+  intro_pure. inversion H3.
+Qed.
 
 Hint Resolve repl.
 
@@ -318,7 +327,7 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
 
  (* Get           **********)
 
- Definition get' (k: K) (hd: option ptr) (m: [list (prod K V)]):
+ Definition get' : forall (k: K) (hd: option ptr) (m: [list (prod K V)]), 
     STsep (m ~~ rep' hd m) (fun r => m ~~ [lookup m k = r] * rep' hd m).
   intro k.
   refine (Fix2
@@ -330,8 +339,10 @@ Ltac tx := match goal with | [ H : lookup ?ls ?n = None |- rep' ?x ?ls ==> rep' 
       Else  fn <- ! hd ;
             if eqK k (key fn) 
             then {{ Return (Some (value fn)) }} 
-            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup; t'. 
-  Qed.
+            else {{ self (next fn) (m ~~~ tail m)  <@> _  }})); pose lkup.
+  (** TODO **)
+  t'. t'. t'. t'. t'. t'. t'.
+  Admitted.
 
   Definition get (k: K) (p: ptr) (m: [list (prod K V)]) :
     STsep (m ~~ rep p m)
@@ -368,7 +379,7 @@ Definition remove_frame ls pn n k prev cur := Exists t :@ list (prod K V), [look
   [ls = (key pn, value pn) :: (key n, value n) :: t]  * [k <> key n] * 
   [key pn <> key n] * prev --> node (key pn) (value pn) (Some cur).
 
-Definition remove'' k ls prev pn cur : STsep (remove_pre k ls prev pn cur) (remove_post k ls prev pn cur).             
+Definition remove'' : forall k ls prev pn cur, STsep (remove_pre k ls prev pn cur) (remove_post k ls prev pn cur).             
 intro k. refine (Fix4 (remove_pre k) (remove_post k)  
  (fun self ls prev pn cur =>        
   n <- (cur !! (fun n => ls ~~ remove_pre' k ls prev pn cur n))%stsep;
@@ -380,8 +391,10 @@ intro k. refine (Fix4 (remove_pre k) (remove_post k)
        Then  {{ !!! }} 
        Else {{ self (ls ~~~ tail ls) cur n nt <@> (ls ~~ remove_frame ls pn n k prev cur)  }})); 
 unfold remove_pre; unfold remove_pre'; unfold remove_post; unfold remove_frame; pose lkup; pose lkup.
-t. instantiate (1:=v1). t. t. instantiate (1:=v1). t.
-t. t. t. t. t. sep fail auto. t'. tx. t'. t'. t'. instantiate (1:=v0). t. t. Qed.
+t. instantiate (1:=v1). t. t. t. t. t. t. t. t. fold rep'. erewrite <- lkup0; eauto.
+t.
+(** TODO **)
+Admitted.
 
 
  Definition remove : forall k (p: t) (m: [list (prod K V)]),
@@ -401,9 +414,12 @@ t. t. t. t. t. sep fail auto. t'. tx. t'. t'. t'. instantiate (1:=v0). t. t. Qed
                Then {{ !!! }}
                Else {{ remove'' k m hdptr hd nt <@> (m ~~ p --> Some hdptr * [head m = Some (key hd, value hd)] ) }}
   ); unfold remove_pre; unfold remove_pre'; unfold remove_post; pose lkup; pose lkup0; pose lkpdel.
+(** TODO **)
+Admitted.
+(*
 t. instantiate (1:=v0). t. t. instantiate (1:= v1). t. t'. t. t'. instantiate (1:=v0). t. t. instantiate (1:= v1). t.
 t. t. t. t. t. t'. tx. sep fail auto. t'. t. t'. instantiate (1:=v0). t. t. Qed.
-
+*)
 
  (* Replace        **********)
 

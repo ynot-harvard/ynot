@@ -108,20 +108,20 @@ Module STRING_INSTREAM.
     refine (n <- (x !! (fun n => offset ~~ [n = offset]))%stsep;
             Return (nth_error s n) <@> (offset ~~ [n = offset] * string_rep s x n) @> _) ;
     str. 
-  Defined.
+  Qed.
 
   Definition string_position(s:list ascii)(x:ptr) : position_t (inhabits s)(string_rep s x).
     unfold position_t.
     intros.
     refine (n <- x !! (fun n => offset ~~ [n = offset]);
             Return n <@> (offset ~~ [n = offset] * string_rep s x n) @> _) ; str. 
-  Defined.
+  Qed.
 
   Definition string_seek(s:list ascii)(x:ptr) : seek_t (inhabits s)(string_rep s x).
     unfold seek_t.
     intros.
     refine ({{x ::= n}}) ; str. 
-  Defined.
+  Qed.
 
   Definition string_next(s:list ascii)(x:ptr) : next_t (inhabits s)(string_rep s x).
     unfold next_t.
@@ -130,13 +130,13 @@ Module STRING_INSTREAM.
             x ::= 1 + n <@> (offset ~~ [n = offset]) ;;
             Return (nth_error s n) <@> (offset ~~ [n=offset] * string_rep s x (1+n)) @> _);
     str. 
-  Defined.
+  Qed.
 
   Definition string_close(s:list ascii)(x:ptr) : close_t (inhabits s)(string_rep s x).
     unfold close_t.
     intros.
     refine ({{FreeT x :@ nat}}) ; str.
-  Defined.
+  Qed.
 
   (* Notice that this not only returns an instream_t object, with initial offset of 0,
    * but also establishes the connection between the real list of characters (s) and
@@ -147,7 +147,6 @@ Module STRING_INSTREAM.
     STsep __ (fun ans:instream_t ascii =>
                 rep ans 0 * 
                 (hprop_unpack (stream_elts ans) (fun elts => [elts = s]))).
-    intro s.
     refine (x <- New 0  ;
             Return (mkInstream (string_peek s x)
                                (string_next s x)
@@ -155,7 +154,7 @@ Module STRING_INSTREAM.
                                (string_seek s x)
                                (string_close s x)) <@> (x --> 0)%hprop @> _) ;
     str.
-  Defined.
+  Qed.
 (*
   Fixpoint string_to_list(s:string) : list ascii := 
     match s with

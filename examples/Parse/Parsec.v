@@ -260,14 +260,14 @@ Proof.
   intros. sep fail auto.
 Qed.
 
-Lemma NthErrorNoneNthTail(A:Type)(i:nat)(vs:list A) : 
+Lemma NthErrorNoneNthTail(A:Type)(i:nat) : forall (vs:list A),
   nth_error vs i = None -> nthtail vs i = nil.
 Proof.
   induction i ; destruct vs ; auto ; simpl ; intros. unfold value in H. congruence.
   apply IHi. auto.
 Qed.
 
-Lemma NthErrorSomeNthTail(A:Type)(i:nat)(vs:list A)(v:A) : 
+Lemma NthErrorSomeNthTail(A:Type)(i:nat) : forall (vs:list A)(v:A),
   nth_error vs i = Some v -> 
   exists vs1, exists vs2, vs = vs1 ++ v::vs2 /\ nthtail vs i = v::vs2.
 Proof.
@@ -277,7 +277,7 @@ Proof.
   exists (a::vs1). exists vs2. split. rewrite H1. simpl. auto. auto.
 Qed.
 
-Lemma NthTailSucc(A:Type)(i:nat)(vs vs2:list A)(v:A) : 
+Lemma NthTailSucc(A:Type)(i:nat) : forall (vs vs2:list A)(v:A),
   nthtail vs i = v::vs2 -> nthtail vs (S i) = vs2.
 Proof.
   induction i ; simpl ; intros. rewrite H. auto. destruct vs. congruence. 
@@ -337,7 +337,7 @@ Definition bad_character := "b"::"a"::"d"::" "::"c"::"h"::"a"::"r"::"a"::"c"::"t
 
 (* the parser for a single character *)
 Definition satisfy(f:char -> bool) : parser_t (gsatisfy f).
-  intros f instream n.
+  intros instream n.
   refine (copt <- next instream n ; 
           Return (match copt with
                     | None => ERROR char NotConsumed bad_character
@@ -368,14 +368,14 @@ Definition class(cl:CharClass charset) : parser_t (gsatisfy (@lower (DenoteClass
 
 (* the parser for the empty string *)
 Definition epsilon(t:Set)(v:t) : parser_t (gepsilon v).
-  intros t v instream n.
+  intros instream n.
   refine ({{Return (OKAY NotConsumed 0 v) <@> (n ~~ rep instream n)}}) ; 
   repeat psimp. 
 Qed.
     
 (* left-biased alternation -- need to fix error message propagation here *)
 Definition alt(t:Set)(e1 e2:Term t)(p1:parser_t e1)(p2:parser_t e2) : parser_t (galt e1 e2).
-  intros t e1 e2 p1 p2 instream n. unfold galt.
+  intros instream n. unfold galt.
   refine (n0 <- position instream n @> (fun n0 => n ~~ rep instream n * [n0=n])%hprop ; 
           ans1 <- p1 instream n <@> (n ~~ [n0=n])%hprop @> 
                (fun ans1 => ans_str_correct n instream e1 ans1 * (n ~~ [n0=n]))%hprop ;
@@ -426,7 +426,7 @@ Qed.
 
 (* the parser for (gmap f e) given f and a parser p for e *)
 Definition map(t1 t2:Set)(f:t1->t2)(e:Term t1)(p:parser_t e) : parser_t (gmap f e).
-  intros t1 t2 f e p instream n.
+  intros instream n.
   refine (ans <- p instream n;
           Return (match ans with 
                     | OKAY c m v => OKAY c m (f v)
@@ -438,7 +438,7 @@ Qed.
 (* parser for concatenation *)
 Definition cat(t1 t2:Set)(e1:Term t1)(e2:Term t2)(p1:parser_t e1)(p2:parser_t e2) : 
   parser_t (gcat e1 e2).
-  intros t1 t2 e1 e2 p1 p2 instream n.
+  intros instream n.
   refine (n0 <- position instream n ;
           ans1 <- p1 instream n <@> (n ~~ [n0 = n])%hprop ; 
           match ans1 as ans1' return 
@@ -462,7 +462,7 @@ Qed.
 
 (* try combinator *)
 Definition try(t:Set)(e:Term t)(p:parser_t e) : parser_t (gtry e).
-  intros t e p instream n.
+  intros instream n.
   refine (ans <- p instream n ; 
          Return match ans with
                    | ERROR Consumed msg => ERROR t NotConsumed msg
@@ -474,10 +474,10 @@ Qed.
 
 (* used in construction of fixed-point *)
 Definition coerce_parse_fn(t:Set)(f:forall var, var t -> term var t)(e:Term t)
-                            (H:Subst (f empvar) (GRec (f empvar)) (e empvar))
+                            (H1:Subst (f empvar) (GRec (f empvar)) (e empvar))
                             (F:parser_t (grec f) -> parser_t e) : 
                        parser_t (grec f) -> parser_t (grec f).
-  intros t f e H1 F p instream n.
+  intros p instream n.
   refine ((F p instream n) @> _). sep fail auto.  sep fail auto. destruct v ; psimp ; econstructor ; eauto.
 Qed. 
 

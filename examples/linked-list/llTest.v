@@ -92,6 +92,13 @@ Definition main : STsep (__) (fun _:unit => __).
      printStringLn' (str) <@> _;;
      hello_world <- freeList  hello_world None _;
      {{Return tt}}
-   );
-   tac.
+   ).
+ tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac.
+ tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. tac. 
+ instantiate (1 := inhabits ("h"
+      :: "e"
+         :: "l"
+            :: "l"
+               :: "o" :: " " :: "w" :: "o" :: "r" :: "l" :: "d" :: "!" :: nil)); sep fail auto.
+ tac. tac. tac.
 Qed.

@@ -108,7 +108,7 @@ End FINITE_MAP_T.
 Module Type FINITE_MAP.
   Declare Module A  : ASSOCIATION.
   Module AL := AssocList(A).
-  Declare Module AT : FINITE_MAP_AT with Module A:=A with Module AL := AL.
+  Declare Module AT : FINITE_MAP_AT with Module A:=A.
   Module T := FINITE_MAP_T(A)(AT).
 
   Export AT.

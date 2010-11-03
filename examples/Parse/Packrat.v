@@ -232,7 +232,7 @@ Section Packrat.
 
   (* when e : grammar_t G, then gfix e can be used to build a suitable
    * recursive grammar. *)
-  Lemma getN(G:Ctxt)(n:nat)T : nth_error G n = Some T -> get G n = T.
+  Lemma getN(G:Ctxt) : forall (n:nat) T, nth_error G n = Some T -> get G n = T.
    induction G ; destruct n ; simpl ; unfold error, value in *; intros ; try congruence.
     apply IHG ; auto.
   Defined.
@@ -242,7 +242,7 @@ Section Packrat.
     assert (get G (length G1) = T). apply (getN G (length G1)). rewrite H.
     clear H G ; induction G1 ; auto.
     pose (Var G (length G1)). clearbody t. rewrite H0 in t. apply t.
-  Defined.
+  Qed.
 
   Program Fixpoint gfix'(G G1 G2:Ctxt) {struct G2} : 
     (G = G1 ++ G2) -> grammar_t' G2 G -> Env (term G) G := 
@@ -278,7 +278,7 @@ Section Packrat.
      * each non-terminal at a given input position. *)
     Record key_t : Set := mkKey { key_non_terminal : nat ; key_pos : nat }.
 
-    Definition key_eq(k1 k2:key_t) : {k1 = k2} + {k1 <> k2}.
+    Definition key_eq : forall (k1 k2:key_t), {k1 = k2} + {k1 <> k2}.
       intros [k1nt k1pos] [k2nt k2pos].
       refine(
       match eq_nat_dec k1nt k2nt with
@@ -449,7 +449,7 @@ Section Packrat.
     Definition void(T:ty) : parser_t [Void G T].
       unfp ; 
       refine (
-        fun T penv ins n FM t => 
+        fun penv ins n FM t => 
           {{ Return None <@> (rep ins n * fminv FM t) }}
       ) ; t.
     Defined.
@@ -459,14 +459,14 @@ Section Packrat.
       (nth_error x n = None \/ exists c, nth_error x n = Some c).
     Proof.  intros. destruct (nth_error x n). right. eauto. left. eauto. Qed.
 
-    Lemma NthErrorNoneNthTail(A:Type)(i:nat)(vs:list A) : 
+    Lemma NthErrorNoneNthTail(A:Type)(i:nat): forall (vs:list A),
       nth_error vs i = None -> nthtail vs i = nil.
     Proof.
       induction i ; destruct vs ; auto ; simpl ; intros ; 
       try (unfold value in * ; congruence) ; auto.
     Qed.
 
-    Lemma NthErrorSomeNthTail(A:Type)(i:nat)(vs:list A)(v:A) : 
+    Lemma NthErrorSomeNthTail(A:Type)(i:nat) : forall (vs:list A)(v:A),
       nth_error vs i = Some v -> 
       exists vs1, exists vs2, vs = vs1 ++ v::vs2 /\ nthtail vs i = v::vs2.
     Proof.
@@ -481,7 +481,7 @@ Section Packrat.
     
     Implicit Arguments NthErrorSomeNthTail [A i vs v].
 
-    Lemma NthTailSucc(A:Type)(i:nat)(vs vs2:list A)(v:A) : 
+    Lemma NthTailSucc(A:Type)(i:nat) : forall (vs vs2:list A)(v:A),
       nthtail vs i = v::vs2 -> nthtail vs (S i) = vs2.
     Proof.
       induction i ; simpl ; intros ; subst ; auto ; destruct vs ; try congruence. 
@@ -522,7 +522,7 @@ Section Packrat.
 
     (* parser for a literal character c *)
     Definition lit(c:char) : parser_t ([Lit G c]).
-      unfp; refine (fun c penv ins n FM t => 
+      unfp; refine (fun penv ins n FM t => 
         copt <- next ins [n]%inhabited <@> _; 
         IfNull copt As c' Then
           {{Return None}}
@@ -576,11 +576,11 @@ Section Packrat.
      * of characters, f is a test that determines whether a character is in [cs], and
      * the resulting parser is equivalent to running the alternation of the literals
      * in the list. *)
-    Definition satisfy(cs:list char)
-                      (f:forall c, {member c cs} + {~member c cs}) : parser_t [charset cs].
+    Definition satisfy(cs0:list char)
+                      (f:forall c, {member c cs0} + {~member c cs0}) : parser_t [charset cs0].
       unfp ;
       refine ( 
-        fun cs f penv ins n FM t => 
+        fun penv ins n FM t => 
           copt <- next ins (inhabits n) <@> _ ;
           {{Return (match copt with 
                       | None => None
@@ -607,12 +607,13 @@ Section Packrat.
                          end
       end.
 
-    Notation "<< x , y >> ~~~ f" := (inhabit_unpacks x y (fun x y => f)) 
-      (at level 91, right associativity).
+    About inhabit_unpacks.
+    Notation "'<<' x , y '>>' '~~~' f" := (inhabit_unpack2 x y (fun x y => f)) 
+      (at level 91, right associativity, y ident, x ident).
 
     (* parser for p1 or p2 *)
     Definition alt T (e1 e2:[term G T]) (p1:parser_t e1) (p2:parser_t e2) : 
-      parser_t(<<e1,e2>> ~~~ Alt e1 e2).
+      parser_t(e1 ~~~' e2 ~~~ Alt e1 e2).
       unfp ; 
       refine (fun T e1 e2 p1 p2 penv ins n FM t => 
         ans1 <- p1 penv ins n FM t ; 

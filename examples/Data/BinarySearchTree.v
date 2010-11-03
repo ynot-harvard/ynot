@@ -44,7 +44,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
   Open Local Scope stsepi_scope.
   Open Local Scope hprop_scope.
 
-  Module AT <: FINITE_MAP_AT with Module A:=A with Module AL:=AL.
+  Module AT <: FINITE_MAP_AT with Module A:=A.
     Module A := A.
     Module AL := AL.
     Import A AL.
@@ -97,7 +97,7 @@ Module BinaryTree(BT : BINARY_TREE_ASSOCIATION). (* : FINITE_MAP with Module A :
       (x --> Some(Node v xl xr) * rep' xl (filter_gte k l) * 
         rep' xr (filter_lte k l) * [lookup k l = Some v]) * Q ==> R) -> 
     rep' x l * Q ==> R.
-  Proof. intros x l Q R H1 H2 h H.
+  Proof. intros H1 H2 h H.
     destruct H as [h1 [h2 [H3 [H4 H5]]]]. 
     destruct H4. apply H1. exists h0. exists h2. sep fail auto.
     generalize h0 H. change (x --> None(A:=node_t) ==> 
@@ -178,16 +178,12 @@ end.
   Proof. apply lookup_dis_perm. Qed.
 
   Lemma filter_gte_length l k v : AL.lookup k l = Some v -> (length (filter_gte k l) < length l)%nat.
-  Proof. induction l; AL.t; simpler; intuition; simpler; auto.
-    apply Lt.lt_n_S. apply (IHl _ _ H). 
-  Qed.
+  Proof. induction l; AL.t; simpler; intuition; simpler; auto. Qed.
 
   Lemma filter_lte_length l k v : AL.lookup k l = Some v -> (length (filter_lte k l) < length l)%nat.
-  Proof. induction l; AL.t; simpler; intuition; simpler; auto.
-    apply Lt.lt_n_S. apply (IHl _ _ H). 
-  Qed.
+  Proof. induction l; AL.t; simpler; intuition; simpler; auto. Qed.
 
-  Lemma perm'_n n x l l' : length l <= n -> [Permutation l l'] * [distinct l] * rep' x l ==> rep' x l'.
+  Lemma perm'_n : forall n x l l', length l <= n -> [Permutation l l'] * [distinct l] * rep' x l ==> rep' x l'.
   Proof. induction n; sep fail auto; destruct l; simpl in H; try (assert False; [omega|intuition]); perm_simpl. 
     sep fail auto. sep fail auto.
     intros h R. inversion_clear R.

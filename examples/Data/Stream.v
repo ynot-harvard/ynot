@@ -158,7 +158,6 @@ Section STRING_INSTREAM.
     STsep __ (fun ans:instream_t ascii =>
                 rep ans 0 * 
                 (hprop_unpack (stream_elts ans) (fun elts => [elts = s]))).
-    intro s.
     refine (x <- New 0  ;
             Return (mkInstream (string_peek s x)
                                (string_next s x)

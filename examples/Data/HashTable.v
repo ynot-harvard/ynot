@@ -210,7 +210,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
   Ltac t := unf; simpl; simpler; sep fail ltac:(subst; unfold_local; simpler); 
     simpler; autorewrite with AssocListModel; sep fail auto.
 
-  Definition init_table(f:array)(n:nat) : init_table_spec f n.
+  Definition init_table: forall (f:array)(n:nat), init_table_spec f n.
   intro.
   refine(
     fix init(n:nat) : init_table_spec f n :=
@@ -232,8 +232,7 @@ Module HashTable(HA : HASH_ASSOCIATION)
 
 
   (* the following runs through the array and calls F.free on each of the buckets. *)
-  Definition free_table(f:array)(l:[alist_t])(n:nat) : free_spec f l n.
-  intros f l.
+  Definition free_table(f:array)(l:[alist_t]) : forall (n:nat), free_spec f l n.
   refine (fix free_tab(n:nat) : free_spec f l n := 
           match n as n' return free_spec f l n' 
           with
@@ -281,7 +280,7 @@ Ltac iter_imp :=
   Hint Resolve hash_below.
 
   Lemma himp_trans_frame P Q F1 R : P ==> Q -> Q * F1 ==> R -> P * F1 ==> R.
-  Proof. firstorder. Qed.
+  Proof. intros. eapply himp_trans. 2: eauto. sep fail auto. Qed.
 
   Ltac trans_imp := 
   search_prem ltac:(idtac; 
@@ -292,25 +291,25 @@ Ltac iter_imp :=
   Lemma iter_sep_inj (len s:nat) P Q  : len > 0 -> {@ Q i * [P] | i <- s + len} ==> {@ Q i | i <- s + len} * [P].
   Proof. induction len; t. assert False; intuition. iter_imp; t. Qed.
 
-  Lemma iter_sep_star_conc (len s:nat) P Q : {@ P i * Q i  | i <- s + len} 
+  Lemma iter_sep_star_conc : forall (len s:nat) P Q, {@ P i * Q i  | i <- s + len} 
     ==> {@ P i | i <- s + len} * {@ Q i | i <- s + len} .
   Proof. induction len; t. apply himp_comm_conc. auto. Qed.
 
-  Lemma iter_sep_star_prem (len s:nat) P Q : {@ P i | i <- s + len} * {@ Q i | i <- s + len} 
+  Lemma iter_sep_star_prem : forall (len s:nat) P Q, {@ P i | i <- s + len} * {@ Q i | i <- s + len} 
     ==> {@ P i * Q i  | i <- s + len}.
   Proof. induction len; t. apply himp_comm_prem. auto. Qed.
 
-  Lemma iter_sep_any (len s:nat) P  : {@ P i * ??  | i <- s + len} ==> {@ P i | i <- s + len} * ??.
+  Lemma iter_sep_any : forall (len s:nat) P, {@ P i * ??  | i <- s + len} ==> {@ P i | i <- s + len} * ??.
   Proof. intros. apply himp_empty_prem'.
     Hint Resolve himp_any_conc.
   apply (@himp_trans_frame _ _ __ ({@P i | i <- (s) + len} * ??)
     ((iter_sep_star_conc len s P (fun _ => ??)))). sep fail auto.
   Qed.
 
-  Lemma iter_sep_empty (len s:nat)  : {@ __  | i <- s + len} ==> __.
+  Lemma iter_sep_empty : forall (len s:nat), {@ __  | i <- s + len} ==> __.
   Proof. induction len; t. Qed.
 
-  Lemma iter_sep_inj_empty (len s:nat) P : {@ [P i]  | i <- s + len} ==> __.
+  Lemma iter_sep_inj_empty : forall (len s:nat) P, {@ [P i]  | i <- s + len} ==> __.
   Proof. induction len; t. Qed.
 
   Lemma inj_and_conc P Q R : P ==> [Q] -> P ==> [R] -> P ==> [Q /\ R].

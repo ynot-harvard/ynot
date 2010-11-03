@@ -152,7 +152,7 @@ Definition split: forall n (bt: [btree A (S n)]) p,
 (* n is not computationally irrelevent *)
 
 (* had to use SepRead here *)
-Definition asbtree' n (bt: [btree A n]) (bl: bltree n) :
+Definition asbtree' : forall n (bt: [btree A n]) (bl: bltree n),
   STsep (bt ~~ rep' n bt bl) (fun r => bt ~~ rep' n bt bl * [r = bt]).
 refine (fix F (n: nat) {struct n} : forall bt bl, STsep (bt ~~ rep' n bt bl) (fun r => bt ~~ rep' n bt bl * [r = bt]) :=
           match n as n return       forall (bt: [btree A n]) (bl: bltree n), STsep (bt ~~ rep' n bt bl) (fun r => bt ~~ rep' n bt bl * [r = bt])  with 

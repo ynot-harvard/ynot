@@ -49,6 +49,7 @@ End ASSOCIATION.
 (*********************************************)
 Module AssocList(A : ASSOCIATION).
 Require Export List.
+  Require Export Coq.Sorting.Permutation.
   Export A.
   Notation "( x ,, y )" := (@existT _ _ x y) : core_scope.
   Notation "` x" := (projT1 x) (at level 10): core_scope.
@@ -162,6 +163,8 @@ Require Export List.
   Lemma lookup_none_remove k l : lookup k l = None -> remove k l = l.
   Proof. induction l; t. Qed.
 
+
+
   Lemma lookup_none_perm k l l' : Permutation l l' -> lookup k l = None -> lookup k l' = None.
   Proof. induction 1; t. Qed.
 
@@ -187,7 +190,7 @@ Require Export List.
   Hint Resolve lookup_dis_perm remove_perm.
 
   Lemma insert_perm k l l' (v:A.value_t k) : Permutation l l' -> Permutation (insert v l) (insert v l').
-  Proof. unfold insert; t. Qed.
+  Proof. unfold insert. intros. constructor. t. Qed.
 
   Lemma remove_swap k k' l : remove k (remove k' l) = remove k' (remove k l).
   Proof. induction l; t. Qed.

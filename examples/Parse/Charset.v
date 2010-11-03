@@ -39,8 +39,8 @@ Fixpoint DenoteClass (cs: Charset) (cl: CharClass cs) (c: char cs) {struct cl} :
     | Intersection c1 c2 => DenoteClass c1 c /\ DenoteClass c2 c
   end.
 
-Definition In_CharClass_dec (cs : Charset) (cl : CharClass cs) (c : (char cs)) : {DenoteClass cl c} + {~DenoteClass cl c}.
-  intro cs; refine (fix In_CharClass_dec (cl : CharClass cs) (c : char cs) : {DenoteClass cl c} + {~DenoteClass cl c} :=
+Definition In_CharClass_dec (cs : Charset) : forall (cl : CharClass cs) (c : (char cs)), {DenoteClass cl c} + {~DenoteClass cl c}.
+  refine (fix In_CharClass_dec (cl : CharClass cs) (c : char cs) : {DenoteClass cl c} + {~DenoteClass cl c} :=
     match cl as cl return {DenoteClass cl c} + {~DenoteClass cl c} with
       | All => left _ _
       | Empty => right _ _
@@ -66,7 +66,7 @@ Definition AsciiDenoteTerminal (t: AsciiTerminal) (c:ascii) : Prop :=
     | ARange a b => (nat_of_ascii a) <= (nat_of_ascii c) /\ (nat_of_ascii c) <= (nat_of_ascii b)
   end.
 
-Definition AsciiTerminalIn_dec (t : AsciiTerminal) (c : ascii) : {AsciiDenoteTerminal t c} + {~AsciiDenoteTerminal t c}.
+Definition AsciiTerminalIn_dec : forall (t : AsciiTerminal) (c : ascii), {AsciiDenoteTerminal t c} + {~AsciiDenoteTerminal t c}.
   refine (fun t c =>
   match t as t return {AsciiDenoteTerminal t c} + {~AsciiDenoteTerminal t c} with
     | ARange a b =>

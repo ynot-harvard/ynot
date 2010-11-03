@@ -187,8 +187,7 @@ Module HashTable.
   Definition init_table_t(f:fmap_t)(n:nat) := (n <= table_size) -> 
     STsep (init_pre f n) (fun _:unit => iter_sep (wf_bucket f Nil) (table_size - n) n).
 
-  Definition init_table(f:fmap_t)(n:nat) : init_table_t f n.
-    intro.
+  Definition init_table(f:fmap_t) : forall (n:nat), init_table_t f n.
     refine (fix init(n:nat) : init_table_t f n := 
               match n as n' return init_table_t f n' with
               | 0 => fun H => {{Return tt}}
@@ -199,7 +198,7 @@ Module HashTable.
               end) ; 
     unfold init_table_t, init_pre, wf_bucket ; sep fail auto ; rewrite (sub_succ H) ; 
       sep fail auto.
-  Defined.
+  Qed.
       
   Definition new : STsep __ (fun ans:fmap_t => rep ans Nil).
     refine (t <- new_array table_size ; 
@@ -207,7 +206,7 @@ Module HashTable.
             {{Return t <@> rep t Nil}}) ; 
     unfold init_table_t, init_pre, rep ; try rewrite sub_self ; sep fail auto.
     rewrite H0 ; sep fail auto.
-  Defined.
+  Qed.
 
   Lemma sp_index_hyp(P:nat->hprop)(Q R:hprop)(start len i:nat) : i < len -> 
     iter_sep P start i * P (start + i) * iter_sep P (1 + start + i) (len - i - 1) * Q ==> R 
@@ -318,7 +317,7 @@ Module HashTable.
       | [ H : ?v = FiniteMapInterface.lookup_al _ _ _ |- context[?v = lookup_al _ _] ] => 
         rewrite H ; rewrite look_filter_hash ; sep fail auto
     end.
-  Defined.
+  Qed.
 
   Lemma remove_filter_eq (k:key_t)(l:alist_t) : 
     remove_al k (filter_hash (hash k) l) = filter_hash (hash k) (remove_al k l).
@@ -334,8 +333,10 @@ Module HashTable.
     match inh with
     | inhabits v => inhabits (f v)
     end.
+(*
   Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f)) 
     (at level 91, right associativity) : hprop_scope.
+*)
 
   Definition insert(x:fmap_t)(k:key_t)(v:value_t k)(P:alist_t->hprop) : 
     STsep (Exists l :@ _, rep x l * P l) 
@@ -375,7 +376,7 @@ Module HashTable.
      [ |- context[filter_hash ?i (remove_al ?k ?x)] ] => 
        rewrite (@remove_filter_neq k i x) ; sep fail auto
      end.
-  Defined.
+  Qed.
 
   (* the following runs through the array and calls FiniteMapInterface.free on each of the buckets. *)
   Definition free_table_t(f:fmap_t)(n:nat) := (n <= table_size) -> 
@@ -383,8 +384,7 @@ Module HashTable.
        (fun (_:unit) => 
         iter_sep (fun i => let p := array_plus f i in p ~~ p -->?) (table_size - n) n).
 
-  Definition free_table(f:array)(n:nat) : free_table_t f n.
-  intro f.
+  Definition free_table(f:array) : forall (n:nat), free_table_t f n.
   refine (fix free_tab(n:nat) : free_table_t f n := 
           match n as n' return free_table_t f n' with 
           | 0 => fun H => {{Return tt}}
@@ -400,7 +400,7 @@ Module HashTable.
                 (let p := array_plus f (table_size - (S i)) in p ~~ p -->?) @> _
           end) ; simpl ; intros ; try fold_ex_conc ; unfold ptsto_any, wf_bucket ; 
   sep fail auto ; try (rewrite (sub_succ H)) ; sep fail auto.
-  Defined.
+  Qed.
 
   (* Run through the array, call FiniteMapInterface.free on all of the maps, and then call array_free *)
   Definition free(f:fmap_t) : STsep (Exists l :@ alist_t, rep f l) (fun (_:unit) => __).
@@ -408,7 +408,7 @@ Module HashTable.
   refine (@free_table f table_size _ <@> [array_length f = table_size] ;; 
           free_array f) ; simpl ; auto ; unfold rep, myExists ; 
   rewrite (sub_self table_size) ; sep fail auto. 
-  Defined.
+  Qed.
 
   Definition hash_table : FiniteMapInterface.finite_map_t key_eq_dec value_t := 
     FiniteMapInterface.mkFM key_eq_dec rep new free insert lookup.
