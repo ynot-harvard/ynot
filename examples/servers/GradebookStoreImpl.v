@@ -557,7 +557,7 @@ Module GradebookStoreImpl (s: Store) : GradebookImpl.
   (* type of error computations *)
   Definition F_err_t (e: Status) := STsep __ (fun r => [e = r]).
 
-  Definition F_get user pass id assign m t : 
+  Definition F_get : forall user pass id assign m t,
     STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * 
               [private (fst t) (GetGrade user pass id assign) = true])
           (fun r : Status => m ~~ [r  = fst (mutate (GetGrade user pass id assign)  m)] * 
@@ -592,7 +592,7 @@ Module GradebookStoreImpl (s: Store) : GradebookImpl.
   Qed.
 
 Require Import Lt.
-Definition F_avg user pass assign m t : 
+Definition F_avg : forall user pass assign m t,
   STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * 
     [private (fst t) (Average user pass assign) = true])
   (fun r : Status => m ~~ [r  = fst (mutate (Average user pass assign)  m)] * 
@@ -632,7 +632,7 @@ rewrite rr. rsep fail auto.
 Qed.
 
 (* The overall computation just stiches the branches together. *)
-Definition F (q: Command) m t :
+Definition F : forall (q: Command) m t,
   STsep (m ~~ rep t m * [store_inv (snd m) (fst m) = true] * [private (fst t) q = true])
         (fun r : Status => m ~~ [r  = fst (mutate q m)] * 
                rep t (snd (mutate q m)) * [store_inv (snd m) (fst m) = true]).
@@ -645,7 +645,8 @@ refine (fun q m t =>
     | GetGrade id pass x a   =>  F_get id pass x a m t
     | SetGrade id pass x a g =>  F_set id pass x a g m t
     | Average  id pass a     =>  F_avg id pass a m t 
-  end). Qed.
+  end). 
+Qed.
   
 (* Then we just {{ }} it to the proper type for exec. *)
 Definition exec' : forall (t : T) (q : ParseCommand) (m : [(Config * list (ID * (list Grade)))]),
@@ -684,7 +685,8 @@ Export ExampleConfig.
       s.insert x (n:=(S (length (totals test_config)))) ((5,(68,(76,(80,tt))))::nil) _;;
       s.insert x (n:=(S (length (totals test_config)))) ((6,(70,(80,(94,tt))))::nil) _;;
       {{ Return ((test_config, x), inhabits test_model) }});
-    unfold rep; pose test_cfg_inv; sep fail auto. 
+    unfold rep; pose test_cfg_inv; rsep fail auto.
+    subst. simpl in *. eapply pack_injective in H0. subst. rsep fail auto.
   Qed. 
 
   Definition cleanup : forall (t : T) (m : [(Config * list (ID * list Grade))]),

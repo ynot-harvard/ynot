@@ -71,7 +71,7 @@ Module Gradebook (X: GradebookImpl) : GradebookType.
 
   Definition rep := rep.
 
-  Definition func (q: Q) (m: M) : (RR * M).
+  Definition func : forall (q: Q) (m: M), (RR * M).
     unfold Q. unfold M. unfold RR. intros q m. exact (mutate (compileCommand (fst m) q) m). 
   Defined.
   Definition AppIO (_:Q) (_:M) (_:RR) (_:M) := (@nil Action).

@@ -164,7 +164,7 @@ Module ExecImpl(A : STATE_EXECPARAMS).
       sep fail auto.
   Qed.
 
-  Definition main (local: Net.SockAddr) : 
+  Definition main : forall (local: Net.SockAddr),
     STsep (traced nil)
           (fun _:unit => Exists t :@ Trace, traced t).
     refine (fun local =>

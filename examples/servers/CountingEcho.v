@@ -49,7 +49,7 @@ Ltac simplr :=
   search_prem ltac:(search_conc ltac:(simple eapply traced_app)).
 
 
-Definition echo (local: SockAddr) (cnt : Counter.t) (i : [nat]) : echo_iter_t local cnt i.
+Definition echo : forall (local: SockAddr) (cnt : Counter.t) (i : [nat]), echo_iter_t local cnt i.
   unfold echo_iter_t; refine (fun local cnt i tr =>
     x <- recv local tr <@> _  ;
     n <- Counter.get cnt i <@> _ ;

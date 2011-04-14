@@ -254,7 +254,7 @@ Definition simple_http_parse : forall (ins : Stream.INSTREAM.instream_t ascii) (
           HTTP_simple_correct ins n a * rep_ans AsciiCharset ins n a) :=
   simple_http_parse'.
 
-Eval compute in tyDenote IndexDenote (Prod (Base TyMethod) (Prod (Base TyString) (Prod (Base TyNat) (Base TyNat)))).
+(* Eval compute in tyDenote IndexDenote (Prod (Base TyMethod) (Prod (Base TyString) (Prod (Base TyNat) (Base TyNat)))). *)
 
 Definition HTTP_correct
     (ins : Stream.INSTREAM.instream_t ascii) (n : nat) 

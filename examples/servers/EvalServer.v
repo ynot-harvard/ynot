@@ -58,7 +58,7 @@ Module UdpEvalServerParams (A : EVALPARAMS) : UdpServer.EXECPARAMS.
   Definition io : forall (req : list ascii) (tr : [Trace]),
     STsep (tr ~~ traced tr)
           (fun r:(list ascii * [Trace]) => tr ~~ tr' :~~ (snd r) in traced (tr' ++ tr) * [reply req (fst r)] * [ccorrect req tr']).
-    intros. refine ( 
+    refine (fun req tr =>
       is  <- instream_of_list_ascii req <@> _ ;
       ans <- parser is (inhabits 0) <@> (tr ~~ elts :~~ (stream_elts is) in traced tr * [elts = req]);
 
@@ -84,7 +84,7 @@ Module UdpEvalServerParams (A : EVALPARAMS) : UdpServer.EXECPARAMS.
             destruct ans; sep fail auto ].
     solve [ sep fail auto ].
     solve [ sep fail auto ].
-    unfold char, okay, error in *. rsep fail auto. subst; norm_prod. destruct ans. rsep ltac:(norm_list) auto. cut_pure. unfold ccorrect; constructor. unfold reply. 
+    unfold char, okay, error in *. rsep fail auto. subst; norm_prod. destruct ans. rsep ltac:(norm_list) auto. cut_pure.
     pose (ReplyIdentity H1). simpl in *. unfold char in *. rewrite H in H0. rewrite <- (pack_injective H0); auto.
 
     

@@ -323,7 +323,7 @@ Definition readAll (fp : list mode) (fm : fd_model) (fd : File fm fp) (pf : In R
         (fun res : (string * [list string]) =>
           tr ~~ hprop_unpack (snd res) (fun strs =>
             traced (ReadAll fd strs ++ tr) * [ReadAs (fst res) strs]) * handle fd).
-  refine readAll'.
+  refine (@readAll' fp fm fd pf tr).
 Qed.
 
 Require Export List.

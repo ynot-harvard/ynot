@@ -6,7 +6,9 @@ Require Import List.
 Extract Constant IO.axiom_Action => "unit".
 Extract Constant IO.axiom_traced => "(** traces must be irrelevant **)".
 
+(*
 Extract Constant IO.axiom_getT => "IOImpl.axiom_getT".
+*)
 
 (** Net **)
 Extract Inlined Constant Net.axiom_SockAddr => "NetImpl.axiom_SockAddr".
@@ -62,6 +64,7 @@ Extract Inlined Constant FS.axiom_close => "FSImpl.axiom_close".
 
 (** TODO: These should be removed!!! **)
 (** Array **)
+(*
 Require Import CoqArray.
 Extract Inlined Constant axiom_array => "ArrayImpl.c_array".
 
@@ -72,11 +75,12 @@ Extract Inlined Constant axiom_free_array => "ArrayImpl.free_array".
 
 Extract Inlined Constant axiom_upd_array => "ArrayImpl.upd_array".
 Extract Inlined Constant axiom_sub_array => "ArrayImpl.sub_array".
-
+*)
+(*
 (** Shifting (for PackRatParser) **)
-Require PackRatParser.
-Extract Inlined Constant PackRatParser.shift => "PackRatParserImpl.shift".
-
+Require Packrat.
+Extract Inlined Constant Packrat.shift => "PackratParserImpl.shift".
+*)
 (**
 Unset Extraction Optimize.
 **)

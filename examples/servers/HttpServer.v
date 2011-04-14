@@ -132,7 +132,7 @@ Module HttpAppStateParams (AP : App) (AI : AppInterface with Module A := AP) : T
 
   Ltac s := solve [ rsep fail solver; unfold_all; rsep fail auto ].
 
-  Definition delegateParse (str : list ascii) :
+  Definition delegateParse : forall (str : list ascii),
     STsep (__)
           (fun res:Parsec.parse_reply_t AP.Q =>
            Exists is :@ INSTREAM.instream_t ascii, [INSTREAM.stream_elts is = [str]%inhabited] * 

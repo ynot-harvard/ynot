@@ -126,7 +126,9 @@ Ltac print_goal := idtac;
     | [ |- ?G ] => idtac G
   end.
 
-Ltac meta X := 
+Ltac meta X :=
+  is_evar X.
+(* COQ 8.2
   match X with
     | _ _ => fail 1
     | _ _ _ => fail 1
@@ -139,7 +141,10 @@ Ltac meta X :=
     | X => fail 1
     | _ => idtac
   end.
+*)
 Ltac notMeta X :=
+  (is_evar X; fail 1) || idtac.
+(* COQ 8.2
   match X with
     | _ _ => idtac
     | _ _ _ => idtac
@@ -151,8 +156,9 @@ Ltac notMeta X :=
     | _ * _ => idtac
     | X => idtac
   end.
+*)
 
-Ltac var x := idtac;
+Ltac var x := 
   match x with
     | _ _ => fail 1
     | _ _ _ => fail 1
@@ -354,9 +360,9 @@ Theorem himp_unpack_conc_meta : forall T x (y:[T]) p1 p2 p,
   p ==> p1 x * p2
   -> y = [x]%inhabited
   -> p ==> hprop_unpack y p1 * p2.
-  unfold hprop_imp, hprop_unpack, hprop_sep; subst; firstorder.
-  generalize (H _ H1).
-  firstorder.
+  unfold hprop_imp, hprop_unpack, hprop_sep; subst. intuition.
+  specialize (H _ H1). do 2 destruct H. intuition. 
+  repeat (eassumption || esplit).
 Qed.
 
 Theorem himp_unpack_conc_imm : forall (T:Set) (x : T) p1 p2 p,

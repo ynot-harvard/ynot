@@ -64,7 +64,7 @@ Module ExecImpl(A : EXECPARAMS).
   Import AL.
   Import A.
 
-  Definition iter (local: Net.SockAddr) (tr: [IO.Trace]) : 
+  Definition iter : forall (local: Net.SockAddr) (tr: [IO.Trace]),
     STsep (tr ~~ IO.traced tr * [correct local tr]) 
           (fun r:[IO.Trace] => tr ~~ r ~~ [correct local (r ++ tr)] * [r <> nil] * IO.traced (r ++ tr)).
 (**
@@ -89,7 +89,7 @@ Module ExecImpl(A : EXECPARAMS).
     sep fail ltac:(auto; try constructor; auto; try discriminate).
 Qed.
 
-Definition main (local: Net.SockAddr) : 
+Definition main : forall (local: Net.SockAddr),
   STsep (traced nil)
         (fun _:unit => Exists t :@ Trace, traced t).
   refine (fun local => 

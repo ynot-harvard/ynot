@@ -94,7 +94,7 @@ Module StoreModel.
       inversion H0.
       simpl in H. destruct (tpl_eq a tpl). subst. rewrite H1 in *. unfold In; auto.
       simpl in H0. destruct (wh a). destruct tbl'. congruence. inversion H. simpl. right. destruct H0. congruence. eapply IHtbl; auto; try eassumption.
-      eapply IHtbl; auto. eassumption. destruct H0. congruence. auto. auto.
+      eapply IHtbl in H; auto. eassumption. destruct H0. congruence. auto. auto.
   Qed.
 
 End X.

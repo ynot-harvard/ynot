@@ -128,7 +128,8 @@ Definition inhabit_unpack4 T T' T'' T''' U (inh : [T]) (inh' : [T'])
 Arguments Scope inhabit_unpack [].
 Notation "inh ~~~ f" := (inhabit_unpack inh (fun inh => f))
   (at level 91, right associativity).
-Notation "inh ~~~' f" := (inhabit_unpack inh (fun inh => f))
+Arguments Scope inhabit_unpack' [].
+Notation "inh ~~~' f" := (inhabit_unpack' inh (fun inh => f))
   (at level 91, right associativity).
 Arguments Scope inhabit_unpack [type_scope type_scope inhabited_scope hprop_scope].
 

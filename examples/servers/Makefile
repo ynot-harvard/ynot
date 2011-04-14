@@ -13,11 +13,14 @@ LFLAGS=-lflags -I,`ocamlfind query ssl`
 
 R=-R $(ROOT)/src/coq Ynot -R $(ROOT)/examples/Parse Parse -R $(ROOT)/examples/Data Data -R $(ROOT)/examples/IO IO
 
+COQ_OPTIONS=$(R)
+
+EXTRACT_TEMPLATE=../../src/coq/Extract.v
 
 include ../Makefile.ynot
 
-extract: coq ml/ExtractRules ../../mllib/ExtractTemplate.v $(MODULES:%.v=.extract/%.ml)
-	@ cp ../../mllib/ExtractTemplate.v Extract.v
+extract: coq ml/ExtractRules $(EXTRACT_TEMPLATE) $(MODULES:%.v=.extract/%.ml)
+	@ cp $(EXTRACT_TEMPLATE) Extract.v
 	@ echo >> Extract.v
 	@ if [ -f ml/ExtractRules ]; then \
             cat ml/ExtractRules >> Extract.v; \
@@ -34,20 +37,23 @@ extract: coq ml/ExtractRules ../../mllib/ExtractTemplate.v $(MODULES:%.v=.extrac
 
 .v.vo: coq
 
-#$(MODULES:%.v=.extract/%.ml): $(@:.extract/%.ml=%.vo) ml/ExtractRules
-#	@ mkdir -p .extract
-#	@ echo Extracting $(@:.extract/%.ml=%)
-#	@ cp ../../mllib/ExtractTemplate.v .Ex$(@:.extract/%.ml=%.v)
-#	@ echo >> .Ex$(@:.extract/%.ml=%.v)
-#	@ cat ml/ExtractRules >> .Ex$(@:.extract/%.ml=%.v)
-#	@ echo "Require Import $(@:.extract/%.ml=%)." >> .Ex$(@:.extract/%.ml=%.v)
-#	@ echo "Cd \".extract\"." >> .Ex$(@:.extract/%.ml=%.v)
-#	@ echo "Extraction Library $(@:.extract/%.ml=%)." >> .Ex$(@:.extract/%.ml=%.v)
-#	@ echo "Cd \"..\"." >> .Ex$(@:.extract/%.ml=%.v)
-#	coqtop -q $(COQ_OPTIONS) -I . -compile .Ex$(@:.extract/%.ml=%)
-#	@ mv `echo $(@:.extract/%=%) | awk -- '{ print ".extract/" tolower(substr($$1,0,1)) substr($$1,2) }'` $@
-#	@ mv `echo $(@:.extract/%=%i) | awk -- '{ print ".extract/" tolower(substr($$1,0,1)) substr($$1,2) }'` $(@:%.ml=%.mli)
-#	@ rm -f .Ex$(@:.extract/%.ml=%.vo) .Ex$(@:.extract/%.ml=%.v)
+$(MODULES:%.v=.extract/%.ml): $(@:.extract/%.ml=%.vo) ml/ExtractRules
+	@ mkdir -p .extract
+	@ echo Extracting $(@:.extract/%.ml=%)
+	@ cp $(EXTRACT_TEMPLATE) .Ex$(@:.extract/%.ml=%.v)
+	@ echo >> .Ex$(@:.extract/%.ml=%.v)
+	@ cat ml/ExtractRules >> .Ex$(@:.extract/%.ml=%.v)
+	@ echo "Require Import $(@:.extract/%.ml=%)." >> .Ex$(@:.extract/%.ml=%.v)
+	@ echo "Cd \".extract\"." >> .Ex$(@:.extract/%.ml=%.v)
+	@ echo "Extraction Library $(@:.extract/%.ml=%)." >> .Ex$(@:.extract/%.ml=%.v)
+	@ echo "Cd \"..\"." >> .Ex$(@:.extract/%.ml=%.v)
+	coqtop -q $(COQ_OPTIONS) -I . -compile .Ex$(@:.extract/%.ml=%)
+	echo `echo $(@:.extract/%=%) | awk -- '{ print ".extract/" substr($$1,0,1) substr($$1,2) }'`
+# mv `echo $(@:.extract/%=%) | awk -- '{ print ".extract/" substr($$1,0,1) substr($$1,2) }'` $@
+# mv `echo $(@:.extract/%=%i) | awk -- '{ print ".extract/" substr($$1,0,1) substr($$1,2) }'` $(@:%.ml=%.mli)
+# mv `echo $(@:.extract/%=%) | awk -- '{ print ".extract/" tolower(substr($$1,0,1)) substr($$1,2) }'` $@
+# mv `echo $(@:.extract/%=%i) | awk -- '{ print ".extract/" tolower(substr($$1,0,1)) substr($$1,2) }'` $(@:%.ml=%.mli)
+	@ rm -f .Ex$(@:.extract/%.ml=%.vo) .Ex$(@:.extract/%.ml=%.v) .Ex$(@:.extract/%.ml=%.glob)
 
 ml/ExtractRules:
 

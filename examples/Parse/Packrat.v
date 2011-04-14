@@ -607,15 +607,14 @@ Section Packrat.
                          end
       end.
 
-    About inhabit_unpacks.
     Notation "'<<' x , y '>>' '~~~' f" := (inhabit_unpack2 x y (fun x y => f)) 
       (at level 91, right associativity, y ident, x ident).
 
     (* parser for p1 or p2 *)
-    Definition alt T (e1 e2:[term G T]) (p1:parser_t e1) (p2:parser_t e2) : 
+    Definition alt T (e1 e2 : [term G T]) (p1:parser_t e1) (p2:parser_t e2) : 
       parser_t(e1 ~~~' e2 ~~~ Alt e1 e2).
       unfp ; 
-      refine (fun T e1 e2 p1 p2 penv ins n FM t => 
+      refine (fun penv ins n FM t => 
         ans1 <- p1 penv ins n FM t ; 
         IfNull ans1 As ans1' Then
           seek ins n <@> _ ;;
@@ -623,14 +622,14 @@ Section Packrat.
         Else
           {{ Return ans1 }}
       ). t'. t'. t'. t'. t'. t'. t. t.
-    Defined.
+    Qed.
 
    (* parser for p1 concatenated with p2 *)
    Definition seq t1 t2 (e1:[term G t1]) (e2:[term G t2]) (p1:parser_t e1) (p2:parser_t e2) : 
      parser_t(<<e1,e2>> ~~~ Seq e1 e2).
      unfp ; 
      refine (
-       fun t1 t2 e1 e2 p1 p2 penv ins n FM t => 
+       fun penv ins n FM t => 
              vopt1 <- p1 penv ins n FM t ; 
              match vopt1 return 
                STsep (ans_correct ins n e1 vopt1 * rep_ans ins n vopt1 * fminv FM t)
@@ -655,13 +654,13 @@ Section Packrat.
      rewrite plus_comm ; t. 
      assert (m1 + n + m2 = n + (m2 + m1)) ; [omega | rewrite <- H2] ; t. 
      destruct m1 ; destruct m2 ; t ; rewrite <- plus_assoc ; simpl ; constructor.
-   Defined.
+   Qed.
 
    (* the followby parser -- doesn't consume input *)
    Definition followby(T:ty)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ FollowBy e).
      unfp ; 
      refine (
-       fun T e p penv ins n FM t => 
+       fun penv ins n FM t => 
              vopt <- p penv ins n FM t  ; 
              match vopt return 
                STsep (ans_correct ins n e vopt * rep_ans ins n vopt * fminv FM t)
@@ -674,13 +673,13 @@ Section Packrat.
                  {{ Return Some(0,v) }}
              end) ; 
      t ; rewrite plus_comm ; t.
-   Defined.
+   Qed.
 
    (* the notfollowby parser -- doesn't consume input *)
    Definition notfollowby(T:ty)(e:[term G T])(p:parser_t e) : parser_t (e ~~~ NotFollowBy e).
      unfp ; 
      refine (
-       fun T e p penv ins n FM t => 
+       fun penv ins n FM t => 
              vopt <- p penv ins n FM t ; 
              match vopt return
                STsep (ans_correct ins n e vopt * rep_ans ins n vopt * fminv FM t)
@@ -694,10 +693,10 @@ Section Packrat.
                  {{ Return None }}
              end) ; 
      t ; rewrite plus_comm ; t.
-   Defined.
+   Qed.
 
-   Definition map(t1 t2:ty)(f:tyDenote t1->tyDenote t2)(e:[term G t1])(p:parser_t e) : parser_t(e ~~~ Map _ f e).
-     unfp ; 
+   Definition map : forall (t1 t2:ty)(f:tyDenote t1->tyDenote t2)(e:[term G t1])(p:parser_t e), parser_t(e ~~~ Map _ f e).
+     unfp ;
      refine (
        fun t1 t2 f e p penv ins n FM t => 
              vopt <- p penv ins n FM t ; 
@@ -706,7 +705,7 @@ Section Packrat.
                       | Some (m,v) => Some (m, f v)
                     end }} ) ; 
      t ; destruct vopt ; try destruct p ; t.
-   Defined.
+   Qed.
 
    (* lookup the basic parser associated with a variable in the environment *)                 
    Fixpoint get_bp(penv_delay:STsep __ (fun _:penv_t G env => __))(n:nat) G1 {struct n} : 
@@ -735,11 +734,11 @@ Section Packrat.
     Definition var(x:nat) : parser_t [look G env x].
       unfp ; 
       refine (
-        fun x penv ins n FM t => 
+        fun penv ins n FM t => 
               penv0 <- penv <@> _ ; 
               (get_bp penv x G env penv0) ins n FM t) ; 
       t.
-    Defined.
+    Qed.
 
     Lemma lookup_valid : 
       forall elts k al, valid_al elts al -> 
@@ -777,7 +776,7 @@ Section Packrat.
      * run it, and then insert the result into [t] before returning. 
      *)    
     Definition memovar'(x:nat) : parser_t [look G env x].
-      unfp; refine (fun x penv ins n FM t =>
+      unfp; refine (fun penv ins n FM t =>
         let invariant := (fun al => elts :~~ stream_elts ins in [valid_al elts al]) in
         (* lookup this non-terminal and position in the finite map t *)
         vopt <- FiniteMapInterface.lookup FM t (mkKey x n) invariant <@> _;
@@ -800,19 +799,42 @@ Section Packrat.
             seek ins (fst v + n) <@> _ ;; 
             (* then we can just return the cached result *)
             {{ Return (Some v) }}
-      ); unf'; t';
+      ).
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t'.
+ unf'; t';
       try match goal with
         | [ H : valid_al _ _, H' : Some _ = FiniteMapInterface.lookup_al _ _ _ |- _ ] =>
           generalize (lookup_valid H H')
-      end; t'. 
-    Defined.
+      end; t'.
+  instantiate (1 := Exists l :@ _, 
+    hprop_unpack (stream_elts ins) (fun elts => [valid_al elts l]) *
+    [Some (Some v0) = FiniteMapInterface.lookup_al key_eq {| key_non_terminal := x; key_pos := n |} l] *
+    FiniteMapInterface.rep FM t l).
+  t'.
+  intro.
+  reflexivity.
+  eapply himp_comm_conc. eapply himp_empty_conc. reflexivity.
+unf'; t'.
+generalize H0. 
+eapply lookup_valid in H0. Focus 2. unfold flookup_al. instantiate (1 := {| key_non_terminal := x; key_pos := n |}).
+rewrite <- H3. reflexivity.
+simpl in *. rewrite plus_comm. rewrite plus_comm in H0. sep fail auto.
+    Qed.
 
     Hint Constructors evals.
 
     (* same as above, but instead of parser_t(look G env x) we get parser_t(Var G x) *)
     Definition memovar(x:nat) : parser_t [Var G x].
       unfp ; 
-      refine (fun x penv ins n FM t => {{ @memovar' x penv ins n FM t }}) ; t; eauto.
+      refine (fun penv ins n FM t => {{ @memovar' x penv ins n FM t }}) ; t; eauto.
     Defined.
 
   End Parsing.
@@ -922,4 +944,3 @@ Section Packrat.
 
 End Packrat.
 End Packrat.
-
