@@ -50,7 +50,14 @@ Qed.
 Theorem Dynq_inj_Someq : forall (T : Set) (x y : T) (q1 q2 : Qc),
      Some (Dyn x, q1) = Some (Dyn y, q2)
   -> q1 = q2.
-  intros. inversion H. trivial.
+Proof.
+  intros. pose (fun (T : Type) (x : option (T * Qc)) => 
+  match x with 
+    | Some (_,x) => x
+    | None => q1
+  end).
+  assert (q _ (Some (Dyn x, q1)) = q _ (Some (Dyn y, q2))); auto.
+  rewrite H. reflexivity.
 Qed.
 
 Lemma Dynq_inj_Somed' : forall (d1 d2 : dynamic) (q : Qc),
@@ -65,6 +72,7 @@ Theorem Dynq_inj_Somed : forall (T : Set) (x y : T) (q1 q2 : Qc),
   intros. inversion H. subst.
   apply Dyn_inj.
   apply Dynq_inj_Somed' with (q:=q2).
+  rewrite <- (Dynq_inj_Someq H) in *.
   trivial.
 Qed.
 
