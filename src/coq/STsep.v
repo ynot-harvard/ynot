@@ -187,10 +187,6 @@ Section Sep.
     exists (h1 ## p <- (Dyn v,0))%heap; intuition.
     eapply split_writeSN; eauto.
     eapply split_readS0N; eauto.
-
-    ynot 1.
-    unfold write, read in *.
-    destruct (ptr_eq_dec p' p); intuition.
   Qed.
 
   Definition SepStrengthen pre T (post : T -> hprop) (pre' : hpre)

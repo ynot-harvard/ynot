@@ -80,7 +80,7 @@ Ltac simpl_conc t := search_conc ltac:(match goal with [|- _ ==> _ * _] => eappl
 Ltac simpl_cancel t := search_prem ltac:(search_conc ltac:(
   match goal with [|- _ * _ ==> _ * _] => apply himp_split end; [ t | ])).
 
-Ltac finisher := apply himp_refl.
+Ltac finisher := apply himp_refl with (h := empty).
 (*  || apply himp_any_conc. *)
 
 Ltac premer := idtac;
